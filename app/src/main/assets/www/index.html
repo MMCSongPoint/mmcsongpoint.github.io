@@ -248,7 +248,7 @@
   <header>
     <div class="brand"><i>♪</i><span id="appName">MMC SongPoint</span></div>
     <button class="hbtn" id="syncBtn" title="Check Drive for new songs"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
-    <button class="hbtn" id="notesBtn" title="My notes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg></button>
+    <button class="hbtn" id="notesBtn" title="Song Lists"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg></button>
     <button class="hbtn" id="menuBtn" title="More"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
   </header>
   <div class="welcome" id="welcome"></div>
@@ -327,19 +327,19 @@
   </form>
 </div>
 
-<!-- My notes -->
+<!-- Song Lists -->
 <div class="panel" id="notesPanel">
   <div class="phead">
     <button class="icon" data-close="notesPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>My notes</h2>
+    <h2>Song Lists</h2>
     <button class="pbtn ghost" id="usageBtn">Usage</button>
     <button class="pbtn" id="newNoteBtn">+ New</button>
   </div>
   <div class="pbody">
     <div id="notesList"></div>
     <div class="row2" style="margin-top:20px">
-      <button class="pbtn ghost" id="exportBtn">Export notes</button>
-      <button class="pbtn ghost" id="importBtn">Import notes</button>
+      <button class="pbtn ghost" id="exportBtn">Export song lists</button>
+      <button class="pbtn ghost" id="importBtn">Import song lists</button>
       <input type="file" id="importFile" accept="application/json,.json,text/plain" hidden>
     </div>
     <p style="color:var(--muted);font-size:13px" id="notesInfo"></p>
@@ -364,7 +364,7 @@
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <label class="field"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
     <p style="color:var(--muted);font-size:13px" id="noteStatus"></p>
-    <div class="row2"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete note</button></div>
+    <div class="row2"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete song list</button></div>
   </div>
 </div>
 
@@ -405,7 +405,7 @@
 <div class="wheelbox" id="wheelBox">
   <div class="wheel">
     <h3 id="wheelTitle">Starting note</h3>
-    <p id="wheelSub">Scroll to choose. Lasts until you close the app.</p>
+    <p id="wheelSub">Scroll to choose, then tap Play to hear it.</p>
     <div class="wsel"><div class="wscroll" id="wheelScroll"></div></div>
     <div class="row2"><button class="pbtn ghost" id="wheelReset">Reset</button><button class="pbtn ghost" id="wheelPlay">▶ Play</button><button class="pbtn" id="wheelDone">Done</button></div>
   </div>
@@ -917,7 +917,7 @@ function render() {
           <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
           <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? (s.sheets.length ? ' · Sheet music only' : ' · Slides only') : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
         </div>
-        <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to note">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length && !audioLess ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N && (s.parts.length || s.sheets.length) ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
+        <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length && !audioLess ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N && (s.parts.length || s.sheets.length) ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
         ${showParts ? `<div class="parts">${s.parts.map(p =>
           `<button class="pp${now && now.part === p ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
       </div>`;
@@ -1217,8 +1217,8 @@ function renderNotes() {
       <div class="m">${esc(longDate(n.date))} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}${n.leader ? ' · ' + esc(n.leader) : ''}</div>
       ${n.songs.length ? `<div class="songsline">${esc(n.songs.map(songLabel).join(' · '))}</div>` : ''}
     </div>`;
-  }).join('') : `<div class="empty"><b>No notes yet</b>Tap “+ New” to start a song list for your next time leading.</div>`;
-  $('#notesInfo').textContent = `${notes.length} note${notes.length === 1 ? '' : 's'} on this device. Export them to move to a new phone or computer.`;
+  }).join('') : `<div class="empty"><b>No song lists yet</b>Tap “+ New” to start one for your next time leading.</div>`;
+  $('#notesInfo').textContent = `${notes.length} song list${notes.length === 1 ? '' : 's'} on this device. Export them to move to a new phone or computer.`;
 }
 $('#notesList').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) openNote(notes.find(n => n.id === c.dataset.id)); });
 $('#notesBtn').onclick = () => { renderNotes(); openPanel('notesPanel'); };
@@ -1235,7 +1235,7 @@ function openNote(n, isNew = false) {
 }
 function renderNoteSongs() {
   const n = editing;
-  $('#noteHead').textContent = n.isNew ? 'New note' : 'Edit note';
+  $('#noteHead').textContent = n.isNew ? 'New song list' : 'Edit song list';
   $('#noteSongs').innerHTML = n.songs.length ? n.songs.map((r, i) => {
     const s = songIndex.get(r.key);
     return `<div class="nsong${s ? '' : ' missing'}" data-i="${i}">
@@ -1292,15 +1292,15 @@ function saveNote() {
 $('#noteSave').onclick = saveNote;
 function leaveNote() {
   if (editingDirty && editing && (editing.songs.length || !editing.isNew)) {
-    if (confirm('Save your changes to this note?')) saveNote();
+    if (confirm('Save your changes to this song list?')) saveNote();
   }
   editing = null; editingDirty = false; closePanel('notePanel'); renderNotes();
 }
 $('#noteBack').onclick = leaveNote;
 $('#noteDelete').onclick = () => {
-  if (!confirm(`Delete “${editing.title}” from this device? (Past log entries stay in the usage log.)`)) return;
+  if (!confirm(`Delete the song list “${editing.title}” from this device? (Past log entries stay in the usage log.)`)) return;
   notes = notes.filter(n => n.id !== editing.id); saveNotes();
-  editing = null; editingDirty = false; closePanel('notePanel'); renderNotes(); toast('Note deleted');
+  editing = null; editingDirty = false; closePanel('notePanel'); renderNotes(); toast('Song list deleted');
 };
 
 // "Add songs": pick from the main list, then come back
@@ -1309,7 +1309,7 @@ $('#addSongsBtn').onclick = () => {
   document.body.classList.add('picking'); $('#pickBar').classList.add('show'); updatePickBar(); render();
   $('#q').focus();
 };
-function updatePickBar() { $('#pickText').textContent = `Adding to “${picking.title || 'note'}” · ${picking.songs.length} song${picking.songs.length === 1 ? '' : 's'}`; }
+function updatePickBar() { $('#pickText').textContent = `Adding to “${picking.title || 'song list'}” · ${picking.songs.length} song${picking.songs.length === 1 ? '' : 's'}`; }
 function togglePick(s) {
   const i = picking.songs.findIndex(x => x.key === s.key);
   if (i >= 0) picking.songs.splice(i, 1); else picking.songs.push(songRef(s));
@@ -1325,14 +1325,14 @@ $('#pickDone').onclick = finishPicking;
 // Export / import
 function exportNotes() {
   const data = JSON.stringify({ app: 'MMC SongPoint', format: 1, exported: new Date().toISOString(), by: userName(), notes }, null, 1);
-  const name = `SongPoint notes ${today()}.json`;
+  const name = `SongPoint song lists ${today()}.json`;
   if (window.Native && window.Native.shareFile) return window.Native.shareFile(name, data, 'application/json');
   const file = new File([data], name, { type: 'application/json' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: name }).catch(() => {});
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(file), download: name });
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
-$('#exportBtn').onclick = () => { if (!notes.length) return toast('No notes to export yet'); exportNotes(); };
+$('#exportBtn').onclick = () => { if (!notes.length) return toast('No song lists to export yet'); exportNotes(); };
 $('#importBtn').onclick = () => $('#importFile').click();
 $('#importFile').onchange = async e => {
   const f = e.target.files && e.target.files[0]; e.target.value = '';
@@ -1348,8 +1348,8 @@ $('#importFile').onchange = async e => {
       if (i < 0) { notes.push(n); added++; } else if ((n.updated || 0) > (notes[i].updated || 0)) { notes[i] = n; updated++; }
     }
     saveNotes(); renderNotes();
-    toast(`Imported ${added} new note${added === 1 ? '' : 's'}${updated ? `, updated ${updated}` : ''}`);
-  } catch { toast('That file isn\'t a SongPoint notes export'); }
+    toast(`Imported ${added} new song list${added === 1 ? '' : 's'}${updated ? `, updated ${updated}` : ''}`);
+  } catch { toast('That file isn\'t a SongPoint song lists export'); }
 };
 
 // ------------------------------------------------------------------ usage log (Google Sheet via Apps Script)
@@ -1429,7 +1429,7 @@ function renderUsage() {
   if (usageView === 'songs') {
     const max = songsU[0] ? songsU[0].count : 1;
     body = songsU.length ? songsU.slice(0, 150).map(u => `<div class="urow" data-key="${esc(u.key)}"><div><div class="title">${esc(songLabel(u))}</div><div class="sub">${esc(u.book)} · last ${esc(shortDate(u.last))}${Object.keys(u.leaders || {}).length ? ' · ' + esc(Object.keys(u.leaders).join(', ')) : ''}</div><div class="bar100" style="width:${Math.max(4, u.count / max * 100)}%"></div></div><div class="n">${u.count}<small>time${u.count === 1 ? '' : 's'}</small></div></div>`).join('')
-      : '<div class="empty"><b>Nothing logged yet</b>Save a note with songs and it will show up here.</div>';
+      : '<div class="empty"><b>Nothing logged yet</b>Save a song list and it will show up here.</div>';
   } else if (usageView === 'recent') {
     body = notesU.length ? notesU.slice(0, 100).map(n => `<div class="card"><div class="t">${esc(n.title || 'Untitled')}</div><div class="m">${esc(longDate(n.date))} · ${esc(n.leader || 'Unknown')} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}</div><div class="songsline" style="white-space:normal">${esc(n.songs.map(songLabel).join(' · '))}</div></div>`).join('')
       : '<div class="empty"><b>No song lists yet</b></div>';
@@ -1467,7 +1467,7 @@ function signOut(expired = false) {
   auth = {}; saveAuth(); renderWelcome(); closeSheet();
   showLock('signin', expired ? 'Please sign in again.' : '');
 }
-$('#signOutBtn').onclick = () => { if (confirm('Sign out of this device? Your notes stay on it.')) signOut(); };
+$('#signOutBtn').onclick = () => { if (confirm('Sign out of this device? Your song lists stay on it.')) signOut(); };
 $('#changePwBtn').onclick = () => { closeSheet(); showLock('change'); };
 
 // Users (admins only)
@@ -1661,22 +1661,50 @@ function keyButton(s) {
   const k = songKeyState(s);
   return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note"${s.keyChange ? ` title="${esc(s.keyChange)}"` : ''}>${esc(k.label)}${s.keyChange ? '<sup>+</sup>' : ''}</button>`;
 }
-let actx = null;
+let actx = null, reedWave = null, pipeStop = null;
 function playPitch(i, el) {
   if (i < 0) return;
   actx = actx || new (window.AudioContext || window.webkitAudioContext)();
   if (actx.state === 'suspended') actx.resume();
-  const semis = i + (i >= 3 ? -12 : 0);                // C4..B4 around middle C
-  const f = 440 * Math.pow(2, semis / 12), t = actx.currentTime;
-  const out = actx.createGain(); out.connect(actx.destination);
-  out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
-  out.gain.exponentialRampToValueAtTime(0.25, t + 0.4); out.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
-  [[1, 'triangle', 1], [2, 'sine', 0.25], [0.5, 'sine', 0.2]].forEach(([mult, type, g]) => {
-    const o = actx.createOscillator(), og = actx.createGain();
-    o.type = type; o.frequency.value = f * mult; og.gain.value = g;
-    o.connect(og); og.connect(out); o.start(t); o.stop(t + 1.9);
+  if (pipeStop) pipeStop();                                   // one note at a time, like a real pipe
+  if (!reedWave) {
+    // Harmonic mix of a brass reed: strong low partials, slowly fading upper ones
+    const amps = [0, 1, 0.75, 0.55, 0.42, 0.34, 0.26, 0.2, 0.15, 0.11, 0.08, 0.06, 0.045, 0.03];
+    reedWave = actx.createPeriodicWave(new Float32Array(amps.length), new Float32Array(amps));
+  }
+  const semis = i + (i >= 3 ? -12 : 0);                       // C4..B4, the usual pitch-pipe range
+  const f = 440 * Math.pow(2, semis / 12), t = actx.currentTime, dur = 2.2;
+  const out = actx.createGain(), tone = actx.createBiquadFilter();
+  tone.type = 'lowpass'; tone.frequency.value = 3200; tone.Q.value = 0.8;
+  tone.connect(out); out.connect(actx.destination);
+  out.gain.setValueAtTime(0.0001, t);
+  out.gain.linearRampToValueAtTime(0.32, t + 0.07);           // blown attack
+  out.gain.setValueAtTime(0.32, t + dur - 0.18);
+  out.gain.linearRampToValueAtTime(0.0001, t + dur);          // breath stops
+  const oscs = [-3, 3].map(cents => {                         // two reeds, slightly apart -> gentle beating
+    const o = actx.createOscillator();
+    o.setPeriodicWave(reedWave);
+    o.frequency.setValueAtTime(f * Math.pow(2, (cents - 18) / 1200), t);   // slight scoop up into pitch
+    o.frequency.exponentialRampToValueAtTime(f * Math.pow(2, cents / 1200), t + 0.09);
+    const g = actx.createGain(); g.gain.value = 0.5;
+    o.connect(g); g.connect(tone); o.start(t); o.stop(t + dur + 0.05);
+    return o;
   });
-  if (el) { el.classList.add('ringing'); setTimeout(() => el.classList.remove('ringing'), 700); }
+  // a puff of breath at the start
+  const len = Math.floor(actx.sampleRate * 0.25), buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+  for (let k = 0; k < len; k++) d[k] = (Math.random() * 2 - 1) * (1 - k / len);
+  const breath = actx.createBufferSource(), bf = actx.createBiquadFilter(), bg = actx.createGain();
+  breath.buffer = buf; bf.type = 'bandpass'; bf.frequency.value = f * 3; bf.Q.value = 1.2; bg.gain.value = 0.05;
+  breath.connect(bf); bf.connect(bg); bg.connect(out); breath.start(t);
+  const stop = () => {
+    const n = actx.currentTime;
+    out.gain.cancelScheduledValues(n); out.gain.setValueAtTime(out.gain.value, n); out.gain.linearRampToValueAtTime(0.0001, n + 0.05);
+    oscs.forEach(o => { try { o.stop(n + 0.06); } catch {} });
+    if (pipeStop === stop) pipeStop = null;
+  };
+  pipeStop = stop;
+  setTimeout(() => { if (pipeStop === stop) pipeStop = null; }, dur * 1000);
+  if (el) { el.classList.add('ringing'); setTimeout(() => el.classList.remove('ringing'), dur * 1000 - 200); }
 }
 // tap = play Do; press and hold = choose another note
 let wheelSong = null, wheelIdx = 0, holdTimer = null, held = false;
@@ -1701,7 +1729,7 @@ function openWheel(s) {
   const k = songKeyState(s);
   wheelIdx = k.i >= 0 ? k.i : 3;
   $('#wheelTitle').textContent = `Starting note · ${s.number ? s.number + '. ' : ''}${s.title}`;
-  $('#wheelSub').textContent = (s.musicKey ? `Written in ${s.musicKey}.${s.keyChange ? ' ' + s.keyChange + '.' : ''}` : 'No key is listed for this song.') + ' Your choice lasts until you close the app.';
+  $('#wheelSub').textContent = (s.musicKey ? `Written in ${s.musicKey}.${s.keyChange ? ' ' + s.keyChange + '.' : ''}` : 'No key is listed for this song.') + ' Scroll to choose, then tap Play to hear it. Your choice lasts until you close the app.';
   const sc = $('#wheelScroll');
   sc.innerHTML = '<div class="pad"></div>' + NOTE_NAMES.map((n, i) => `<div data-i="${i}">${n}</div>`).join('') + '<div class="pad"></div>';
   $('#wheelBox').classList.add('show');
@@ -1711,7 +1739,7 @@ function markWheel() { document.querySelectorAll('#wheelScroll [data-i]').forEac
 let wheelT;
 $('#wheelScroll').addEventListener('scroll', () => {
   const i = Math.max(0, Math.min(11, Math.round($('#wheelScroll').scrollTop / 44)));
-  if (i !== wheelIdx) { wheelIdx = i; markWheel(); clearTimeout(wheelT); wheelT = setTimeout(() => playPitch(wheelIdx), 160); }
+  if (i !== wheelIdx) { wheelIdx = i; markWheel(); }
 });
 $('#wheelScroll').addEventListener('click', e => { const d = e.target.closest('[data-i]'); if (d) $('#wheelScroll').scrollTo({ top: +d.dataset.i * 44, behavior: 'smooth' }); });
 function closeWheel() { $('#wheelBox').classList.remove('show'); wheelSong = null; }
