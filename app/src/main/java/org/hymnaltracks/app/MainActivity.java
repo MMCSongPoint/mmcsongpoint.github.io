@@ -50,11 +50,12 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         current = this;
-        getWindow().setStatusBarColor(Color.parseColor("#0f1115"));
-        getWindow().setNavigationBarColor(Color.parseColor("#171a21"));
+        boolean night = (getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        applyBars(night ? "#141013" : "#f7f2f4", !night);
 
         web = new WebView(this);
-        web.setBackgroundColor(Color.parseColor("#0f1115"));
+        web.setBackgroundColor(night ? Color.parseColor("#141013") : Color.parseColor("#f7f2f4"));
         setContentView(web);
 
         WebSettings s = web.getSettings();
@@ -114,6 +115,19 @@ public class MainActivity extends Activity {
     /** Called from the notification's Play/Pause button. */
     void togglePlayback() {
         main.post(() -> web.evaluateJavascript("window.togglePlay && window.togglePlay()", null));
+    }
+
+    /** Colors the status and navigation bars to match the app's light/dark theme. */
+    @SuppressWarnings("deprecation")
+    void applyBars(String color, boolean light) {
+        int c = Color.parseColor(color);
+        getWindow().setStatusBarColor(c);
+        getWindow().setNavigationBarColor(c);
+        android.view.View decor = getWindow().getDecorView();
+        int flags = decor.getSystemUiVisibility();
+        int lightFlags = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        decor.setSystemUiVisibility(light ? (flags | lightFlags) : (flags & ~lightFlags));
+        if (web != null) web.setBackgroundColor(c);
     }
 
     private File audioDir() {
@@ -231,6 +245,16 @@ public class MainActivity extends Activity {
                     startForegroundService(i);
                 } catch (Exception ignored) {
                     // Android may refuse to start it in rare background cases; playback still works.
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void setSystemBars(String color, boolean light) {
+            main.post(() -> {
+                try {
+                    applyBars(color, light);
+                } catch (Exception ignored) {
                 }
             });
         }

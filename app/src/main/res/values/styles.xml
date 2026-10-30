@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#0f1115</color>
-    <color name="accent">#f5a524</color>
-    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+    <color name="bg">#f7f2f4</color>
+    <color name="brand">#72173b</color>
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
-        <item name="android:colorAccent">@color/accent</item>
-        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:colorAccent">@color/brand</item>
+        <item name="android:colorPrimary">@color/brand</item>
     </style>
 </resources>

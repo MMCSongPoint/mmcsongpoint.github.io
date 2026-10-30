@@ -3,14 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#72173b">
 <title>Hymnal Tracks</title>
 <script src="config.js"></script>
 <style>
-  :root {
-    --bg: #0f1115; --panel: #171a21; --row: #1d212a; --line: #262b36;
-    --text: #e8eaf0; --muted: #8b93a7; --accent: #f5a524; --accent-ink: #1a1200;
-    --danger: #ef5b5b; --ok: #4cc38a; --mark: rgba(245,165,36,.28);
+  /* Brand color #72173b. --accent fills buttons; --accent-text is for colored text/borders. */
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #141013; --panel: #1d171b; --row: #271f24; --line: #352a31; --raised: #2f262c;
+    --text: #f3ecef; --muted: #a8989f; --accent: #72173b; --accent-ink: #ffffff; --accent-text: #e48aae;
+    --danger: #ff7a7a; --ok: #5fcf96; --mark: rgba(228,138,174,.28); --scrim: rgba(0,0,0,.6);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --bg: #f7f2f4; --panel: #ffffff; --row: #f4ebef; --line: #e7dbe1; --raised: #ffffff;
+      --text: #1f1519; --muted: #6e5f66; --accent: #72173b; --accent-ink: #ffffff; --accent-text: #72173b;
+      --danger: #c62828; --ok: #1e8e5a; --mark: rgba(114,23,59,.16); --scrim: rgba(30,10,20,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f7f2f4; --panel: #ffffff; --row: #f4ebef; --line: #e7dbe1; --raised: #ffffff;
+    --text: #1f1519; --muted: #6e5f66; --accent: #72173b; --accent-ink: #ffffff; --accent-text: #72173b;
+    --danger: #c62828; --ok: #1e8e5a; --mark: rgba(114,23,59,.16); --scrim: rgba(30,10,20,.35);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
@@ -20,7 +36,7 @@
 
   header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   .brand { font-weight: 750; font-size: 20px; letter-spacing: -.02em; display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; }
-  .brand i { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: inline-grid; place-items: center; font-style: normal; color: var(--accent-ink); font-size: 14px; flex: none; }
+  .brand i { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: inline-grid; place-items: center; font-style: normal; color: #fff; font-size: 14px; flex: none; }
   .hbtn { background: var(--row); border: 1px solid var(--line); border-radius: 10px; width: 40px; height: 40px; display: grid; place-items: center; flex: none; }
   .spin svg { animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -31,7 +47,7 @@
   .search input { width: 100%; padding: 13px 44px 13px 44px; font-size: 17px; border-radius: 14px;
     background: var(--panel); border: 1px solid var(--line); color: var(--text); outline: none; -webkit-appearance: none; }
   .search input::-webkit-search-cancel-button { -webkit-appearance: none; }
-  .search input:focus { border-color: var(--accent); }
+  .search input:focus { border-color: var(--accent-text); }
   .search .ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
   .search .clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); width: 36px; height: 36px; display: none; font-size: 20px; }
   .search.has .clear { display: block; }
@@ -40,7 +56,7 @@
   .scroller::-webkit-scrollbar { display: none; }
   .tabs { margin: 12px -14px 0; padding: 0 14px; border-bottom: 1px solid var(--line); gap: 2px; }
   .tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 9px 11px; color: var(--muted); white-space: nowrap; font-weight: 500; font-size: 15px; }
-  .tab.on { color: var(--text); border-bottom-color: var(--accent); }
+  .tab.on { color: var(--text); border-bottom-color: var(--accent-text); }
   .tab small { color: var(--muted); font-weight: 400; margin-left: 3px; font-size: 12px; }
 
   .bar { display: flex; align-items: center; gap: 8px; margin: 10px 0 8px; }
@@ -58,7 +74,7 @@
   .song.playing .play { background: var(--accent); color: var(--accent-ink); }
   .info { min-width: 0; }
   .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .song.playing .title { color: var(--accent); }
+  .song.playing .title { color: var(--accent-text); }
   .num { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500; margin-right: 6px; }
   .sub { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .badge { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 6px; font-weight: 500; vertical-align: 1px; }
@@ -68,31 +84,31 @@
   @keyframes pulse { 50% { opacity: .3; } }
   .parts { grid-column: 2 / 4; display: flex; gap: 6px; flex-wrap: wrap; }
   .pp { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 13px; color: var(--muted); white-space: nowrap; }
-  .pp.mine { color: var(--text); border-color: var(--accent); }
+  .pp.mine { color: var(--text); border-color: var(--accent-text); }
   .pp.now { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
   mark { background: var(--mark); color: inherit; border-radius: 3px; padding: 0 1px; }
 
   .empty { padding: 48px 18px; text-align: center; color: var(--muted); }
   .empty b { display: block; color: var(--text); font-size: 17px; margin-bottom: 6px; }
 
-  .toast { position: fixed; left: 50%; bottom: 200px; transform: translateX(-50%); background: #2a303c; border: 1px solid var(--line); padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 60; max-width: 90vw; text-align: center; }
+  .toast { position: fixed; left: 50%; bottom: 200px; transform: translateX(-50%); background: var(--raised); color: var(--text); box-shadow: 0 4px 18px rgba(0,0,0,.18); border: 1px solid var(--line); padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 60; max-width: 90vw; text-align: center; }
   .toast.show { opacity: 1; }
 
-  .player { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(23,26,33,.98); border-top: 1px solid var(--line); padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); display: none; z-index: 40; }
+  .player { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); box-shadow: 0 -2px 14px rgba(0,0,0,.12); border-top: 1px solid var(--line); padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); display: none; z-index: 40; }
   .player.show { display: block; }
   .player .in { max-width: 900px; margin: 0 auto; }
   .prow { display: flex; align-items: center; gap: 10px; }
   .prow .info { flex: 1; }
   .ctrls { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 6px 0 2px; }
   .icon { background: none; border: none; color: var(--muted); min-width: 40px; height: 40px; border-radius: 8px; display: grid; place-items: center; font-size: 14px; font-weight: 600; }
-  .icon.on { color: var(--accent); }
+  .icon.on { color: var(--accent-text); }
   .big { width: 54px; height: 54px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); border: none; display: grid; place-items: center; }
   .seek { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  input[type=range] { flex: 1; accent-color: var(--accent); height: 28px; }
+  input[type=range] { flex: 1; accent-color: var(--accent-text); height: 28px; }
   .pparts { margin-top: 6px; }
   .extras { display: flex; align-items: center; gap: 6px; }
 
-  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; z-index: 70; }
+  .sheet-bg { position: fixed; inset: 0; background: var(--scrim); display: none; z-index: 70; }
   .sheet-bg.show { display: block; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-radius: 18px 18px 0 0; padding: 18px 18px calc(22px + env(safe-area-inset-bottom)); z-index: 71; transform: translateY(110%); transition: transform .2s; max-width: 900px; margin: 0 auto; }
   .sheet.show { transform: none; }
@@ -100,6 +116,10 @@
   .sheet p { color: var(--muted); font-size: 14px; margin: 4px 0 14px; }
   .sheet .act { display: block; width: 100%; text-align: left; background: var(--row); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; margin-top: 8px; font-size: 15px; }
   .sheet .act.danger { color: var(--danger); }
+  .sheet h4 { margin: 20px 0 8px; font-size: 15px; }
+  .seg { display: flex; background: var(--row); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; }
+  .seg button { flex: 1; border: none; background: none; border-radius: 9px; padding: 9px 6px; font-size: 14px; color: var(--muted); }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -118,7 +138,6 @@
   </div>
 
   <div class="tabs scroller" id="tabs"></div>
-  <div class="bar"><span class="label">My part</span><div class="scroller" id="partChips"></div></div>
   <div class="meta-bar">
     <span id="status"></span>
     <select id="sort">
@@ -157,10 +176,15 @@
 
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet">
-  <h3>Offline songs</h3>
-  <p id="storageInfo"></p>
+  <h3>Settings</h3>
+  <h4 style="margin-top:12px">Offline songs</h4>
+  <p id="storageInfo" style="margin-top:0"></p>
   <button class="act" id="dlPartBtn"></button>
   <button class="act danger" id="clearDlBtn">Remove all saved songs</button>
+  <h4>Appearance</h4>
+  <div class="seg" id="themeSeg">
+    <button data-t="system">Match device</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
+  </div>
   <p style="margin-top:16px" id="aboutLine"></p>
 </div>
 
@@ -172,6 +196,8 @@ const $ = s => document.querySelector(s);
 const audio = $('#audio');
 const ICON_PLAY = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg>';
 const ICON_PAUSE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>';
+const BIG_PLAY = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const BIG_PAUSE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
 const ICON_DL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>';
 const ICON_DONE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5 9-10"/></svg>';
 $('#appName').textContent = CFG.appName; document.title = CFG.appName;
@@ -201,7 +227,7 @@ const VOICES = '(?:soprano|alto|tenor|bass|baritone|melody|harmony|lead|descant|
 const PART_RE = new RegExp(`^(?:all\\s*parts?|full(?:\\s+(?:mix|choir))?|satb|choir|accompaniment|piano(?:\\s+only)?|instrumental|${VOICES}(?:\\s*(?:[12]|i{1,2}))?(?:\\s+(?:part|only|predominant|dominant|emphasis|emphasized|solo|line))?|[satb][12]?)$`, 'i');
 const TRAILING_PART_RE = new RegExp(`[\\s(\\[]+(${VOICES}(?:\\s*[12])?|all\\s*parts?)[)\\]]?$`, 'i');
 const VARIANT_RE = /(?<=\S)-w-?\s*(.+)$/i;
-const TIGHT_SUFFIX_RE = /(?<=[^\s\d])-([A-Za-z][A-Za-z ]{0,20})$/;
+const TIGHT_SUFFIX_RE = /(?<=[^\s\d])-([A-Za-z]{2,12})$/;
 const VARIANT_WORDS = { opt: 'optional', end: 'ending', alt: 'alternate', inst: 'instrumental' };
 const PART_ORDER = ['all parts', 'standard', 'soprano', 'alto', 'tenor', 'bass'];
 const DEFAULT_PART = 'Standard';
@@ -216,7 +242,7 @@ function tidyPart(p) {
 function parseName(filename) {
   let stem = filename.replace(/\.[^.]+$/, '').replace(/_/g, ' ').replace(/\s*[–—]\s*/g, ' - ').replace(/\s+/g, ' ').trim();
   let number = '', part = '', m;
-  if ((m = stem.match(/^#?(\d{1,4})([a-z]?)(?:\s*[-.):]\s*|\s+)(?=\S)/i))) {
+  if ((m = stem.match(/^#?(\d{1,5})([a-z]?)(?:\s*[-.):]\s*|\s+)(?=\S)/i))) {
     number = String(parseInt(m[1], 10)) + m[2].toLowerCase();
     stem = stem.slice(m[0].length).replace(/\s+\d$/, '');
   }
@@ -235,9 +261,29 @@ function parseName(filename) {
       pieces = stem.slice(0, m.index).split(' - ').map(s => s.trim()).filter(Boolean);
     }
   }
-  let title = (pieces.join(' - ') || stem || filename).replace(/^[\s-]+|[\s-]+$/g, '');
-  title = title.charAt(0).toUpperCase() + title.slice(1);
+  const title = titleCase((pieces.join(' - ') || stem || filename).replace(/^[\s-]+|[\s-]+$/g, ''));
   return { number, title, part: part || DEFAULT_PART };
+}
+// "a charge to keep" -> "A Charge to Keep", "we praise thee o god" -> "We Praise Thee O God"
+const SMALL_WORDS = new Set(['a','an','and','as','at','but','by','for','from','in','into','nor','of','on','or','the','to','with','o\'er']);
+const ROMAN = /^(?=[ivxlcdm]+$)m{0,3}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$/i;
+function titleCase(text) {
+  const tokens = text.split(/(\s+|(?<=[-–(\[/"“])|(?=[)\]"”]))/);
+  const words = tokens.map((t, i) => ({ t, i })).filter(x => /[\p{L}\p{N}]/u.test(x.t));
+  const first = words.length ? words[0].i : -1, last = words.length ? words[words.length - 1].i : -1;
+  let afterBreak = true;
+  const shouting = text === text.toUpperCase();   // whole title in CAPS -> recase everything
+  return tokens.map((t, i) => {
+    if (!/[\p{L}\p{N}]/u.test(t)) { if (/[:–—(\[]|^-$/.test(t.trim())) afterBreak = true; return t; }
+    let out;
+    const lower = t.toLowerCase(), bare = lower.replace(/[^\p{L}']/gu, '');
+    if (ROMAN.test(bare) && bare.length > 1 && t === t.toUpperCase()) out = t.toUpperCase();          // II, IV
+    else if (!shouting && /^\p{Lu}{2,5}$/u.test(t)) out = t;                                         // SATB, SFP
+    else if (SMALL_WORDS.has(bare) && i !== first && i !== last && !afterBreak) out = lower;
+    else out = lower.replace(/^([^\p{L}\p{N}]*)(\p{L})/u, (_, pre, ch) => pre + ch.toUpperCase());
+    afterBreak = /[:.!?]$/.test(t);
+    return out;
+  }).join('');
 }
 function partRank(p) {
   p = p.toLowerCase();
@@ -336,7 +382,7 @@ async function sync(manual = false) {
     const before = library.tracks.length;
     library = { tracks, collections: seenColl, synced: Date.now() };
     store.set('library', library);
-    buildIndex(); renderTabs(); renderPartChips(); search();
+    buildIndex(); renderTabs(); search();
     setSyncLine(`${tracks.length} tracks · updated just now`);
     if (manual) toast(tracks.length === before ? 'Up to date' : `Library updated: ${tracks.length} tracks`);
   } catch (e) {
@@ -350,7 +396,8 @@ function setSyncLine(text, isErr = false) { const el = $('#syncLine'); el.textCo
 $('#syncBtn').onclick = () => sync(true);
 
 // ------------------------------------------------------------------ search
-let collection = store.get('collection', ''), myPart = store.get('part', ''), sortBy = store.get('sort', 'title');
+let collection = store.get('collection', ''), sortBy = store.get('sort', 'title');
+const myPart = '';
 let results = [], sel = -1, lastQ = '';
 $('#sort').value = sortBy;
 
@@ -491,22 +538,6 @@ $('#tabs').addEventListener('click', e => {
   search(); window.scrollTo({ top: 0 });
 });
 
-function renderPartChips() {
-  const all = new Set(library.tracks.map(t => t.part));
-  const main = ['All parts', 'Soprano', 'Alto', 'Tenor', 'Bass'].filter(m => [...all].some(p => p.toLowerCase().startsWith(m.toLowerCase())));
-  const extra = [...all].filter(p => p !== DEFAULT_PART && !/^with /i.test(p) && !main.some(m => p.toLowerCase().startsWith(m.toLowerCase()))).sort();
-  const opts = main.concat(extra);
-  $('#partChips').innerHTML = [`<button class="chip${myPart ? '' : ' on'}" data-p="">Any</button>`]
-    .concat(opts.map(p => `<button class="chip${p === myPart ? ' on' : ''}" data-p="${esc(p)}">${esc(p)}</button>`)).join('');
-  $('#partChips').closest('.bar').style.display = opts.length ? '' : 'none';
-}
-$('#partChips').addEventListener('click', e => {
-  const c = e.target.closest('.chip'); if (!c) return;
-  myPart = c.dataset.p; store.set('part', myPart);
-  document.querySelectorAll('#partChips .chip').forEach(x => x.classList.toggle('on', x === c));
-  render(); updateSheet();
-});
-
 const LIMIT_STEP = 200;
 let limit = LIMIT_STEP;
 function render() {
@@ -628,7 +659,7 @@ function notifyNative() {
   if (!N || !now) return;
   N.playbackState(!audio.paused, (now.song.number ? now.song.number + '. ' : '') + now.song.title, `${now.part.part} · ${now.song.collection}`);
 }
-function refreshPlaying() { $('#toggleBtn').innerHTML = audio.paused ? ICON_PLAY.replace(/16/g, '24') : ICON_PAUSE.replace(/16/g, '24'); notifyNative(); render(); }
+function refreshPlaying() { $('#toggleBtn').innerHTML = audio.paused ? BIG_PLAY : BIG_PAUSE; notifyNative(); render(); }
 audio.addEventListener('play', refreshPlaying);
 audio.addEventListener('pause', refreshPlaying);
 audio.addEventListener('ended', () => { if (!audio.loop) step(1); });
@@ -649,7 +680,7 @@ $('#backBtn').onclick = () => { audio.currentTime = Math.max(0, audio.currentTim
 $('#fwdBtn').onclick = () => { audio.currentTime = Math.min(audio.duration || 1e9, audio.currentTime + 5); };
 $('#loopBtn').onclick = () => { audio.loop = !audio.loop; $('#loopBtn').classList.toggle('on', audio.loop); toast(audio.loop ? 'Repeat on' : 'Repeat off', 1200); };
 $('#rate').onchange = e => { audio.playbackRate = +e.target.value; };
-$('#toggleBtn').innerHTML = ICON_PLAY.replace(/16/g, '24');
+$('#toggleBtn').innerHTML = BIG_PLAY;
 
 // ------------------------------------------------------------------ menu sheet
 function openSheet() { updateSheet(); $('#sheet').classList.add('show'); $('#sheetBg').classList.add('show'); }
@@ -657,13 +688,27 @@ function closeSheet() { $('#sheet').classList.remove('show'); $('#sheetBg').clas
 function updateSheet() {
   const mb = N ? (N.downloadedBytes() / 1048576).toFixed(0) : 0;
   $('#storageInfo').textContent = N ? `${downloaded.size} track${downloaded.size === 1 ? '' : 's'} saved on this phone (${mb} MB).` : 'Offline saving works in the Android app.';
-  const target = myPart ? `“${myPart}”` : 'every';
-  const scope = collection && collection !== '__saved' ? collection : 'all songs';
-  $('#dlPartBtn').textContent = myPart ? `Save ${target} part for ${scope}` : `Save ${scope} (all parts)`;
+  const scope = collection && collection !== '__saved' ? collection : 'all books';
+  $('#dlPartBtn').textContent = `Save every song in ${scope} for offline`;
   $('#dlPartBtn').style.display = N ? '' : 'none';
   $('#clearDlBtn').style.display = N && downloaded.size ? '' : 'none';
   $('#aboutLine').textContent = `${library.tracks.length} tracks · ${library.synced ? 'updated ' + ago(library.synced) : 'not updated yet'}`;
 }
+let theme = store.get('theme', 'system');
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', theme);
+  document.querySelectorAll('#themeSeg button').forEach(b => b.classList.toggle('on', b.dataset.t === theme));
+  const dark = theme === 'dark' || (theme === 'system' && darkQuery.matches);
+  if (N && N.setSystemBars) N.setSystemBars(dark ? '#141013' : '#f7f2f4', !dark);
+}
+$('#themeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  theme = b.dataset.t; store.set('theme', theme); applyTheme();
+});
+darkQuery.addEventListener('change', () => { if (theme === 'system') applyTheme(); });
+applyTheme();
 $('#menuBtn').onclick = openSheet;
 $('#sheetBg').onclick = closeSheet;
 $('#dlPartBtn').onclick = () => {
@@ -692,7 +737,7 @@ window.handleBack = () => {
 
 // ------------------------------------------------------------------ start
 refreshDownloaded();
-buildIndex(); renderTabs(); renderPartChips(); search();
+buildIndex(); renderTabs(); search();
 if (library.synced) setSyncLine(`${library.tracks.length} tracks · updated ${ago(library.synced)}`);
 if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000) sync();
 window.addEventListener('online', () => { if (Date.now() - library.synced > CFG.syncMinutes * 60000) sync(); });
