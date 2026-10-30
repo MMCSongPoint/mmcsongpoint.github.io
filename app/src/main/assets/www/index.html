@@ -13,6 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="SongPoint">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="config.js"></script>
+<script src="keys.js"></script>
 <script src="web.js"></script>
 <style>
   /* Brand color #72173b. --accent fills buttons; --accent-text is for colored text/borders. */
@@ -577,6 +578,17 @@ function refreshDownloaded() {
 }
 
 const baseTitle = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
+// Keys from keys.js, looked up by book + title (also without a trailing "(alternate name)")
+const keyList = new Map();
+(() => {
+  const k = window.SONG_KEYS; if (!k) return;
+  for (const x of k.songs) {
+    for (const t of [x.title, baseTitle(x.title)]) {
+      const id = k.book + '|' + normalize(t);
+      if (!keyList.has(id)) keyList.set(id, x);
+    }
+  }
+})();
 function buildIndex() {
   songIndex = new Map();
   const newSong = (key, x) => ({ key, number: x.number, collection: x.collection, subfolder: x.subfolder || '', parts: [], sheets: [], slides: [], modified: '' });
@@ -612,8 +624,10 @@ function buildIndex() {
     s.title = s.parts.length ? (main.length ? main : s.parts).map(p => p.title).sort((a, b) => a.length - b.length)[0]
       : (s.sheets.find(x => x.title) || s.slides.find(x => x.title) || {}).title || `Hymn ${s.number}`;
     s.slides.sort((a, b) => (a.ext === 'pptx' ? 0 : 1) - (b.ext === 'pptx' ? 0 : 1));
-    s.musicKey = (s.sheets.find(x => x.key) || {}).key || '';
     s.nTitle = normalize(s.title);
+    const listed = keyList.get(s.collection + '|' + s.nTitle) || keyList.get(s.collection + '|' + normalize(baseTitle(s.title)));
+    s.musicKey = listed ? listed.key : (s.sheets.find(x => x.key) || {}).key || '';
+    s.keyChange = listed ? listed.change : '';
     s.nAll = [s.nTitle, s.number, ...s.parts.map(p => normalize(p.part))].join(' ');
     s.grams = trigrams(s.nTitle);
   }
@@ -1041,7 +1055,7 @@ function openViewer(s, keepOpen = false) {
   if (!s.sheets.length) return toast('No sheet music for this song yet');
   viewing = s;
   $('#vTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
-  $('#vSub').textContent = s.collection;
+  $('#vSub').textContent = s.collection + (s.musicKey ? ` · Key of ${s.musicKey}` : '') + (s.keyChange ? ` · ${s.keyChange}` : '');
   $('#vPlay').innerHTML = s.parts.length ? (now && s.parts.includes(now.part) && !audio.paused ? BIG_PAUSE : BIG_PLAY).replace(/26/g, '22') : '';
   $('#vPlay').style.visibility = s.parts.length ? '' : 'hidden';
   // group pages by label (e.g. "Vocal · G", "Lead · Ab"); numbered hymns are one group
@@ -1645,7 +1659,7 @@ function songKeyState(s) {
 }
 function keyButton(s) {
   const k = songKeyState(s);
-  return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note">${esc(k.label)}</button>`;
+  return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note"${s.keyChange ? ` title="${esc(s.keyChange)}"` : ''}>${esc(k.label)}${s.keyChange ? '<sup>+</sup>' : ''}</button>`;
 }
 let actx = null;
 function playPitch(i, el) {
@@ -1687,7 +1701,7 @@ function openWheel(s) {
   const k = songKeyState(s);
   wheelIdx = k.i >= 0 ? k.i : 3;
   $('#wheelTitle').textContent = `Starting note · ${s.number ? s.number + '. ' : ''}${s.title}`;
-  $('#wheelSub').textContent = s.musicKey ? `Written in ${s.musicKey}. Your choice lasts until you close the app.` : 'No key is listed for this song. Your choice lasts until you close the app.';
+  $('#wheelSub').textContent = (s.musicKey ? `Written in ${s.musicKey}.${s.keyChange ? ' ' + s.keyChange + '.' : ''}` : 'No key is listed for this song.') + ' Your choice lasts until you close the app.';
   const sc = $('#wheelScroll');
   sc.innerHTML = '<div class="pad"></div>' + NOTE_NAMES.map((n, i) => `<div data-i="${i}">${n}</div>`).join('') + '<div class="pad"></div>';
   $('#wheelBox').classList.add('show');
