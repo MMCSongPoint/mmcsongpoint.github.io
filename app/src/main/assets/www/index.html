@@ -116,6 +116,15 @@
   .big { width: 54px; height: 54px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); border: none; display: grid; place-items: center; }
   .seek { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   input[type=range] { flex: 1; accent-color: var(--accent-text); height: 28px; }
+  .player .mini-only { display: none; }
+  .player.mini { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .player.mini .seek, .player.mini .ctrls, .player.mini .pparts, .player.mini .extras { display: none; }
+  .player.mini .mini-only { display: grid; width: 42px; height: 42px; }
+  .player.mini #miniBtn svg { transform: rotate(180deg); }
+  .player.mini #playerInfo { cursor: pointer; }
+  .player .minibar { display: none; height: 2px; background: var(--line); margin: 8px -14px -8px; }
+  .player.mini .minibar { display: block; }
+  .player .minibar i { display: block; height: 100%; width: 0; background: var(--accent-text); }
   .pparts { margin-top: 6px; }
   .extras { display: flex; align-items: center; gap: 6px; }
 
@@ -311,7 +320,9 @@
 <div class="player" id="player">
   <div class="in">
     <div class="prow">
-      <div class="info"><div class="title" id="nowTitle"></div><div class="sub" id="nowSub"></div></div>
+      <div class="info" id="playerInfo"><div class="title" id="nowTitle"></div><div class="sub" id="nowSub"></div></div>
+      <button class="big mini-only" id="miniToggle" aria-label="Play or pause"></button>
+      <button class="icon" id="miniBtn" title="Minimize player" aria-label="Minimize player"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></button>
       <div class="extras">
         <button class="icon sm" id="musicBtn" title="Sheet music" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M10 17.5a1.5 1.5 0 1 1-1.5-1.5H10v-6l4-1"/></svg></button>
         <button class="icon" id="loopBtn" title="Repeat">⟲</button>
@@ -327,6 +338,7 @@
       <button class="icon" id="nextBtn" aria-label="Next"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
     </div>
     <div class="scroller pparts" id="playerParts"></div>
+    <div class="minibar"><i id="miniProg"></i></div>
   </div>
   <audio id="audio" preload="auto"></audio>
 </div>
@@ -1102,10 +1114,23 @@ function notifyNative() {
   if (!N || !now) return;
   N.playbackState(!audio.paused, (now.song.number ? now.song.number + '. ' : '') + now.song.title, `${now.part.part} · ${now.song.collection}`);
 }
-function refreshPlaying() { $('#toggleBtn').innerHTML = audio.paused ? BIG_PLAY : BIG_PAUSE; notifyNative(); render(); }
+function refreshPlaying() { $('#toggleBtn').innerHTML = $('#miniToggle').innerHTML = audio.paused ? BIG_PLAY : BIG_PAUSE; notifyNative(); render(); }
+// Minimized player: just the title, play/pause and a thin progress line. Remembered on this device.
+function setMini(on) { $('#player').classList.toggle('mini', on); store.set('playerMini', on); $('#miniBtn').title = on ? 'Expand player' : 'Minimize player'; }
+setMini(store.get('playerMini', false));
+$('#miniBtn').onclick = () => setMini(!$('#player').classList.contains('mini'));
+$('#playerInfo').onclick = () => { if ($('#player').classList.contains('mini')) setMini(false); };
+$('#miniToggle').onclick = () => togglePlay();
+audio.addEventListener('timeupdate', () => { if (isFinite(audio.duration) && audio.duration) $('#miniProg').style.width = (audio.currentTime / audio.duration * 100) + '%'; });
 audio.addEventListener('play', refreshPlaying);
 audio.addEventListener('pause', refreshPlaying);
-audio.addEventListener('ended', () => { if (!audio.loop) step(1); });
+// A track stops when it ends. Only "Play all" from a song list moves on to the next song.
+let playAllQueue = null;   // the queue started by a song list's "Play all"
+audio.addEventListener('ended', () => {
+  if (audio.loop) return;
+  if (queue === playAllQueue) return step(1);
+  audio.currentTime = 0; refreshPlaying();
+});
 audio.addEventListener('loadedmetadata', () => { if (now && isFinite(audio.duration)) now.part.duration = audio.duration; });
 audio.addEventListener('error', () => { if (now) toast(navigator.onLine ? 'Couldn\'t play this track. Try Refresh.' : 'You\'re offline and this song isn\'t saved'); });
 let seeking = false;
@@ -1426,7 +1451,7 @@ $('#noteSongs').addEventListener('click', e => {
   list.addEventListener('pointercancel', end);
 })();
 const noteQueue = () => editing.songs.map(r => songIndex.get(r.key)).filter(s => s && s.parts.length);
-$('#notePlay').onclick = () => { const q = noteQueue(); if (!q.length) return; queue = q; playTrack(q[0], pickPart(q[0])); };
+$('#notePlay').onclick = () => { const q = noteQueue(); if (!q.length) return; queue = playAllQueue = q; playTrack(q[0], pickPart(q[0])); };
 
 function saveNote() {
   const n = editing;
