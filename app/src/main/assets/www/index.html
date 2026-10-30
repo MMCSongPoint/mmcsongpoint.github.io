@@ -207,6 +207,8 @@
   .lock .link { background: none; border: none; color: var(--accent-text); margin-top: 14px; font-size: 14px; padding: 6px; width: auto; }
   .keyb { min-width: 38px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--accent-text); font-weight: 700; font-size: 13.5px; padding: 0 6px; margin-right: 2px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
   .keyb.unknown { color: var(--muted); font-weight: 500; }
+  .keyb .pipe { width: 21px; height: 21px; display: block; margin: auto; pointer-events: none; }
+  .keyb.unknown { color: var(--accent-text); }
   .keyb.changed { border-color: var(--accent-text); }
   .keyb.ringing { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .wheelbox { position: fixed; inset: 0; z-index: 90; display: none; place-items: center; background: var(--scrim); }
@@ -595,6 +597,9 @@ const keyList = new Map();
     }
   }
 })();
+// Keys listed by hymn number (Songs of Faith and Praise)
+const keyNumbers = new Map();
+for (const b of window.SONG_KEYS_BY_NUMBER || []) for (const n in b.keys) keyNumbers.set(b.book + '|' + n, b.keys[n]);
 function buildIndex() {
   songIndex = new Map();
   const newSong = (key, x) => ({ key, number: x.number, collection: x.collection, subfolder: x.subfolder || '', parts: [], sheets: [], slides: [], modified: '' });
@@ -631,7 +636,8 @@ function buildIndex() {
       : (s.sheets.find(x => x.title) || s.slides.find(x => x.title) || {}).title || `Hymn ${s.number}`;
     s.slides.sort((a, b) => (a.ext === 'pptx' ? 0 : 1) - (b.ext === 'pptx' ? 0 : 1));
     s.nTitle = normalize(s.title);
-    const listed = keyList.get(s.collection + '|' + s.nTitle) || keyList.get(s.collection + '|' + normalize(baseTitle(s.title)));
+    const byNum = s.number && keyNumbers.get(s.collection + '|' + s.number);
+    const listed = (byNum && { key: byNum[0], change: byNum[1] }) || keyList.get(s.collection + '|' + s.nTitle) || keyList.get(s.collection + '|' + normalize(baseTitle(s.title)));
     s.musicKey = listed ? listed.key : (s.sheets.find(x => x.key) || {}).key || '';
     s.keyChange = listed ? listed.change : '';
     s.nAll = [s.nTitle, s.number, ...s.parts.map(p => normalize(p.part))].join(' ');
@@ -1747,11 +1753,12 @@ function songKeyState(s) {
   const flat = !/[#♯]/.test(s.musicKey || '');
   if (keyOverrides.has(s.key)) { const i = keyOverrides.get(s.key); return { i, label: noteLabel(i, flat) + (minor ? 'm' : ''), changed: true }; }
   if (base >= 0) return { i: base, label: s.musicKey.replace('#', '♯').replace(/b(?=m?$)/, '♭'), changed: false };
-  return { i: -1, label: 'Key', changed: false };
+  return { i: -1, label: '', changed: false };
 }
+const PIPE_ICON = '<svg class="pipe" viewBox="0 0 48 48" aria-hidden="true"><defs><mask id="pipeMask"><rect width="48" height="48" fill="#fff"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(0 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(30 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(60 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(90 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(120 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(150 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(180 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(210 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(240 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(270 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(300 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(330 24 24)"/><circle cx="24" cy="24" r="3.6"/><circle cx="24" cy="24" r="7.5" fill="none" stroke="#000" stroke-width="1.6"/><text x="24" y="17.2" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="9.5">C</text><path d="M24 31.5v6M21.8 35.3l2.2 2.4 2.2-2.4" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></mask></defs><circle cx="24" cy="24" r="22.5" fill="currentColor" mask="url(#pipeMask)"/></svg>';
 function keyButton(s) {
   const k = songKeyState(s);
-  return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note"${s.keyChange ? ` title="${esc(s.keyChange)}"` : ''}>${esc(k.label)}${s.keyChange ? '<sup>+</sup>' : ''}</button>`;
+  return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note"${s.keyChange ? ` title="${esc(s.keyChange)}"` : ''}>${k.label ? esc(k.label) : PIPE_ICON}${s.keyChange ? '<sup>+</sup>' : ''}</button>`;
 }
 let actx = null, reedWave = null, pipeStop = null;
 function playPitch(i, el) {
