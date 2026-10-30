@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Version number comes from the GitHub build number, so every build can update the last one.
+def buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
+def keystorePath = System.getenv("KEYSTORE_FILE")
+
+android {
+    namespace 'org.hymnaltracks.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'org.hymnaltracks.app'
+        minSdk 26
+        targetSdk 34
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePath) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS") ?: "hymnaltracks"
+                keyPassword System.getenv("KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystorePath ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
