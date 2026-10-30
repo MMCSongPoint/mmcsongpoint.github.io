@@ -1698,6 +1698,7 @@ async function chooseLockMode() {
 }
 
 // ------------------------------------------------------------------ version and updates
+const WEB_VERSION = '__WEB_VERSION__';
 function appVersion() {
   try { return window.Native && window.Native.appVersion ? JSON.parse(window.Native.appVersion()) : null; } catch { return null; }
 }
@@ -1733,7 +1734,11 @@ $('#checkUpdBtn').onclick = () => checkUpdate(true);
 (() => {
   const v = appVersion();
   if (v) { $('#versionLine').textContent = `Version ${v.name} (Android app)`; $('#checkUpdBtn').style.display = ''; }
-  else $('#versionLine').textContent = 'Web version — always up to date when you\'re online.';
+  else {
+    const w = /^\d/.test(WEB_VERSION) ? WEB_VERSION.split('|') : null;   // "1.0.N|YYYY-MM-DD", stamped when the website is published
+    $('#versionLine').textContent = w ? `Version ${w[0]} (web app, ${new Date(w[1] + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}) · updates itself when you're online.`
+      : 'Web version · updates itself when you\'re online.';
+  }
 })();
 
 // ------------------------------------------------------------------ starting note (Do) button
