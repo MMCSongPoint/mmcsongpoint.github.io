@@ -120,7 +120,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 2 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 3 }); }
 
 function doPost(e) {
   var d;
@@ -146,6 +146,7 @@ function handle_(d) {
   if (a === 'log') return log_(me, d);
   if (a === 'usage') return usage_(me, d);
   if (a === 'buildSlides') return buildSlides_(me, d);
+  if (a === 'bugReport') return bugReport_(me, d);
 
   if (!me.admin) return { ok: false, error: 'Only admins can do that.' };
   if (a === 'listUsers') return { ok: true, users: users_().map(publicUser_) };
@@ -374,4 +375,24 @@ function testBuild() {
   var r = buildSlides_(admin, { files: files, title: 'SongPoint test build', noteTitle: 'Test build', device: 'editor', noLog: true });
   Logger.log('%s: %s bytes, %s', r.name, r.size, r.url);
   return r.name;
+}
+
+// ------------------------------------------------------------------ problem reports
+/** "Report a problem" from the app: a row in the Bug Reports tab, plus the voice memo saved to Drive. */
+function bugReport_(me, d) {
+  var text = String(d.text || '').slice(0, 5000), link = '';
+  if (!text && !d.audio) return { ok: false, error: 'Type a note or record a voice memo first.' };
+  if (d.audio) {
+    var bytes = Utilities.base64Decode(String(d.audio));
+    if (bytes.length > 15 * 1024 * 1024) return { ok: false, error: 'That voice memo is too long.' };
+    var ext = /mp4|m4a|aac/.test(d.audioType || '') ? 'm4a' : /ogg/.test(d.audioType || '') ? 'ogg' : 'webm';
+    var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH-mm');
+    var file = folder_('SongPoint Problem Reports').createFile(
+      Utilities.newBlob(bytes, d.audioType || 'audio/webm', stamp + ' ' + (me.name || me.username) + '.' + ext));
+    link = file.getUrl();
+  }
+  var sh = tab_('Bug Reports', ['Time', 'Name', 'Username', 'Problem', 'Voice memo', 'Where', 'App version', 'Device', 'Status']);
+  sh.appendRow([new Date(), me.name || '', me.username, text, link, String(d.where || '').slice(0, 300),
+    String(d.version || ''), String(d.device || '').slice(0, 300), 'New']);
+  return { ok: true };
 }

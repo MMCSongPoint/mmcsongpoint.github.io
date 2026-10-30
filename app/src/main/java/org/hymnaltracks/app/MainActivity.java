@@ -72,6 +72,24 @@ public class MainActivity extends Activity {
 
         web.addJavascriptInterface(new Bridge(), "Native");
         web.setWebChromeClient(new WebChromeClient() {
+            // Microphone for voice memos in "Report a problem": ask Android first, then let the page record.
+            @Override
+            public void onPermissionRequest(final android.webkit.PermissionRequest request) {
+                runOnUiThread(() -> {
+                    boolean wantsMic = false;
+                    for (String r : request.getResources())
+                        if (android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) wantsMic = true;
+                    if (!wantsMic) { request.deny(); return; }
+                    String[] mic = { android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE };
+                    if (Build.VERSION.SDK_INT < 23 || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        request.grant(mic);
+                    } else {
+                        pendingMic = request;
+                        requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, MIC_REQUEST);
+                    }
+                });
+            }
+
             // Lets <input type="file"> (e.g. "Import notes") open Android's file picker.
             @Override
             public boolean onShowFileChooser(WebView view, android.webkit.ValueCallback<Uri[]> callback, FileChooserParams params) {
@@ -101,6 +119,20 @@ public class MainActivity extends Activity {
             web.restoreState(savedInstanceState);
         } else {
             web.loadUrl("file:///android_asset/www/index.html");
+        }
+    }
+
+    private static final int MIC_REQUEST = 3;
+    private android.webkit.PermissionRequest pendingMic;
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == MIC_REQUEST && pendingMic != null) {
+            if (results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED)
+                pendingMic.grant(new String[]{ android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE });
+            else pendingMic.deny();
+            pendingMic = null;
         }
     }
 

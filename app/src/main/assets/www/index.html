@@ -224,6 +224,12 @@
   .wsel { position: relative; }
   .wsel::before { content: ''; position: absolute; left: 0; right: 0; top: 88px; height: 44px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); pointer-events: none; z-index: 1; }
   .wheel .row2 { margin: 12px 0 0; justify-content: flex-end; }
+  .memo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .memo audio { flex: 1; min-width: 200px; height: 40px; }
+  .recdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #fff; margin-right: 8px; vertical-align: -1px; }
+  #bugRec.recording { background: #e5484d; }
+  #bugRec.recording .recdot { border-radius: 2px; animation: pulse 1s ease-in-out infinite; }
+  .rectime { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
   .updbadge { display: none; position: absolute; top: -4px; right: -4px; width: 11px; height: 11px; border-radius: 50%; background: #e5484d; border: 2px solid var(--bg); }
   .brand i.has-update { cursor: pointer; }
   .brand i.has-update .updbadge { display: block; animation: updpulse 2s ease-out 3; }
@@ -394,6 +400,27 @@
   </div>
 </div>
 
+<!-- Report a problem -->
+<div class="panel" id="bugPanel">
+  <div class="phead">
+    <button class="icon" data-close="bugPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Report a problem</h2>
+  </div>
+  <div class="pbody">
+    <p style="color:var(--muted);font-size:14px;margin:0 0 12px">Tell us what went wrong: type it, record a voice memo, or both. Your name, app version and device are included automatically.</p>
+    <label class="field"><span>What happened?</span><textarea id="bugText" rows="6" placeholder="e.g. The key button on hymn 124 plays the wrong note…"></textarea></label>
+    <div class="field" style="margin-bottom:4px"><span>Voice memo</span></div>
+    <div class="memo" id="bugMemo">
+      <button class="pbtn" id="bugRec"><span class="recdot"></span><span id="bugRecLabel">Record</span></button>
+      <span id="bugRecTime" class="rectime"></span>
+      <audio id="bugAudio" controls style="display:none"></audio>
+      <button class="pbtn ghost" id="bugRecDel" style="display:none">Delete</button>
+    </div>
+    <p id="bugRecNote" style="color:var(--muted);font-size:12.5px;margin:6px 0 0">Up to 3 minutes.</p>
+    <button class="pbtn" id="bugSend" style="width:100%;margin-top:22px;padding:12px">Send report</button>
+  </div>
+</div>
+
 <!-- Users (admins) -->
 <div class="panel" id="usersPanel">
   <div class="phead">
@@ -448,6 +475,7 @@
   <h4>About</h4>
   <p id="versionLine" style="margin:0"></p>
   <button class="act" id="checkUpdBtn" style="display:none">Check for updates</button>
+  <button class="act" id="bugBtn">Report a problem</button>
   <p style="margin-top:12px" id="aboutLine"></p>
 </div>
 
@@ -1880,6 +1908,64 @@ $('#wheelDone').onclick = () => {
 };
 $('#wheelReset').onclick = () => { keyOverrides.delete(wheelSong.key); closeWheel(); render(); };
 $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') closeWheel(); });
+
+// ------------------------------------------------------------------ report a problem
+let bugRec = null, bugChunks = [], bugBlob = null, bugTimer = null, bugStart = 0;
+function bugReset() {
+  if (bugRec && bugRec.state !== 'inactive') { bugRec.onstop = null; bugRec.stop(); }
+  if (bugRec && bugRec.stream) bugRec.stream.getTracks().forEach(t => t.stop());
+  bugRec = null; bugChunks = []; bugBlob = null; clearInterval(bugTimer);
+  const a = $('#bugAudio'); if (a.src) URL.revokeObjectURL(a.src); a.removeAttribute('src'); a.style.display = 'none';
+  $('#bugRec').classList.remove('recording'); $('#bugRec').style.display = ''; $('#bugRecLabel').textContent = 'Record';
+  $('#bugRecTime').textContent = ''; $('#bugRecDel').style.display = 'none';
+}
+$('#bugBtn').onclick = () => { closeSheet(); openPanel('bugPanel'); };
+$('#bugRecDel').onclick = bugReset;
+$('#bugRec').onclick = async () => {
+  if (bugRec && bugRec.state === 'recording') return bugRec.stop();
+  if (!navigator.mediaDevices || !window.MediaRecorder) return toast('Voice memos aren\'t supported on this device. Please type it instead.', 4500);
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { return toast('Microphone access was blocked. Allow it in your settings, or type the problem instead.', 5000); }
+  const type = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg'].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+  bugChunks = []; bugRec = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 48000 } : undefined);
+  bugRec.ondataavailable = e => { if (e.data && e.data.size) bugChunks.push(e.data); };
+  bugRec.onstop = () => {
+    clearInterval(bugTimer); stream.getTracks().forEach(t => t.stop());
+    bugBlob = new Blob(bugChunks, { type: (bugRec.mimeType || type || 'audio/webm').split(';')[0] });
+    const a = $('#bugAudio'); a.src = URL.createObjectURL(bugBlob); a.style.display = '';
+    $('#bugRec').classList.remove('recording'); $('#bugRec').style.display = 'none'; $('#bugRecDel').style.display = '';
+    $('#bugRecTime').textContent = '';
+  };
+  bugRec.start(1000); bugStart = Date.now();
+  $('#bugRec').classList.add('recording'); $('#bugRecLabel').textContent = 'Stop';
+  const tick = () => { const sec = Math.floor((Date.now() - bugStart) / 1000); $('#bugRecTime').textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; if (sec >= 180 && bugRec.state === 'recording') bugRec.stop(); };
+  tick(); bugTimer = setInterval(tick, 250);
+};
+$('#bugSend').onclick = async () => {
+  if (bugRec && bugRec.state === 'recording') return toast('Stop the recording first');
+  const text = $('#bugText').value.trim();
+  if (!text && !bugBlob) return toast('Type what happened or record a voice memo');
+  if (!navigator.onLine) return toast('Connect to the internet to send the report');
+  const v = appVersion();
+  const where = viewing ? `Viewing: ${viewing.title}` : (now ? `Playing: ${now.song.title}${now.part ? " (" + now.part.part + ")" : ""}` : "");
+  let audio = '', audioType = '';
+  if (bugBlob) {
+    audioType = bugBlob.type || 'audio/webm';
+    audio = await new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.readAsDataURL(bugBlob); });
+  }
+  busy(true, 'Sending your report…', '');
+  try {
+    const r = await api('bugReport', { text, audio, audioType, where,
+      version: v ? `${v.name} (Android)` : (/^\d/.test(WEB_VERSION) ? WEB_VERSION.split('|')[0] + ' (web)' : 'web'),
+      device: `${deviceName()} · ${navigator.userAgent}` });
+    busy(false);
+    if (!r.ok) return toast(r.error === 'Unknown action' ? 'The server needs updating before reports can be sent.' : (r.error || 'Couldn\'t send the report'), 5000);
+    $('#bugText').value = ''; bugReset(); closePanel('bugPanel');
+    toast('Thanks! Your report was sent.', 3500);
+  } catch { busy(false); toast('Couldn\'t reach the server. Try again in a moment.', 5000); }
+};
+document.querySelector('[data-close=bugPanel]').addEventListener('click', () => { if (bugRec && bugRec.state === 'recording') bugRec.stop(); });
 
 // ------------------------------------------------------------------ PowerPoint (built on the server)
 function busy(on, title = '', text = '') {
