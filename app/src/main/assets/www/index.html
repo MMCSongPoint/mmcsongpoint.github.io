@@ -966,8 +966,11 @@ function highlight(text, words) {
 }
 const qWords = q => normalize(q.replace(/(part|book|no|number):/gi, ' ')).split(' ').filter(Boolean);
 
+const chosenPart = new Map();   // song key -> part id picked with the version buttons (this session)
 function pickPart(s, prefer = myPart) {
   const p = s.parts;
+  const picked = chosenPart.has(s.key) && p.find(x => x.id === chosenPart.get(s.key));
+  if (picked && prefer === myPart) return picked;
   if (prefer) {
     const lp = prefer.toLowerCase();
     const hit = p.find(x => x.part.toLowerCase() === lp) || p.find(x => x.part.toLowerCase().startsWith(lp));
@@ -1020,7 +1023,7 @@ function render() {
         </div>
         <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length && !audioLess ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N && (s.parts.length || s.sheets.length) ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
         ${showParts ? `<div class="parts">${s.parts.map(p =>
-          `<button class="pp${now && now.part === p ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
+          `<button class="pp${(playing ? now.part === p : chosenPart.get(s.key) === p.id) ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
       </div>`;
     }).join('') + (results.length > limit ? `<div class="empty" style="padding:18px"><button class="chip" id="moreBtn">Show more (${results.length - limit})</button></div>` : '');
   }
@@ -1034,7 +1037,13 @@ $('#list').addEventListener('click', e => {
   const row = e.target.closest('.song'); if (!row) return;
   const s = results[+row.dataset.i].s, btn = e.target.closest('[data-act]'), act = btn && btn.dataset.act;
   sel = +row.dataset.i;
-  if (act === 'part') playTrack(s, s.parts.find(p => p.id === btn.dataset.id));
+  if (act === 'part') {
+    // Choose a version; it only starts when ▶ is tapped. If this song is already loaded, switch in place.
+    const part = s.parts.find(p => p.id === btn.dataset.id); if (!part) return;
+    chosenPart.set(s.key, part.id);
+    if (now && now.song === s) { if (now.part !== part) playTrack(s, part, true); }
+    else render();
+  }
   else if (act === 'dl') toggleDownload(s);
   else if (act === 'sheet') openViewer(s);
   else if (act === 'pick') togglePick(s);
