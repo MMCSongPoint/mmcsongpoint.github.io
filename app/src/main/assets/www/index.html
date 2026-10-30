@@ -1668,38 +1668,39 @@ function playPitch(i, el) {
   if (actx.state === 'suspended') actx.resume();
   if (pipeStop) pipeStop();                                   // one note at a time, like a real pipe
   if (!reedWave) {
-    // Harmonic mix of a brass reed: strong low partials, slowly fading upper ones
-    const amps = [0, 1, 0.75, 0.55, 0.42, 0.34, 0.26, 0.2, 0.15, 0.11, 0.08, 0.06, 0.045, 0.03];
+    // Open, round reed: mostly the fundamental, a little 2nd/3rd, very little above (no brassy buzz)
+    const amps = [0, 1, 0.32, 0.18, 0.07, 0.04, 0.02, 0.01];
     reedWave = actx.createPeriodicWave(new Float32Array(amps.length), new Float32Array(amps));
   }
   const semis = i + (i >= 3 ? -12 : 0);                       // C4..B4, the usual pitch-pipe range
   const f = 440 * Math.pow(2, semis / 12), t = actx.currentTime, dur = 2.2;
   const out = actx.createGain(), tone = actx.createBiquadFilter();
-  tone.type = 'lowpass'; tone.frequency.value = 3200; tone.Q.value = 0.8;
+  tone.type = 'lowpass'; tone.frequency.value = Math.min(2400, f * 5); tone.Q.value = 0.5;   // soft top, no resonant peak
   tone.connect(out); out.connect(actx.destination);
   out.gain.setValueAtTime(0.0001, t);
-  out.gain.linearRampToValueAtTime(0.32, t + 0.07);           // blown attack
-  out.gain.setValueAtTime(0.32, t + dur - 0.18);
-  out.gain.linearRampToValueAtTime(0.0001, t + dur);          // breath stops
-  const oscs = [-3, 3].map(cents => {                         // two reeds, slightly apart -> gentle beating
+  out.gain.linearRampToValueAtTime(0.42, t + 0.14);           // gentle blown attack
+  out.gain.setValueAtTime(0.42, t + dur - 0.25);
+  out.gain.linearRampToValueAtTime(0.0001, t + dur);          // breath fades out
+  const oscs = [-2.5, 2.5].map(cents => {                     // two reeds a hair apart -> soft, slow shimmer
     const o = actx.createOscillator();
     o.setPeriodicWave(reedWave);
-    o.frequency.setValueAtTime(f * Math.pow(2, (cents - 18) / 1200), t);   // slight scoop up into pitch
-    o.frequency.exponentialRampToValueAtTime(f * Math.pow(2, cents / 1200), t + 0.09);
+    o.frequency.value = f * Math.pow(2, cents / 1200);
     const g = actx.createGain(); g.gain.value = 0.5;
     o.connect(g); g.connect(tone); o.start(t); o.stop(t + dur + 0.05);
     return o;
   });
-  // a puff of breath at the start
-  const len = Math.floor(actx.sampleRate * 0.25), buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
-  for (let k = 0; k < len; k++) d[k] = (Math.random() * 2 - 1) * (1 - k / len);
+  // breath: a soft airy layer through the whole note, a little stronger at the start
+  const len = Math.floor(actx.sampleRate * dur), buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+  for (let k = 0; k < len; k++) d[k] = Math.random() * 2 - 1;
   const breath = actx.createBufferSource(), bf = actx.createBiquadFilter(), bg = actx.createGain();
-  breath.buffer = buf; bf.type = 'bandpass'; bf.frequency.value = f * 3; bf.Q.value = 1.2; bg.gain.value = 0.05;
-  breath.connect(bf); bf.connect(bg); bg.connect(out); breath.start(t);
+  breath.buffer = buf; bf.type = 'bandpass'; bf.frequency.value = f * 2; bf.Q.value = 0.9;
+  bg.gain.setValueAtTime(0.0001, t); bg.gain.linearRampToValueAtTime(0.06, t + 0.08); bg.gain.linearRampToValueAtTime(0.022, t + 0.4);
+  breath.connect(bf); bf.connect(bg); bg.connect(out); breath.start(t); breath.stop(t + dur);
   const stop = () => {
     const n = actx.currentTime;
-    out.gain.cancelScheduledValues(n); out.gain.setValueAtTime(out.gain.value, n); out.gain.linearRampToValueAtTime(0.0001, n + 0.05);
-    oscs.forEach(o => { try { o.stop(n + 0.06); } catch {} });
+    out.gain.cancelScheduledValues(n); out.gain.setValueAtTime(out.gain.value, n); out.gain.linearRampToValueAtTime(0.0001, n + 0.06);
+    oscs.forEach(o => { try { o.stop(n + 0.07); } catch {} });
+    try { breath.stop(n + 0.07); } catch {}
     if (pipeStop === stop) pipeStop = null;
   };
   pipeStop = stop;
