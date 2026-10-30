@@ -255,6 +255,9 @@
   .miss { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; margin: 4px 4px 0 0; background: rgba(229,72,77,.12); color: #c4323a; }
   html.dark .miss, .dark .miss { color: #ff8a8f; }
   .crow .pbtn { padding: 6px 10px; font-size: 13px; flex: none; }
+  .crow .dl.sm { flex: none; }
+  .crow .cnoview { width: 38px; flex: none; }
+  .crow [data-view] { color: var(--accent-text); }
   .crow .cbtns { display: flex; flex-direction: column; gap: 6px; flex: none; }
   .tdoc { color: var(--accent-text); font-weight: 600; }
   .ctiles { grid-template-columns: repeat(5, 1fr); gap: 6px; }
@@ -1722,6 +1725,9 @@ window.handleBack = () => {
   if ($('#usagePanel').classList.contains('show')) { closePanel('usagePanel'); return true; }
   if ($('#notePanel').classList.contains('show')) { leaveNote(); return true; }
   if ($('#notesPanel').classList.contains('show')) { closePanel('notesPanel'); return true; }
+  if ($('#readyBox').classList.contains('show')) { $('#readyBox').classList.remove('show'); return true; }
+  const panel = [...document.querySelectorAll('.panel.show')].pop();   // Library check, Report a problem, …
+  if (panel) { if (panel.id === 'bugPanel' && bugRec && bugRec.state === 'recording') bugRec.stop(); closePanel(panel.id); return true; }
   if (picking) { finishPicking(); return true; }
   if ($('#sheet').classList.contains('show')) { closeSheet(); return true; }
   if ($('#q').value) { $('#q').value = ''; search(); return true; }
@@ -2003,6 +2009,7 @@ function renderCheck() {
   const ign = all.filter(x => checkIgnored.has(x.s.key) && (!checkBook || x.s.collection === checkBook)).length;
   $('#checkList').innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0 0 4px">${rows.length} song${rows.length === 1 ? '' : 's'}${ign ? ` · ${ign} ignored` : ''}</p>`
     + (rows.length ? rows.slice(0, checkLimit).map(x => { const ig = checkIgnored.has(x.s.key); return `<div class="crow${ig ? ' ign' : ''}">
+      ${x.s.sheets.length ? `<button class="dl sm" data-view="${esc(x.s.key)}" aria-label="Preview sheet music" title="Preview sheet music">${ICON_MUSIC}</button>` : '<span class="cnoview"></span>'}
       <div class="ci"><div class="ct">${x.s.number ? `<span class="num">${esc(x.s.number)}</span>` : ''}${esc(x.s.title)}</div>
       <div class="cb">${esc(x.s.collection)}${isTextDoc(x.s) ? ' · <b class="tdoc">Text doc</b>' : ''}</div><div>${x.miss.map(c => `<span class="miss">No ${c.label}</span>`).join('')}</div></div>
       <div class="cbtns"><button class="pbtn ghost" data-ign="${esc(x.s.key)}">${ig ? 'Un-ignore' : 'Ignore'}</button>
@@ -2023,6 +2030,8 @@ $('#checkPanel').addEventListener('click', async e => {
   const t = e.target.closest('[data-c]'); if (t) { checkFilter = checkFilter === t.dataset.c ? '' : t.dataset.c; checkLimit = 150; return renderCheck(); }
   const b = e.target.closest('[data-b]'); if (b) { checkBook = b.dataset.b; checkLimit = 150; return renderCheck(); }
   if (e.target.id === 'checkMore') { checkLimit += 300; return renderCheck(); }
+  const v = e.target.closest('[data-view]');
+  if (v) { const s = songIndex.get(v.dataset.view); if (s) openViewer(s); return; }
   const td = e.target.closest('[data-tdoc]');
   if (td) {
     const key = td.dataset.tdoc, s = songIndex.get(key), on = !textDocs.has(key);
