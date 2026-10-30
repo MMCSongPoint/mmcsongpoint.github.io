@@ -197,7 +197,37 @@
   .urow .n small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
   .bar100 { height: 4px; background: var(--accent-text); border-radius: 2px; margin-top: 5px; opacity: .7; }
   .used { color: var(--accent-text); }
-  .lock .who { margin-bottom: 10px; }
+  .lock .who, .lock input + input { margin-top: 10px; }
+  .lock .link { background: none; border: none; color: var(--accent-text); margin-top: 14px; font-size: 14px; padding: 6px; width: auto; }
+  .keyb { min-width: 38px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--accent-text); font-weight: 700; font-size: 13.5px; padding: 0 6px; margin-right: 2px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+  .keyb.unknown { color: var(--muted); font-weight: 500; }
+  .keyb.changed { border-color: var(--accent-text); }
+  .keyb.ringing { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .wheelbox { position: fixed; inset: 0; z-index: 90; display: none; place-items: center; background: var(--scrim); }
+  .wheelbox.show { display: grid; }
+  .wheel { width: min(320px, 88vw); background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+  .wheel h3 { margin: 0 0 2px; font-size: 16px; }
+  .wheel p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+  .wscroll { position: relative; height: 220px; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); }
+  .wscroll::-webkit-scrollbar { display: none; }
+  .wscroll div { height: 44px; display: grid; place-items: center; scroll-snap-align: center; font-size: 20px; color: var(--muted); }
+  .wscroll div.on { color: var(--text); font-weight: 700; font-size: 24px; }
+  .wscroll .pad { height: 88px; scroll-snap-align: none; }
+  .wsel { position: relative; }
+  .wsel::before { content: ''; position: absolute; left: 0; right: 0; top: 88px; height: 44px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); pointer-events: none; z-index: 1; }
+  .wheel .row2 { margin: 12px 0 0; justify-content: flex-end; }
+  .updcard { display: none; align-items: center; gap: 10px; background: var(--row); border: 1px solid var(--accent-text); border-radius: 12px; padding: 10px 12px; margin: 0 0 12px; font-size: 14px; }
+  .updcard.show { display: flex; }
+  .updcard span { flex: 1; }
+  .ucard { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; }
+  .ucard .acts2 { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
+  .ucard .acts2 button { font-size: 13px; padding: 6px 10px; }
+  .temp { font-family: ui-monospace, monospace; font-size: 18px; background: var(--row); border: 1px dashed var(--accent-text); border-radius: 10px; padding: 10px; text-align: center; margin: 8px 0; user-select: all; -webkit-user-select: all; }
+  .slidechip { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-left: 6px; }
+  .busybox { position: fixed; inset: 0; z-index: 95; background: var(--scrim); display: none; place-items: center; }
+  .busybox.show { display: grid; }
+  .busybox div { background: var(--panel); border-radius: 16px; padding: 22px 24px; width: min(330px, 88vw); text-align: center; }
+  .busybox .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent-text); margin: 0 auto 12px; animation: spin 1s linear infinite; }
   .sheet-bg { position: fixed; inset: 0; background: var(--scrim); display: none; z-index: 70; }
   .sheet-bg.show { display: block; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-radius: 18px 18px 0 0; padding: 18px 18px calc(22px + env(safe-area-inset-bottom)); z-index: 71; transform: translateY(110%); transition: transform .2s; max-width: 900px; margin: 0 auto; }
@@ -221,6 +251,7 @@
     <button class="hbtn" id="menuBtn" title="More"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
   </header>
   <div class="welcome" id="welcome"></div>
+  <div class="updcard" id="updCard"><span id="updText"></span><button class="pbtn" id="updBtn">Update</button></div>
   <div class="syncline" id="syncLine"></div>
   <div class="install" id="installTip"><span>Install on your iPhone: tap <b>Share</b> <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8"/></svg> then <b>Add to Home Screen</b>.</span><button id="installClose" aria-label="Dismiss">×</button></div>
 
@@ -283,10 +314,14 @@
   <form id="lockForm" autocomplete="off">
     <div class="logo">♪</div>
     <h2 id="lockTitle">MMC SongPoint</h2>
-    <p id="lockMsg">Enter your name and the password to continue.</p>
-    <input id="lockName" class="who" type="text" placeholder="Your name" autocomplete="name" autocapitalize="words" enterkeyhint="next" maxlength="40">
-    <input id="lockPw" type="password" placeholder="Password" autocomplete="current-password" enterkeyhint="go">
-    <button type="submit" id="lockBtn">Unlock</button>
+    <p id="lockMsg">Sign in to continue.</p>
+    <input id="lockName" type="text" placeholder="Your name (shown on song lists)" autocomplete="name" autocapitalize="words" maxlength="40">
+    <input id="lockUser" type="text" placeholder="Username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="30">
+    <input id="lockPw" type="password" placeholder="Password" autocomplete="current-password">
+    <input id="lockNew" type="password" placeholder="New password (at least 6 characters)" autocomplete="new-password">
+    <input id="lockNew2" type="password" placeholder="Type the new password again" autocomplete="new-password">
+    <button type="submit" id="lockBtn">Sign in</button>
+    <button type="button" class="link" id="lockAlt"></button>
     <div class="err" id="lockErr"></div>
   </form>
 </div>
@@ -324,7 +359,8 @@
       <b>Songs</b><button class="pbtn ghost" id="addSongsBtn">+ Add songs</button>
     </div>
     <div class="list" id="noteSongs"></div>
-    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button></div>
+    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
+    <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <label class="field"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
     <p style="color:var(--muted);font-size:13px" id="noteStatus"></p>
     <div class="row2"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete note</button></div>
@@ -339,18 +375,53 @@
     <button class="icon" id="usageRefresh" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
   </div>
   <div class="pbody">
+    <div class="seg" id="scopeSeg" style="margin-bottom:8px"><button data-s="me" class="on">Mine</button><button data-s="all">Everyone</button></div>
     <div class="seg" id="usageSeg" style="margin-bottom:12px"><button data-u="songs" class="on">Most used</button><button data-u="recent">Recent</button><button data-u="leaders">Leaders</button></div>
     <div id="usageBody"><div class="vmsg">Loading…</div></div>
   </div>
 </div>
+
+<!-- Users (admins) -->
+<div class="panel" id="usersPanel">
+  <div class="phead">
+    <button class="icon" data-close="usersPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Users</h2>
+    <button class="icon" id="usersRefresh" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+  </div>
+  <div class="pbody">
+    <div class="card" id="tempBox" style="display:none"></div>
+    <div class="card">
+      <b>Add a user</b>
+      <label class="field" style="margin-top:10px"><span>Name</span><input id="nuName" placeholder="e.g. Sam Smith" maxlength="40"></label>
+      <label class="field"><span>Username (for signing in)</span><input id="nuUser" placeholder="e.g. sam" autocapitalize="none" autocorrect="off" maxlength="30"></label>
+      <label style="display:flex;align-items:center;gap:8px;margin:0 0 12px"><input type="checkbox" id="nuAdmin"> Admin (can see everyone's usage and manage users)</label>
+      <button class="pbtn" id="nuCreate">Add user</button>
+    </div>
+    <div id="usersList"><div class="vmsg">Loading…</div></div>
+  </div>
+</div>
+
+<div class="wheelbox" id="wheelBox">
+  <div class="wheel">
+    <h3 id="wheelTitle">Starting note</h3>
+    <p id="wheelSub">Scroll to choose. Lasts until you close the app.</p>
+    <div class="wsel"><div class="wscroll" id="wheelScroll"></div></div>
+    <div class="row2"><button class="pbtn ghost" id="wheelReset">Reset</button><button class="pbtn ghost" id="wheelPlay">▶ Play</button><button class="pbtn" id="wheelDone">Done</button></div>
+  </div>
+</div>
+
+<div class="busybox" id="busyBox"><div><div class="spinner"></div><b id="busyTitle">Working…</b><p id="busyText" style="color:var(--muted);font-size:14px;margin:8px 0 0"></p></div></div>
 
 <div class="pickbar" id="pickBar"><span id="pickText"></span><button id="pickDone">Done</button></div>
 
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet">
   <h3>Settings</h3>
-  <h4 style="margin-top:12px">You</h4>
-  <button class="act" id="changeNameBtn"></button>
+  <h4 style="margin-top:12px">Account</h4>
+  <p id="acctLine" style="margin:0 0 4px"></p>
+  <button class="act" id="usersBtn">Manage users</button>
+  <button class="act" id="changePwBtn">Change password</button>
+  <button class="act" id="signOutBtn">Sign out</button>
   <h4 style="margin-top:12px">Offline songs</h4>
   <p id="storageInfo" style="margin-top:0"></p>
   <button class="act" id="dlPartBtn"></button>
@@ -359,7 +430,10 @@
   <div class="seg" id="themeSeg">
     <button data-t="system">Match device</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
   </div>
-  <p style="margin-top:16px" id="aboutLine"></p>
+  <h4>About</h4>
+  <p id="versionLine" style="margin:0"></p>
+  <button class="act" id="checkUpdBtn" style="display:none">Check for updates</button>
+  <p style="margin-top:12px" id="aboutLine"></p>
 </div>
 
 <script>
@@ -475,7 +549,14 @@ function parseSheet(filename) {
   if ((m = stem.match(/^(.+?)-(vocal|lead|piano|choral|satb|chord|chords|guitar|[a-z]+)-([A-G][#b]?m?)$/i))) { title = m[1]; kind = m[2]; key = m[3]; }
   const p = parseName(title + '.x');
   const label = kind ? `${kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase()} · ${key}` : 'Sheet music';
-  return { ext, number: p.number, title: p.title, label, page: 0 };
+  return { ext, number: p.number, title: p.title, label, page: 0, key };
+}
+// Slide files: "0243 Our God Reigns-SFP.ppt", "As The Deer.pptx"
+function parseSlide(filename) {
+  const ext = (filename.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
+  if (ext !== 'ppt' && ext !== 'pptx') return null;
+  const p = parseName(filename.slice(0, -(ext.length + 1)) + '.x');
+  return { ext, number: p.number, title: p.title };
 }
 function partRank(p) {
   p = p.toLowerCase();
@@ -498,7 +579,7 @@ function refreshDownloaded() {
 const baseTitle = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
 function buildIndex() {
   songIndex = new Map();
-  const newSong = (key, x) => ({ key, number: x.number, collection: x.collection, subfolder: x.subfolder || '', parts: [], sheets: [], modified: '' });
+  const newSong = (key, x) => ({ key, number: x.number, collection: x.collection, subfolder: x.subfolder || '', parts: [], sheets: [], slides: [], modified: '' });
   for (const t of library.tracks) {
     const key = t.collection + '|' + (t.number ? '#' + t.number : normalize(t.title));
     let s = songIndex.get(key);
@@ -506,27 +587,32 @@ function buildIndex() {
     s.parts.push(t);
     if ((t.modified || '') > s.modified) s.modified = t.modified || '';
   }
-  // Sheet music: numbered pages join the hymn with that number; titled PDFs join the song
-  // with the same title, or the same title without its "(alternate name)".
-  const sheets = library.sheets || [];
-  const exactTitles = new Set(sheets.filter(x => !x.number).map(x => x.collection + '|' + normalize(x.title)));
-  for (const x of sheets) {
-    let key = x.collection + '|' + (x.number ? '#' + x.number : normalize(x.title)), s = songIndex.get(key);
-    if (!s && !x.number) {
-      const base = x.collection + '|' + normalize(baseTitle(x.title));
-      if (songIndex.has(base) && songIndex.get(base).parts.length && !exactTitles.has(base)) { key = base; s = songIndex.get(base); }
+  // Sheet music and slides: numbered files join the hymn with that number; titled files join
+  // the song with the same title, or the same title without its "(alternate name)".
+  const attach = (files, field) => {
+    const exactTitles = new Set(files.filter(x => !x.number).map(x => x.collection + '|' + normalize(x.title)));
+    for (const x of files) {
+      let key = x.collection + '|' + (x.number ? '#' + x.number : normalize(x.title)), s = songIndex.get(key);
+      if (!s && !x.number) {
+        const base = x.collection + '|' + normalize(baseTitle(x.title));
+        if (songIndex.has(base) && !exactTitles.has(base)) { key = base; s = songIndex.get(base); }
+      }
+      if (!s) songIndex.set(key, s = newSong(key, x));
+      s[field].push(x);
+      if (!s.parts.length && (x.modified || '') > s.modified) s.modified = x.modified || '';
     }
-    if (!s) songIndex.set(key, s = newSong(key, x));
-    s.sheets.push(x);
-    if (!s.parts.length && (x.modified || '') > s.modified) s.modified = x.modified || '';
-  }
+  };
+  attach(library.sheets || [], 'sheets');
+  attach(library.slides || [], 'slides');
   for (const s of songIndex.values()) {
     s.parts.sort((a, b) => partRank(a.part) - partRank(b.part) || a.part.localeCompare(b.part));
     const kindRank = l => { const i = ['vocal', 'choral', 'satb', 'piano', 'lead'].findIndex(k => l.toLowerCase().startsWith(k)); return i < 0 ? 9 : i; };
     s.sheets.sort((a, b) => kindRank(a.label) - kindRank(b.label) || a.label.localeCompare(b.label) || a.page - b.page || a.name.localeCompare(b.name));
     const main = s.parts.filter(p => partRank(p.part) <= 1);
     s.title = s.parts.length ? (main.length ? main : s.parts).map(p => p.title).sort((a, b) => a.length - b.length)[0]
-      : (s.sheets.find(x => x.title) || {}).title || `Hymn ${s.number}`;
+      : (s.sheets.find(x => x.title) || s.slides.find(x => x.title) || {}).title || `Hymn ${s.number}`;
+    s.slides.sort((a, b) => (a.ext === 'pptx' ? 0 : 1) - (b.ext === 'pptx' ? 0 : 1));
+    s.musicKey = (s.sheets.find(x => x.key) || {}).key || '';
     s.nTitle = normalize(s.title);
     s.nAll = [s.nTitle, s.number, ...s.parts.map(p => normalize(p.part))].join(' ');
     s.grams = trigrams(s.nTitle);
@@ -600,7 +686,7 @@ async function sync(manual = false) {
           if (f.mimeType === 'application/vnd.google-apps.folder') { stack2.push({ id: f.id, collection: collection || f.name }); continue; }
           const p = parseSheet(f.name); if (!p) continue;
           sheets.push({ id: f.id, name: f.name, collection: collection || 'Other', number: p.number, title: p.title,
-            label: p.label, ext: p.ext, page: p.page, size: +f.size || 0, modified: f.modifiedTime || '' });
+            label: p.label, ext: p.ext, page: p.page, key: p.key || '', size: +f.size || 0, modified: f.modifiedTime || '' });
         }
         setSyncLine(`Checking sheet music… ${sheets.length} pages`);
       }
@@ -613,12 +699,27 @@ async function sync(manual = false) {
         return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib) || a.localeCompare(b);
       });
     }
-    const before = library.tracks.length + (library.sheets || []).length;
-    library = { tracks, sheets, collections: seenColl, synced: Date.now() };
+    const slides = [];
+    if (CFG.slidesFolder) {
+      setSyncLine('Checking slides…');
+      const stack3 = [{ id: CFG.slidesFolder, collection: null }];
+      while (stack3.length) {
+        const { id, collection } = stack3.shift();
+        for (const f of await driveList(id)) {
+          if (f.mimeType === 'application/vnd.google-apps.folder') { stack3.push({ id: f.id, collection: collection || f.name }); continue; }
+          const p = parseSlide(f.name); if (!p) continue;
+          const coll = seenColl.find(c => normalize(c) === normalize(collection || 'Other')) || collection || 'Other';
+          slides.push({ id: f.id, name: f.name, collection: coll, number: p.number, title: p.title, ext: p.ext, modified: f.modifiedTime || '' });
+        }
+        setSyncLine(`Checking slides… ${slides.length} files`);
+      }
+    }
+    const before = library.tracks.length + (library.sheets || []).length + (library.slides || []).length;
+    library = { tracks, sheets, slides, collections: seenColl, synced: Date.now() };
     store.set('library', library);
     buildIndex(); renderTabs(); search();
     setSyncLine(`${summary()} · updated just now`);
-    if (manual) toast(tracks.length + sheets.length === before ? 'Up to date' : `Library updated: ${summary()}`);
+    if (manual) toast(tracks.length + sheets.length + slides.length === before ? 'Up to date' : `Library updated: ${summary()}`);
   } catch (e) {
     setSyncLine(navigator.onLine ? `Couldn't update: ${e.message}` : 'You\'re offline.', true);
     if (manual) toast(e.message || 'Update failed', 4500);
@@ -796,13 +897,13 @@ function render() {
       const allSaved = songFiles(s).every(p => downloaded.has(p.id)), busy = songFiles(s).some(p => downloading.has(p.id));
       const showParts = s.parts.length > 1;
       return `<div class="song${i === sel ? ' sel' : ''}${playing ? ' playing' : ''}" data-i="${i}">
-        ${audioLess ? `<button class="play sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>`
+        ${audioLess ? (s.sheets.length ? `<button class="play sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : '<span></span>')
           : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
-        <div class="info" data-act="${audioLess ? 'sheet' : 'play'}">
+        <div class="info"${audioLess && s.sheets.length ? ' data-act="sheet"' : ''}>
           <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
-          <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? ' · Sheet music only' : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
+          <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? (s.sheets.length ? ' · Sheet music only' : ' · Slides only') : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
         </div>
-        <div class="acts">${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to note">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length && !audioLess ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
+        <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to note">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length && !audioLess ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N && (s.parts.length || s.sheets.length) ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
         ${showParts ? `<div class="parts">${s.parts.map(p =>
           `<button class="pp${now && now.part === p ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
       </div>`;
@@ -822,6 +923,7 @@ $('#list').addEventListener('click', e => {
   else if (act === 'dl') toggleDownload(s);
   else if (act === 'sheet') openViewer(s);
   else if (act === 'pick') togglePick(s);
+  else if (act === 'key') keyTap(s, btn);
   else if (act === 'play') playSong(s);
 });
 
@@ -1073,7 +1175,7 @@ $('#clearDlBtn').onclick = () => {
 // ------------------------------------------------------------------ notes (song lists, kept on this device)
 let notes = store.get('notes', []);
 let editing = null, editingDirty = false, picking = null;
-const userName = () => store.get('userName', '');
+const userName = () => (store.get('auth', {}).user || {}).name || '';
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 function shortDate(iso) {
@@ -1096,9 +1198,8 @@ document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closePa
 function renderNotes() {
   const list = [...notes].sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.updated - a.updated);
   $('#notesList').innerHTML = list.length ? list.map(n => {
-    const pending = outbox.some(x => x.noteId === n.id);
     return `<div class="card" data-id="${esc(n.id)}">
-      <div class="t">${esc(n.title || 'Untitled')}${pending ? '<span class="tag wait">not logged yet</span>' : n.version ? '<span class="tag ok">logged</span>' : '<span class="tag">draft</span>'}</div>
+      <div class="t">${esc(n.title || 'Untitled')}</div>
       <div class="m">${esc(longDate(n.date))} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}${n.leader ? ' · ' + esc(n.leader) : ''}</div>
       ${n.songs.length ? `<div class="songsline">${esc(n.songs.map(songLabel).join(' · '))}</div>` : ''}
     </div>`;
@@ -1125,7 +1226,7 @@ function renderNoteSongs() {
     const s = songIndex.get(r.key);
     return `<div class="nsong${s ? '' : ' missing'}" data-i="${i}">
       <div class="pos">${i + 1}</div>
-      <div class="info" data-act="${s && s.parts.length ? 'play' : 'sheet'}"><div class="title t">${esc(songLabel(r))}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}</div></div>
+      <div class="info"><div class="title t">${esc(songLabel(r))}${s && s.slides.length ? '<span class="slidechip">slides</span>' : ''}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}</div></div>
       <div class="ctl">
         ${s && s.parts.length ? `<button data-act="play" aria-label="Play">▶</button>` : ''}
         ${s && s.sheets.length ? `<button data-act="sheet" class="sm" aria-label="Sheet music">${ICON_MUSIC.replace(/20/g, '18')}</button>` : ''}
@@ -1136,9 +1237,11 @@ function renderNoteSongs() {
   }).join('') : `<div class="empty" style="padding:22px"><b>No songs yet</b>Tap “+ Add songs”, then tap + next to each song.</div>`;
   $('#notePlay').disabled = !n.songs.some(r => (songIndex.get(r.key) || {}).parts?.length);
   $('#noteDelete').style.display = n.isNew ? 'none' : '';
-  const pending = outbox.some(x => x.noteId === n.id);
-  $('#noteStatus').textContent = n.isNew ? 'Saving logs this song list (with the date and your name) to the shared usage log.'
-    : `Saved ${n.version} time${n.version === 1 ? '' : 's'}${n.leader ? ' by ' + n.leader : ''}. ${pending ? 'Waiting for internet to log the latest save.' : 'Each save is logged.'}`;
+  $('#noteStatus').textContent = n.isNew ? '' : `Last saved${n.leader ? ' by ' + n.leader : ''} ${n.updated ? new Date(n.updated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}.`;
+  const withSlides = n.songs.filter(r => (songIndex.get(r.key) || {}).slides?.length).length;
+  $('#noteSlides').disabled = !withSlides;
+  $('#slidesInfo').textContent = !n.songs.length ? '' : withSlides === n.songs.length ? `All ${withSlides} songs have slides.`
+    : `${withSlides} of ${n.songs.length} songs have slides${withSlides ? ' — the others will be left out' : ''}.`;
   $('#noteSave').textContent = editingDirty ? 'Save' : 'Saved';
   $('#noteSave').disabled = !editingDirty;
 }
@@ -1170,7 +1273,7 @@ function saveNote() {
   logEntry({ event: 'note saved', noteId: n.id, noteTitle: n.title, dateUsed: n.date, version: n.version, comment: n.text, songs: n.songs });
   editing = JSON.parse(JSON.stringify(n)); editingDirty = false;
   renderNoteSongs(); renderNotes();
-  toast(navigator.onLine && CFG.logUrl ? 'Saved and logged' : 'Saved — will log when you\'re online');
+  toast('Saved');
 }
 $('#noteSave').onclick = saveNote;
 function leaveNote() {
@@ -1243,6 +1346,16 @@ function deviceName() {
   const standalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
   return (ios ? 'iPhone/iPad' : /Android/.test(navigator.userAgent) ? 'Android' : 'Computer') + (standalone ? ' app' : ' browser');
 }
+// One call to the SongPoint server (Google Apps Script). Adds the sign-in token.
+async function api(action, data = {}) {
+  if (!CFG.logUrl) throw new Error('No server is set up.');
+  const r = await fetch(CFG.logUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action, token: auth.token || '' }, data)) });
+  const body = await r.json();
+  if (body.signedOut && auth.token) { signOut(true); }
+  if (body.mustChange && auth.user) { auth.user.mustChange = true; saveAuth(); showLock('change'); }
+  return body;
+}
 function logEntry(x) {
   if (!CFG.logUrl) return;
   outbox.push(Object.assign({ id: uid(), at: new Date().toISOString(), leader: userName(), device: deviceName() }, x,
@@ -1251,13 +1364,11 @@ function logEntry(x) {
 }
 let flushing = false;
 async function flushLog() {
-  if (flushing || !outbox.length || !CFG.logUrl || !navigator.onLine) return;
+  if (flushing || !outbox.length || !CFG.logUrl || !navigator.onLine || !auth.token || (auth.user || {}).mustChange) return;
   flushing = true;
   try {
     const batch = outbox.slice(0, 20);
-    const r = await fetch(CFG.logUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ secret: CFG.passwordHash, entries: batch }) });
-    const body = await r.json();
+    const body = await api('log', { entries: batch });
     if (body.ok) {
       const done = new Set(body.saved || batch.map(b => b.id));
       outbox = outbox.filter(x => !done.has(x.id)); store.set('outbox', outbox);
@@ -1265,32 +1376,41 @@ async function flushLog() {
     }
   } catch (e) { console.warn('log failed', e); }
   flushing = false;
-  if ($('#notesPanel').classList.contains('show')) renderNotes();
-  if (editing) renderNoteSongs();
-  if (outbox.length && navigator.onLine) setTimeout(flushLog, 30000);
+  if (outbox.length && navigator.onLine && auth.token) setTimeout(flushLog, 30000);
 }
 window.addEventListener('online', flushLog);
 
-let usage = store.get('usage', null), usageMap = {}, usageView = 'songs', usageStale = true;
+let usage = store.get('usage', null), usageMap = {}, usageView = 'songs', usageStale = true, usageScope = 'me';
 function indexUsage() { usageMap = {}; (usage && usage.songs || []).forEach(u => { usageMap[u.key] = u; }); }
 indexUsage();
 async function loadUsage(show = false) {
   if (!CFG.logUrl || !navigator.onLine) { if (show) renderUsage(); return; }
   try {
-    const r = await fetch(`${CFG.logUrl}?action=usage&secret=${encodeURIComponent(CFG.passwordHash)}`);
-    const body = await r.json();
-    if (body.ok) { usage = body; usage.fetched = Date.now(); store.set('usage', usage); indexUsage(); usageStale = false; render(); }
+    if (!auth.token) return;
+    const scope = isAdmin() ? usageScope : 'me';
+    const body = await api('usage', { scope });
+    if (body.ok) {
+      body.fetched = Date.now();
+      if (scope === 'me') { usage = body; store.set('usage', usage); indexUsage(); usageStale = false; render(); }
+      else usageAll = body;
+    }
   } catch (e) { console.warn('usage failed', e); }
   if (show) renderUsage();
 }
+let usageAll = null;
 function renderUsage() {
   document.querySelectorAll('#usageSeg button').forEach(b => b.classList.toggle('on', b.dataset.u === usageView));
+  document.querySelectorAll('#scopeSeg button').forEach(b => b.classList.toggle('on', b.dataset.s === usageScope));
+  $('#scopeSeg').style.display = isAdmin() ? '' : 'none';
+  $('#usageSeg [data-u=leaders]').style.display = isAdmin() && usageScope === 'all' ? '' : 'none';
+  if (usageView === 'leaders' && !(isAdmin() && usageScope === 'all')) usageView = 'songs';
+  const usage = isAdmin() && usageScope === 'all' ? usageAll : window.__usageMe();
   const box = $('#usageBody');
   if (!usage) { box.innerHTML = `<div class="vmsg">${navigator.onLine ? 'Couldn\'t load usage yet.' : 'Connect to the internet to see usage.'}</div>`; return; }
   const songsU = usage.songs || [], notesU = usage.notes || [];
   const leaders = {};
   notesU.forEach(n => { const l = n.leader || 'Unknown'; (leaders[l] ||= { name: l, times: 0, songs: 0, last: '' }); leaders[l].times++; leaders[l].songs += n.songs.length; if (n.date > leaders[l].last) leaders[l].last = n.date; });
-  const head = `<div class="ustat"><div><b>${notesU.length}</b><small>song lists</small></div><div><b>${songsU.length}</b><small>different songs</small></div><div><b>${Object.keys(leaders).length}</b><small>leaders</small></div></div>`;
+  const head = `<div class="ustat"><div><b>${notesU.length}</b><small>song lists</small></div><div><b>${songsU.length}</b><small>different songs</small></div><div><b>${usageScope === 'all' && isAdmin() ? Object.keys(leaders).length : songsU.reduce((n, u) => n + u.count, 0)}</b><small>${usageScope === 'all' && isAdmin() ? 'leaders' : 'times led'}</small></div></div>`;
   let body = '';
   if (usageView === 'songs') {
     const max = songsU[0] ? songsU[0].count : 1;
@@ -1305,9 +1425,11 @@ function renderUsage() {
       : '<div class="empty"><b>No leaders yet</b></div>';
   }
   box.innerHTML = head + `<div class="${usageView === 'recent' ? '' : 'card'}">${body}</div>` +
-    `<p style="color:var(--muted);font-size:12px">Counts use the latest saved version of each song list. Updated ${usage.fetched ? ago(usage.fetched) : ''}.</p>`;
+    `<p style="color:var(--muted);font-size:12px">${usageScope === 'all' && isAdmin() ? 'Everyone\'s song lists.' : 'Your song lists only.'} Counts use the latest saved version of each list. Updated ${usage.fetched ? ago(usage.fetched) : ''}.</p>`;
 }
+window.__usageMe = () => usage;
 $('#usageSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { usageView = b.dataset.u; renderUsage(); } });
+$('#scopeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { usageScope = b.dataset.s; renderUsage(); loadUsage(true); } });
 $('#usageBody').addEventListener('click', e => {
   const r = e.target.closest('.urow[data-key]'); if (!r) return;
   const s = songIndex.get(r.dataset.key); if (!s) return toast('That song isn\'t in the library anymore');
@@ -1317,18 +1439,87 @@ $('#usageBody').addEventListener('click', e => {
 $('#usageBtn').onclick = () => { renderUsage(); openPanel('usagePanel'); loadUsage(true); };
 $('#usageRefresh').onclick = () => loadUsage(true);
 
-// ------------------------------------------------------------------ name / welcome
+// ------------------------------------------------------------------ accounts
+let auth = store.get('auth', {});
+const saveAuth = () => store.set('auth', auth);
+const isAdmin = () => !!(auth.user && auth.user.admin);
 function renderWelcome() {
   const n = userName();
   $('#welcome').innerHTML = n ? `Welcome, <b>${esc(n)}</b>` : '';
-  $('#changeNameBtn').textContent = n ? `Using as ${n} · change name` : 'Set your name';
+  $('#acctLine').textContent = auth.user ? `Signed in as ${auth.user.name} (${auth.user.username})${auth.user.admin ? ' · Admin' : ''}` : '';
+  $('#usersBtn').style.display = isAdmin() ? '' : 'none';
 }
-$('#changeNameBtn').onclick = () => { closeSheet(); showLock(true); };
+function signOut(expired = false) {
+  auth = {}; saveAuth(); renderWelcome(); closeSheet();
+  showLock('signin', expired ? 'Please sign in again.' : '');
+}
+$('#signOutBtn').onclick = () => { if (confirm('Sign out of this device? Your notes stay on it.')) signOut(); };
+$('#changePwBtn').onclick = () => { closeSheet(); showLock('change'); };
+
+// Users (admins only)
+async function loadUsers() {
+  $('#usersList').innerHTML = '<div class="vmsg">Loading…</div>';
+  try {
+    const r = await api('listUsers');
+    if (!r.ok) throw new Error(r.error);
+    $('#usersList').innerHTML = r.users.sort((a, b) => a.name.localeCompare(b.name)).map(u => `
+      <div class="card ucard" data-u="${esc(u.username)}">
+        <div><div class="t">${esc(u.name)}${u.admin ? '<span class="tag ok">Admin</span>' : ''}${u.disabled ? '<span class="tag">Turned off</span>' : ''}${u.mustChange ? '<span class="tag wait">Temp password</span>' : ''}</div>
+        <div class="m">${esc(u.username)} · ${u.lastLogin ? 'last signed in ' + esc(shortDate(u.lastLogin.slice(0, 10))) : 'never signed in'}</div></div>
+        <div></div>
+        ${u.username === auth.user.username ? '<div class="acts2"><span class="m">This is you</span></div>' : `<div class="acts2">
+          <button class="pbtn ghost" data-a="reset">Reset password</button>
+          <button class="pbtn ghost" data-a="admin">${u.admin ? 'Remove admin' : 'Make admin'}</button>
+          <button class="pbtn ghost" data-a="disable">${u.disabled ? 'Turn on' : 'Turn off'}</button></div>`}
+      </div>`).join('');
+  } catch (e) { $('#usersList').innerHTML = `<div class="vmsg">${navigator.onLine ? esc(e.message || 'Couldn\'t load users.') : 'Connect to the internet to manage users.'}</div>`; }
+}
+function showTemp(name, username, temp, verb) {
+  $('#tempBox').style.display = '';
+  $('#tempBox').innerHTML = `<b>${esc(verb)} ${esc(name)}</b><p class="m" style="margin:6px 0 0">Give them these to sign in. They'll pick their own password right away.</p>
+    <div class="temp">Username: ${esc(username)}<br>Password: ${esc(temp)}</div><p class="m" style="margin:0">This temporary password is shown only once.</p>`;
+  $('#usersPanel .pbody').scrollTo(0, 0);
+}
+$('#usersBtn').onclick = () => { closeSheet(); $('#tempBox').style.display = 'none'; openPanel('usersPanel'); loadUsers(); };
+$('#usersRefresh').onclick = loadUsers;
+$('#nuCreate').onclick = async () => {
+  const name = $('#nuName').value.trim(), username = $('#nuUser').value.trim().toLowerCase();
+  if (!name || !username) return toast('Enter a name and a username');
+  $('#nuCreate').disabled = true;
+  try {
+    const r = await api('createUser', { name, username, admin: $('#nuAdmin').checked });
+    if (!r.ok) return toast(r.error || 'Couldn\'t add that user');
+    $('#nuName').value = $('#nuUser').value = ''; $('#nuAdmin').checked = false;
+    showTemp(name, r.username, r.tempPassword, 'Added'); loadUsers();
+  } catch { toast('Connect to the internet to add users'); } finally { $('#nuCreate').disabled = false; }
+};
+$('#usersList').addEventListener('click', async e => {
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const card = b.closest('[data-u]'), username = card.dataset.u, name = card.querySelector('.t').firstChild.textContent;
+  try {
+    if (b.dataset.a === 'reset') {
+      if (!confirm(`Reset ${name}'s password? They'll be signed out and get a temporary password.`)) return;
+      const r = await api('resetPassword', { username });
+      if (!r.ok) return toast(r.error); showTemp(name, username, r.tempPassword, 'New password for');
+    } else if (b.dataset.a === 'admin') {
+      const make = b.textContent.startsWith('Make');
+      const r = await api('setAdmin', { username, admin: make }); if (!r.ok) return toast(r.error);
+      toast(make ? `${name} is now an admin` : `${name} is no longer an admin`);
+    } else {
+      const off = b.textContent.startsWith('Turn off');
+      if (off && !confirm(`Turn off ${name}'s account? They'll be signed out and can't sign in.`)) return;
+      const r = await api('setDisabled', { username, disabled: off }); if (!r.ok) return toast(r.error);
+    }
+    loadUsers();
+  } catch { toast('Connect to the internet to manage users'); }
+});
 
 // Android back button: close panels / the sheet / clear the search first.
 window.handleBack = () => {
   if ($('#lock').classList.contains('show')) return false;
   if (viewing) { closeViewer(); return true; }
+  if ($('#wheelBox').classList.contains('show')) { closeWheel(); return true; }
+  if ($('#usersPanel').classList.contains('show')) { closePanel('usersPanel'); return true; }
   if ($('#usagePanel').classList.contains('show')) { closePanel('usagePanel'); return true; }
   if ($('#notePanel').classList.contains('show')) { leaveNote(); return true; }
   if ($('#notesPanel').classList.contains('show')) { closePanel('notesPanel'); return true; }
@@ -1338,65 +1529,228 @@ window.handleBack = () => {
   return false;
 };
 
-// ------------------------------------------------------------------ password (asked once per phone)
-// Small SHA-256 so the password itself isn't stored in the app.
-function sha256(str) {
-  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
-  const bytes = [...new TextEncoder().encode(str)], len = bytes.length * 8;
-  bytes.push(0x80); while (bytes.length % 64 !== 56) bytes.push(0);
-  for (let i = 7; i >= 0; i--) bytes.push(i > 3 ? 0 : (len >>> (i * 8)) & 255);
-  const H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19], w = new Array(64);
-  const rot = (x, n) => (x >>> n) | (x << (32 - n));
-  for (let o = 0; o < bytes.length; o += 64) {
-    for (let i = 0; i < 16; i++) w[i] = (bytes[o+4*i] << 24) | (bytes[o+4*i+1] << 16) | (bytes[o+4*i+2] << 8) | bytes[o+4*i+3];
-    for (let i = 16; i < 64; i++) {
-      const s0 = rot(w[i-15], 7) ^ rot(w[i-15], 18) ^ (w[i-15] >>> 3), s1 = rot(w[i-2], 17) ^ rot(w[i-2], 19) ^ (w[i-2] >>> 10);
-      w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0;
-    }
-    let [a, b, c, d, e, f, g, h] = H;
-    for (let i = 0; i < 64; i++) {
-      const t1 = (h + (rot(e, 6) ^ rot(e, 11) ^ rot(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0;
-      const t2 = ((rot(a, 2) ^ rot(a, 13) ^ rot(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
-      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
-    }
-    [a, b, c, d, e, f, g, h].forEach((v, i) => { H[i] = (H[i] + v) | 0; });
-  }
-  return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
-}
-const needsPassword = () => CFG.passwordHash && store.get('unlocked', '') !== CFG.passwordHash;
-const needsLogin = () => needsPassword() || !userName();
+// ------------------------------------------------------------------ sign-in screen
+const needsLogin = () => !auth.token || !!(auth.user && auth.user.mustChange);
 $('#lockTitle').textContent = CFG.appName;
-let lockNameOnly = false;
-function showLock(nameOnly) {
-  lockNameOnly = nameOnly && !needsPassword();
-  $('#lockPw').style.display = lockNameOnly ? 'none' : '';
-  $('#lockMsg').textContent = lockNameOnly ? 'Who is using the app? Your name shows on song lists you save.' : 'Enter your name and the password to continue.';
-  $('#lockBtn').textContent = lockNameOnly ? 'Continue' : 'Unlock';
-  $('#lockName').value = userName(); $('#lockErr').textContent = '';
+let lockMode = 'signin';
+function showLock(mode = 'signin', msg = '') {
+  lockMode = mode;
+  const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+  show('#lockName', mode === 'setup'); show('#lockUser', mode !== 'change');
+  show('#lockPw', true); show('#lockNew', mode !== 'signin'); show('#lockNew2', mode !== 'signin');
+  $('#lockPw').placeholder = mode === 'change' ? 'Current password' : mode === 'setup' ? 'Password (at least 6 characters)' : 'Password';
+  if (mode === 'setup') { show('#lockNew', false); $('#lockNew2').placeholder = 'Type the password again'; }
+  else $('#lockNew2').placeholder = 'Type the new password again';
+  $('#lockMsg').textContent = msg || ({ signin: 'Sign in to continue.', setup: 'Welcome! Create the first admin account. You can add everyone else from Settings afterwards.',
+    change: auth.user && auth.user.mustChange ? 'Choose your own password to finish signing in.' : 'Change your password.' })[mode];
+  $('#lockBtn').textContent = { signin: 'Sign in', setup: 'Create admin account', change: 'Save password' }[mode];
+  $('#lockAlt').textContent = mode === 'change' && !(auth.user && auth.user.mustChange) ? 'Cancel' : mode === 'change' ? 'Sign out' : '';
+  $('#lockAlt').style.display = $('#lockAlt').textContent ? '' : 'none';
+  $('#lockErr').textContent = '';
+  ['#lockPw', '#lockNew', '#lockNew2'].forEach(x => { $(x).value = ''; });
   $('#lock').classList.add('show');
-  setTimeout(() => (userName() && !lockNameOnly ? $('#lockPw') : $('#lockName')).focus(), 300);
+  setTimeout(() => (mode === 'setup' ? $('#lockName') : mode === 'change' ? $('#lockPw') : $('#lockUser').value ? $('#lockPw') : $('#lockUser')).focus(), 300);
 }
-$('#lockName').addEventListener('keydown', e => { if (e.key === 'Enter' && !lockNameOnly) { e.preventDefault(); $('#lockPw').focus(); } });
-$('#lockForm').addEventListener('submit', e => {
+$('#lockAlt').onclick = () => {
+  if (auth.user && auth.user.mustChange) signOut(); else { $('#lock').classList.remove('show'); }
+};
+$('#lockForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const name = $('#lockName').value.trim().replace(/\s+/g, ' ');
-  if (name.length < 2) { $('#lockErr').textContent = 'Please enter your name.'; $('#lockName').focus(); return; }
-  if (!lockNameOnly && sha256($('#lockPw').value) !== CFG.passwordHash) {
-    $('#lockErr').textContent = 'That password isn\'t right.'; $('#lockPw').select(); return;
-  }
-  const first = !userName();
-  store.set('userName', name); if (!lockNameOnly) store.set('unlocked', CFG.passwordHash);
-  $('#lock').classList.remove('show'); $('#lockPw').value = ''; document.activeElement.blur();
-  renderWelcome();
-  if (first || !lockNameOnly) toast(`Welcome, ${name}!`);
-  startApp();
+  const err = t => { $('#lockErr').textContent = t; };
+  if (!navigator.onLine) return err('Connect to the internet to sign in.');
+  const btn = $('#lockBtn'); btn.disabled = true; err('');
+  try {
+    let r;
+    if (lockMode === 'signin') {
+      const username = $('#lockUser').value.trim().toLowerCase(), password = $('#lockPw').value;
+      if (!username || !password) return err('Enter your username and password.');
+      r = await api('login', { username, password });
+    } else if (lockMode === 'setup') {
+      const name = $('#lockName').value.trim(), username = $('#lockUser').value.trim().toLowerCase(), password = $('#lockPw').value;
+      if (name.length < 2) return err('Enter your name.');
+      if (password !== $('#lockNew2').value) return err('The passwords don\'t match.');
+      r = await api('setup', { name, username, password });
+    } else {
+      if ($('#lockNew').value !== $('#lockNew2').value) return err('The new passwords don\'t match.');
+      r = await api('changePassword', { current: $('#lockPw').value, password: $('#lockNew').value });
+    }
+    if (!r.ok) return err(r.error || 'That didn\'t work. Please try again.');
+    const wasChange = lockMode === 'change';
+    auth = { token: r.token, user: r.user }; saveAuth(); store.set('lastUser', r.user.username);
+    $('#lock').classList.remove('show'); document.activeElement.blur(); renderWelcome();
+    toast(wasChange ? 'Password saved' : `Welcome, ${r.user.name}!`);
+    if (r.user.mustChange) return showLock('change');
+    usage = null; store.set('usage', null); indexUsage();
+    startApp(true);
+  } catch { err('Couldn\'t reach the server. Check your internet connection.'); }
+  finally { btn.disabled = false; }
 });
+async function chooseLockMode() {
+  $('#lockUser').value = store.get('lastUser', '');
+  showLock('signin');
+  if (!navigator.onLine) return;
+  try { const r = await api('status'); if (r.ok && r.needsSetup) showLock('setup'); } catch {}
+}
+
+// ------------------------------------------------------------------ version and updates
+function appVersion() {
+  try { return window.Native && window.Native.appVersion ? JSON.parse(window.Native.appVersion()) : null; } catch { return null; }
+}
+let updateInfo = null;
+async function checkUpdate(manual = false) {
+  const v = appVersion(); if (!v || !CFG.updateRepo) return;
+  try {
+    const r = await fetch(`https://api.github.com/repos/${CFG.updateRepo}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+    const rel = await r.json();
+    const latest = parseInt(String(rel.tag_name || '').replace(/\D+/g, ''), 10);
+    store.set('updateChecked', Date.now());
+    if (latest > v.code) {
+      const asset = (rel.assets || []).find(a => /MMC-SongPoint\.apk$/i.test(a.name)) || (rel.assets || []).find(a => /\.apk$/i.test(a.name));
+      updateInfo = { version: (rel.name || '').replace(/^.*?(\d+\.\d+\.\d+).*$/, '$1') || '1.0.' + latest, url: asset ? asset.browser_download_url : rel.html_url };
+      $('#updText').textContent = `Version ${updateInfo.version} is available.`; $('#updCard').classList.add('show');
+      if (manual) { closeSheet(); toast('An update is available'); }
+    } else if (manual) toast('You have the latest version');
+  } catch { if (manual) toast('Couldn\'t check for updates. Are you online?'); }
+}
+$('#updBtn').onclick = () => {
+  if (!updateInfo) return;
+  if (window.Native && window.Native.openUrl) window.Native.openUrl(updateInfo.url); else window.open(updateInfo.url, '_blank');
+  toast('Downloading… open the file when it finishes to install.', 5000);
+};
+$('#checkUpdBtn').onclick = () => checkUpdate(true);
+(() => {
+  const v = appVersion();
+  if (v) { $('#versionLine').textContent = `Version ${v.name} (Android app)`; $('#checkUpdBtn').style.display = ''; }
+  else $('#versionLine').textContent = 'Web version — always up to date when you\'re online.';
+})();
+
+// ------------------------------------------------------------------ starting note (Do) button
+const NOTE_NAMES = ['A', 'A♯/B♭', 'B', 'C', 'C♯/D♭', 'D', 'D♯/E♭', 'E', 'F', 'F♯/G♭', 'G', 'G♯/A♭'];
+const PC = { C: 3, D: 5, E: 7, F: 8, G: 10, A: 0, B: 2 };          // index into NOTE_NAMES
+const keyOverrides = new Map();                                      // this session only
+function keyIndex(k) {
+  const m = String(k || '').match(/^([A-G])([#b♯♭]?)(m?)$/); if (!m) return -1;
+  return (PC[m[1]] + (/[#♯]/.test(m[2]) ? 1 : /[b♭]/.test(m[2]) ? -1 : 0) + 12) % 12;
+}
+function noteLabel(i, preferFlat) {
+  const n = NOTE_NAMES[i]; if (!n.includes('/')) return n;
+  const [sharp, flat] = n.split('/'); return preferFlat ? flat : sharp;
+}
+function songKeyState(s) {
+  const base = s.musicKey ? keyIndex(s.musicKey) : -1, minor = /m$/.test(s.musicKey || '');
+  const flat = !/[#♯]/.test(s.musicKey || '');
+  if (keyOverrides.has(s.key)) { const i = keyOverrides.get(s.key); return { i, label: noteLabel(i, flat) + (minor ? 'm' : ''), changed: true }; }
+  if (base >= 0) return { i: base, label: s.musicKey.replace('#', '♯').replace(/b(?=m?$)/, '♭'), changed: false };
+  return { i: -1, label: 'Key', changed: false };
+}
+function keyButton(s) {
+  const k = songKeyState(s);
+  return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note">${esc(k.label)}</button>`;
+}
+let actx = null;
+function playPitch(i, el) {
+  if (i < 0) return;
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === 'suspended') actx.resume();
+  const semis = i + (i >= 3 ? -12 : 0);                // C4..B4 around middle C
+  const f = 440 * Math.pow(2, semis / 12), t = actx.currentTime;
+  const out = actx.createGain(); out.connect(actx.destination);
+  out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+  out.gain.exponentialRampToValueAtTime(0.25, t + 0.4); out.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
+  [[1, 'triangle', 1], [2, 'sine', 0.25], [0.5, 'sine', 0.2]].forEach(([mult, type, g]) => {
+    const o = actx.createOscillator(), og = actx.createGain();
+    o.type = type; o.frequency.value = f * mult; og.gain.value = g;
+    o.connect(og); og.connect(out); o.start(t); o.stop(t + 1.9);
+  });
+  if (el) { el.classList.add('ringing'); setTimeout(() => el.classList.remove('ringing'), 700); }
+}
+// tap = play Do; press and hold = choose another note
+let wheelSong = null, wheelIdx = 0, holdTimer = null, held = false;
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.keyb'); if (!b) return;
+  held = false;
+  holdTimer = setTimeout(() => {
+    held = true;
+    const row = b.closest('.song'); if (row) openWheel(results[+row.dataset.i].s);
+  }, 450);
+});
+['pointerup', 'pointercancel', 'pointerleave'].forEach(t => document.addEventListener(t, () => clearTimeout(holdTimer), true));
+document.addEventListener('contextmenu', e => { if (e.target.closest('.keyb')) e.preventDefault(); });
+function keyTap(s, el) {
+  if (held) { held = false; return; }
+  const k = songKeyState(s);
+  if (k.i < 0) return openWheel(s);
+  playPitch(k.i, el);
+}
+function openWheel(s) {
+  wheelSong = s;
+  const k = songKeyState(s);
+  wheelIdx = k.i >= 0 ? k.i : 3;
+  $('#wheelTitle').textContent = `Starting note · ${s.number ? s.number + '. ' : ''}${s.title}`;
+  $('#wheelSub').textContent = s.musicKey ? `Written in ${s.musicKey}. Your choice lasts until you close the app.` : 'No key is listed for this song. Your choice lasts until you close the app.';
+  const sc = $('#wheelScroll');
+  sc.innerHTML = '<div class="pad"></div>' + NOTE_NAMES.map((n, i) => `<div data-i="${i}">${n}</div>`).join('') + '<div class="pad"></div>';
+  $('#wheelBox').classList.add('show');
+  requestAnimationFrame(() => { sc.scrollTop = wheelIdx * 44; markWheel(); });
+}
+function markWheel() { document.querySelectorAll('#wheelScroll [data-i]').forEach(d => d.classList.toggle('on', +d.dataset.i === wheelIdx)); }
+let wheelT;
+$('#wheelScroll').addEventListener('scroll', () => {
+  const i = Math.max(0, Math.min(11, Math.round($('#wheelScroll').scrollTop / 44)));
+  if (i !== wheelIdx) { wheelIdx = i; markWheel(); clearTimeout(wheelT); wheelT = setTimeout(() => playPitch(wheelIdx), 160); }
+});
+$('#wheelScroll').addEventListener('click', e => { const d = e.target.closest('[data-i]'); if (d) $('#wheelScroll').scrollTo({ top: +d.dataset.i * 44, behavior: 'smooth' }); });
+function closeWheel() { $('#wheelBox').classList.remove('show'); wheelSong = null; }
+$('#wheelPlay').onclick = () => playPitch(wheelIdx);
+$('#wheelDone').onclick = () => {
+  const base = wheelSong.musicKey ? keyIndex(wheelSong.musicKey) : -1;
+  if (wheelIdx === base) keyOverrides.delete(wheelSong.key); else keyOverrides.set(wheelSong.key, wheelIdx);
+  closeWheel(); render();
+};
+$('#wheelReset').onclick = () => { keyOverrides.delete(wheelSong.key); closeWheel(); render(); };
+$('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') closeWheel(); });
+
+// ------------------------------------------------------------------ PowerPoint (built on the server)
+function busy(on, title = '', text = '') {
+  $('#busyBox').classList.toggle('show', on); $('#busyTitle').textContent = title; $('#busyText').textContent = text;
+}
+function deliverFile(name, base64, mime) {
+  if (window.Native && window.Native.shareBase64) return window.Native.shareBase64(name, base64, mime);
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  const file = new File([bytes], name, { type: mime });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: name }).catch(() => {});
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(file), download: name });
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+$('#noteSlides').onclick = async () => {
+  const n = editing; if (!n) return;
+  if (!navigator.onLine) return toast('Connect to the internet to build a PowerPoint');
+  const picked = n.songs.map(r => ({ r, s: songIndex.get(r.key) })).filter(x => x.s && x.s.slides.length);
+  if (!picked.length) return toast('None of these songs have slides yet');
+  const missing = n.songs.length - picked.length;
+  if (missing && !confirm(`${missing} song${missing === 1 ? ' has' : 's have'} no slides and will be left out. Continue?`)) return;
+  const title = `${n.date || today()} ${(n.title || 'Songs').trim()}`;
+  busy(true, 'Building your PowerPoint…', `${picked.length} song${picked.length === 1 ? '' : 's'}. This usually takes under a minute (longer the first time a song is used).`);
+  try {
+    const r = await api('buildSlides', { title, noteId: n.id, noteTitle: n.title, dateUsed: n.date, device: deviceName(),
+      files: picked.map(x => ({ id: x.s.slides[0].id })), songs: picked.map(x => x.r) });
+    busy(false);
+    if (!r.ok) return toast(r.error || 'Couldn\'t build the PowerPoint', 5000);
+    deliverFile(r.name, r.data, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    toast('PowerPoint ready — also saved to Drive › SongPoint Slideshows', 5000);
+  } catch (e) { busy(false); toast('Couldn\'t reach the server. Try again in a moment.', 5000); }
+};
 
 // ------------------------------------------------------------------ start
 let started = false;
-function startApp() {
-  if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000 || !library.sheets) sync();
-  if (!started) { started = true; flushLog(); if (!usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage(); }
+function startApp(fresh = false) {
+  if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000 || !library.sheets || (CFG.slidesFolder && !library.slides)) sync();
+  if (!started || fresh) {
+    started = true; flushLog();
+    if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
+    if (navigator.onLine && auth.token) api('me').then(r => { if (r.ok) { auth.user = r.user; saveAuth(); renderWelcome(); } }).catch(() => {});
+    if (Date.now() - store.get('updateChecked', 0) > 12 * 3600000) checkUpdate();
+  }
 }
 refreshDownloaded();
 buildIndex(); renderTabs(); search();
@@ -1409,7 +1763,8 @@ if (N && N.ready) N.ready.then(() => { refreshDownloaded(); renderTabs(); render
 })();
 if (library.synced) setSyncLine(`${summary()} · updated ${ago(library.synced)}`);
 renderWelcome();
-if (needsLogin()) showLock(!needsPassword());
+if (!auth.token) chooseLockMode();
+else if (auth.user && auth.user.mustChange) showLock('change');
 else startApp();
 window.addEventListener('online', () => { if (!needsLogin() && Date.now() - library.synced > CFG.syncMinutes * 60000) sync(); });
 document.addEventListener('visibilitychange', () => {

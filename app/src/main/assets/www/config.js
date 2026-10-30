@@ -13,10 +13,14 @@ window.HYMNAL_CONFIG = {
   // Shared folder with sheet music (PDF/PNG), organised in the same book folders.
   sheetsFolder: "1vAVM0v-hyV0aIbRILII6w_U8We2S2Rxh",
 
-  // SHA-256 of the app password (asked once per phone). Set to "" for no password.
-  passwordHash: "cc85c1a96dffb0ec870badd6424035ff854532061ceca48db95fb8233781810f",
 
-  // Song-list log (Google Sheet "SongPoint Log" via its Apps Script web app).
+  // Shared folder with PowerPoint slides (.ppt / .pptx), in the same book folders.
+  slidesFolder: "14piomFAoPOo8nBAOT2qs3majiEtZunLq",
+
+  // Where the Android app looks for updates (GitHub releases).
+  updateRepo: "jadon1676-cpu/hymnal-tracks",
+
+  // SongPoint server: accounts, song-list log, PowerPoint builder (Google Sheet "SongPoint Log" via its Apps Script web app).
   logUrl: "https://script.google.com/macros/s/AKfycbznkfdtHJ0RI_6MiQKlRu80g_XOxTZaGNkt18KEGXN-2T4zZoK1Qy7VK5W-88a8a6xgww/exec",
 
   // Tab order (folders not listed come last, A-Z).
