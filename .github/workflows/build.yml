@@ -40,15 +40,16 @@ jobs:
         run: gradle :app:assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
-        # MMC-SongPoint.apk is the new name; HymnalTracks.apk keeps old download links working
+        # MMCSongPoint.apk is the current name; the other two keep old download links and older app versions working
         run: |
-          cp app/build/outputs/apk/release/app-release.apk MMC-SongPoint.apk
-          cp MMC-SongPoint.apk HymnalTracks.apk
+          cp app/build/outputs/apk/release/app-release.apk MMCSongPoint.apk
+          cp MMCSongPoint.apk MMC-SongPoint.apk
+          cp MMCSongPoint.apk HymnalTracks.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MMC-SongPoint
-          path: MMC-SongPoint.apk
+          name: MMCSongPoint
+          path: MMCSongPoint.apk
 
       - name: Publish release
         if: env.KEYSTORE_FILE != ''
@@ -58,9 +59,10 @@ jobs:
           name: MMC SongPoint 1.0.${{ github.run_number }}
           make_latest: true
           files: |
+            MMCSongPoint.apk
             MMC-SongPoint.apk
             HymnalTracks.apk
           body: |
-            Install on Android: download **MMC-SongPoint.apk** below on your phone and open it.
+            Install on Android: download **MMCSongPoint.apk** below on your phone and open it.
             Permanent link to the newest version:
-            https://github.com/${{ github.repository }}/releases/latest/download/MMC-SongPoint.apk
+            https://github.com/${{ github.repository }}/releases/latest/download/MMCSongPoint.apk
