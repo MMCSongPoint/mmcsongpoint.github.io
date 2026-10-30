@@ -113,6 +113,7 @@
   .prow { display: flex; align-items: center; gap: 10px; }
   .prow .info { flex: 1; }
   .ctrls { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 6px 0 2px; }
+  .icon.skip { min-width: 46px; height: 46px; color: var(--text); }
   .icon { background: none; border: none; color: var(--muted); min-width: 40px; height: 40px; border-radius: 8px; display: grid; place-items: center; font-size: 14px; font-weight: 600; }
   .icon.on { color: var(--accent-text); }
   .big { width: 54px; height: 54px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); border: none; display: grid; place-items: center; }
@@ -337,16 +338,16 @@
       <div class="extras">
         <button class="icon sm" id="musicBtn" title="Sheet music" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M10 17.5a1.5 1.5 0 1 1-1.5-1.5H10v-6l4-1"/></svg></button>
         <button class="icon" id="loopBtn" title="Repeat">⟲</button>
-        <select id="rate" title="Speed"><option value="0.75">0.75×</option><option value="0.85">0.85×</option><option value="1" selected>1×</option><option value="1.1">1.1×</option></select>
+        <select id="rate" title="Speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="0.85">0.85×</option><option value="1" selected>1×</option><option value="1.15">1.15×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option><option value="2">2×</option></select>
       </div>
     </div>
     <div class="seek"><span id="cur">0:00</span><input type="range" id="seek" min="0" max="1000" value="0"><span id="len">0:00</span></div>
     <div class="ctrls">
-      <button class="icon" id="prevBtn" aria-label="Previous"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
-      <button class="icon" id="backBtn">−5</button>
+      <button class="icon skip" id="back5Btn" aria-label="Back 5 seconds" title="Back 5 seconds"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 6.07A8 8 0 1 1 4.48 15.74"/></g><g><path d="M5.4 7.6 9.1 8 6.9 4.15Z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></g><text x="12" y="16.3" text-anchor="middle" font-size="8.5" font-weight="700" fill="currentColor" font-family="system-ui,sans-serif">5</text></svg></button>
+      <button class="icon skip" id="back1Btn" aria-label="Back 1 second" title="Back 1 second"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 6.07A8 8 0 1 1 4.48 15.74"/></g><g><path d="M5.4 7.6 9.1 8 6.9 4.15Z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></g><text x="12" y="16.3" text-anchor="middle" font-size="8.5" font-weight="700" fill="currentColor" font-family="system-ui,sans-serif">1</text></svg></button>
       <button class="big" id="toggleBtn" aria-label="Play or pause"></button>
-      <button class="icon" id="fwdBtn">+5</button>
-      <button class="icon" id="nextBtn" aria-label="Next"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <button class="icon skip" id="fwd1Btn" aria-label="Forward 1 second" title="Forward 1 second"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><g transform="matrix(-1 0 0 1 24 0)" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 6.07A8 8 0 1 1 4.48 15.74"/></g><g transform="matrix(-1 0 0 1 24 0)"><path d="M5.4 7.6 9.1 8 6.9 4.15Z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></g><text x="12" y="16.3" text-anchor="middle" font-size="8.5" font-weight="700" fill="currentColor" font-family="system-ui,sans-serif">1</text></svg></button>
+      <button class="icon skip" id="fwd5Btn" aria-label="Forward 5 seconds" title="Forward 5 seconds"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><g transform="matrix(-1 0 0 1 24 0)" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 6.07A8 8 0 1 1 4.48 15.74"/></g><g transform="matrix(-1 0 0 1 24 0)"><path d="M5.4 7.6 9.1 8 6.9 4.15Z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></g><text x="12" y="16.3" text-anchor="middle" font-size="8.5" font-weight="700" fill="currentColor" font-family="system-ui,sans-serif">5</text></svg></button>
     </div>
     <div class="scroller pparts" id="playerParts"></div>
     <div class="minibar"><i id="miniProg"></i></div>
@@ -1162,10 +1163,11 @@ audio.addEventListener('timeupdate', () => {
 $('#seek').addEventListener('input', () => { seeking = true; });
 $('#seek').addEventListener('change', e => { if (audio.duration) audio.currentTime = e.target.value / 1000 * audio.duration; seeking = false; });
 $('#toggleBtn').onclick = togglePlay;
-$('#prevBtn').onclick = () => audio.currentTime > 3 ? (audio.currentTime = 0) : step(-1);
-$('#nextBtn').onclick = () => step(1);
-$('#backBtn').onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 5); };
-$('#fwdBtn').onclick = () => { audio.currentTime = Math.min(audio.duration || 1e9, audio.currentTime + 5); };
+const nudge = d => { audio.currentTime = Math.max(0, Math.min((audio.duration || 1e9) - 0.05, audio.currentTime + d)); };
+$('#back5Btn').onclick = () => nudge(-5);
+$('#back1Btn').onclick = () => nudge(-1);
+$('#fwd1Btn').onclick = () => nudge(1);
+$('#fwd5Btn').onclick = () => nudge(5);
 $('#loopBtn').onclick = () => { audio.loop = !audio.loop; $('#loopBtn').classList.toggle('on', audio.loop); toast(audio.loop ? 'Repeat on' : 'Repeat off', 1200); };
 $('#rate').onchange = e => { audio.playbackRate = +e.target.value; };
 $('#toggleBtn').innerHTML = BIG_PLAY;

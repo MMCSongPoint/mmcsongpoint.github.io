@@ -54,10 +54,8 @@
     const set = (a, f) => { try { ms.setActionHandler(a, f); } catch {} };
     set('play', () => { const a = document.getElementById('audio'); if (a && a.paused) call('togglePlay'); });
     set('pause', () => { const a = document.getElementById('audio'); if (a && !a.paused) call('togglePlay'); });
-    set('previoustrack', click('#prevBtn'));
-    set('nexttrack', click('#nextBtn'));
-    set('seekbackward', click('#backBtn'));
-    set('seekforward', click('#fwdBtn'));
+    set('seekbackward', click('#back5Btn'));   // lock screen: 5-second skips (no next/previous track)
+    set('seekforward', click('#fwd5Btn'));
   }
 
   // ---------------------------------------------------------------- keep screen on
