@@ -678,7 +678,7 @@ let syncing = false;
 async function sync(manual = false) {
   if (syncing) return;
   if (!CFG.apiKey || CFG.apiKey.startsWith('PASTE')) { setSyncLine('The app is missing its Google API key (config.js).', true); return; }
-  if (!navigator.onLine) { setSyncLine(library.synced ? `Offline · Last Refreshed ${ago(library.synced)}` : 'You\'re offline.', !library.synced); if (manual) toast('No internet connection'); return; }
+  if (!navigator.onLine) { setSyncLine(library.synced ? `Offline · last refreshed ${ago(library.synced)}` : 'You\'re offline.', !library.synced); if (manual) toast('No internet connection'); return; }
   syncing = true; $('#syncBtn').classList.add('spin'); setSyncLine('Checking Google Drive…');
   try {
     const tracks = [], seenColl = [];
@@ -748,7 +748,7 @@ async function sync(manual = false) {
     library = { tracks, sheets, slides, collections: seenColl, synced: Date.now() };
     store.set('library', library);
     buildIndex(); renderTabs(); search();
-    setSyncLine(`${summary()} · Last Refreshed just now`);
+    setSyncLine(`${summary()} · last refreshed just now`);
     if (manual) toast(tracks.length + sheets.length + slides.length === before ? 'Up to date' : `Library updated: ${summary()}`);
   } catch (e) {
     setSyncLine(navigator.onLine ? `Couldn't update: ${e.message}` : 'You\'re offline.', true);
@@ -1193,7 +1193,7 @@ function updateSheet() {
   $('#dlPartBtn').textContent = `Save every song in ${scope} for offline`;
   $('#dlPartBtn').style.display = N ? '' : 'none';
   $('#clearDlBtn').style.display = N && downloaded.size ? '' : 'none';
-  $('#aboutLine').textContent = `${summary()} · ${library.synced ? 'Last Refreshed ' + ago(library.synced) : 'Not refreshed yet'}`;
+  $('#aboutLine').textContent = `${summary()} · ${library.synced ? 'last refreshed ' + ago(library.synced) : 'not refreshed yet'}`;
 }
 let theme = store.get('theme', 'system');
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -1935,7 +1935,7 @@ if (N && N.ready) N.ready.then(() => { refreshDownloaded(); renderTabs(); render
   if (N && N.isWeb && ios && !standalone && !store.get('installTipClosed', false)) $('#installTip').classList.add('show');
   $('#installClose').onclick = () => { $('#installTip').classList.remove('show'); store.set('installTipClosed', true); };
 })();
-if (library.synced) setSyncLine(`${summary()} · Last Refreshed ${ago(library.synced)}`);
+if (library.synced) setSyncLine(`${summary()} · last refreshed ${ago(library.synced)}`);
 renderWelcome();
 if (!auth.token) chooseLockMode();
 else if (auth.user && auth.user.mustChange) showLock('change');
