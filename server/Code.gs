@@ -147,6 +147,7 @@ function handle_(d) {
   if (a === 'usage') return usage_(me, d);
   if (a === 'buildSlides') return buildSlides_(me, d);
   if (a === 'bugReport') return bugReport_(me, d);
+  if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
 
   if (!me.admin) return { ok: false, error: 'Only admins can do that.' };
   if (a === 'listUsers') return { ok: true, users: users_().map(publicUser_) };
@@ -156,6 +157,7 @@ function handle_(d) {
   if (a === 'setDisabled') return setDisabled_(me, d);
   if (a === 'getIgnored') return { ok: true, ignored: ignored_() };
   if (a === 'setIgnored') return setIgnored_(me, d);
+  if (a === 'setTextDoc') return setTextDoc_(me, d);
   return { ok: false, error: 'Unknown action' };
 }
 
@@ -418,4 +420,24 @@ function setIgnored_(me, d) {
     if (!d.ignored && i >= 0) sh.deleteRow(i + 2);
   } finally { lock.releaseLock(); }
   return { ok: true, ignored: ignored_() };
+}
+
+/** Songs admins marked "Text doc" (readings etc.): no MP3 or key expected, and the app hides the key button. */
+var TEXTDOCS = 'Text Docs';
+function textDocs_() {
+  var sh = tab_(TEXTDOCS, IHEAD), n = sh.getLastRow() - 1;
+  if (n < 1) return [];
+  return sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }).filter(String);
+}
+function setTextDoc_(me, d) {
+  var key = String(d.key || ''); if (!key) return { ok: false, error: 'No song given.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(TEXTDOCS, IHEAD), n = sh.getLastRow() - 1;
+    var keys = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [];
+    var i = keys.indexOf(key);
+    if (d.textDoc && i < 0) sh.appendRow([key, String(d.title || ''), String(d.book || ''), me.name || me.username, new Date()]);
+    if (!d.textDoc && i >= 0) sh.deleteRow(i + 2);
+  } finally { lock.releaseLock(); }
+  return { ok: true, textDocs: textDocs_() };
 }

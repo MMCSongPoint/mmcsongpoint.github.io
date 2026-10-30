@@ -255,6 +255,10 @@
   .miss { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; margin: 4px 4px 0 0; background: rgba(229,72,77,.12); color: #c4323a; }
   html.dark .miss, .dark .miss { color: #ff8a8f; }
   .crow .pbtn { padding: 6px 10px; font-size: 13px; flex: none; }
+  .crow .cbtns { display: flex; flex-direction: column; gap: 6px; flex: none; }
+  .tdoc { color: var(--accent-text); font-weight: 600; }
+  .ctiles { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .ctiles button.tdtile b { color: var(--accent-text); }
   .updbadge { display: none; position: absolute; top: -4px; right: -4px; width: 11px; height: 11px; border-radius: 50%; background: #e5484d; border: 2px solid var(--bg); }
   .brand i.has-update { cursor: pointer; }
   .brand i.has-update .updbadge { display: block; animation: updpulse 2s ease-out 3; }
@@ -273,7 +277,7 @@
   .busybox .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent-text); margin: 0 auto 12px; animation: spin 1s linear infinite; }
   .sheet-bg { position: fixed; inset: 0; background: var(--scrim); display: none; z-index: 70; }
   .sheet-bg.show { display: block; }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-radius: 18px 18px 0 0; padding: 18px 18px calc(22px + env(safe-area-inset-bottom)); z-index: 71; transform: translateY(110%); transition: transform .2s; max-width: 900px; margin: 0 auto; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-radius: 18px 18px 0 0; padding: 18px 18px calc(22px + env(safe-area-inset-bottom)); z-index: 71; transform: translateY(110%); transition: transform .2s; max-width: 900px; margin: 0 auto; max-height: calc(100vh - 44px - env(safe-area-inset-top)); max-height: calc(100dvh - 44px - env(safe-area-inset-top)); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; }
   .sheet.show { transform: none; }
   .sheet h3 { margin: 0 0 4px; font-size: 18px; }
   .sheet p { color: var(--muted); font-size: 14px; margin: 4px 0 14px; }
@@ -1858,6 +1862,14 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) chec
 // ------------------------------------------------------------------ starting note (Do) button
 const NOTE_NAMES = ['A', 'A♯/B♭', 'B', 'C', 'C♯/D♭', 'D', 'D♯/E♭', 'E', 'F', 'F♯/G♭', 'G', 'G♯/A♭'];
 const PC = { C: 3, D: 5, E: 7, F: 8, G: 10, A: 0, B: 2 };          // index into NOTE_NAMES
+// Songs admins marked "Text doc" on the Library check screen: no key button, no MP3/key expected.
+let textDocs = new Set(store.get('textDocs', []));
+const isTextDoc = s => textDocs.has(s.key);
+function applyTextDocs(list) {
+  const was = [...textDocs].sort().join('|'); textDocs = new Set(list); store.set('textDocs', list);
+  if (was !== [...list].sort().join('|')) { render(); if ($('#checkPanel').classList.contains('show')) renderCheck(); }
+}
+async function loadTextDocs() { try { const r = await api('getTextDocs'); if (r.ok) applyTextDocs(r.textDocs); } catch {} }
 const keyOverrides = new Map();                                      // this session only (values are pitches 0..12)
 // Pitch numbers: 0 = middle C (C4) up to 12 = high C (C5). NOTE_NAMES index (A = 0) -> pitch:
 const pitchOf = i => (i + 9) % 12;
@@ -1879,6 +1891,7 @@ function songKeyState(s) {
 }
 const PIPE_ICON = '<svg class="pipe" viewBox="0 0 48 48" aria-hidden="true"><defs><mask id="pipeMask"><rect width="48" height="48" fill="#fff"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(0 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(30 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(60 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(90 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(120 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(150 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(180 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(210 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(240 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(270 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(300 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(330 24 24)"/><circle cx="24" cy="24" r="3.6"/><circle cx="24" cy="24" r="7.5" fill="none" stroke="#000" stroke-width="1.6"/><text x="24" y="17.2" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="9.5">C</text><path d="M24 31.5v6M21.8 35.3l2.2 2.4 2.2-2.4" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></mask></defs><circle cx="24" cy="24" r="22.5" fill="currentColor" mask="url(#pipeMask)"/></svg>';
 function keyButton(s) {
+  if (isTextDoc(s)) return '';
   const k = songKeyState(s);
   return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note"${s.keyChange ? ` title="${esc(s.keyChange)}"` : ''}>${k.label ? esc(k.label) : PIPE_ICON}${s.keyChange ? '<sup>+</sup>' : ''}</button>`;
 }
@@ -1961,27 +1974,29 @@ $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') 
 // ------------------------------------------------------------------ library check (admins)
 // Songs missing an MP3, sheet music, a key or a PowerPoint. Admins can mark songs "ignore";
 // that list is kept on the server so every admin sees the same thing.
+// Text docs (readings etc.) never have an MP3 or a key, so those aren't counted as missing.
 const CHECKS = [
-  { id: 'mp3', label: 'MP3', test: s => !s.parts.length },
+  { id: 'mp3', label: 'MP3', test: s => !s.parts.length && !isTextDoc(s) },
   { id: 'sheet', label: 'Sheet music', test: s => !s.sheets.length },
-  { id: 'key', label: 'Key', test: s => !s.musicKey },
+  { id: 'key', label: 'Key', test: s => !s.musicKey && !isTextDoc(s) },
   { id: 'ppt', label: 'PowerPoint', test: s => !s.slides.length },
 ];
 let checkIgnored = new Set(store.get('checkIgnored', [])), checkFilter = '', checkBook = '', checkLimit = 150;
 function checkRows() {
-  return [...songIndex.values()].map(s => ({ s, miss: CHECKS.filter(c => c.test(s)) })).filter(x => x.miss.length);
+  return [...songIndex.values()].map(s => ({ s, miss: CHECKS.filter(c => c.test(s)) })).filter(x => x.miss.length || isTextDoc(x.s));
 }
 function renderCheck() {
   const all = checkRows(), showIgn = $('#checkShowIgn').checked;
   const books = CFG.collectionOrder.filter(b => all.some(x => x.s.collection === b));
   for (const x of all) if (!books.includes(x.s.collection)) books.push(x.s.collection);
   const inBook = all.filter(x => (!checkBook || x.s.collection === checkBook) && !checkIgnored.has(x.s.key));
-  $('#checkTiles').innerHTML = CHECKS.map(c => `<button data-c="${c.id}" class="${checkFilter === c.id ? 'on' : ''}"><b>${inBook.filter(x => x.miss.includes(c)).length}</b><small>No ${c.label}</small></button>`).join('');
+  $('#checkTiles').innerHTML = CHECKS.map(c => `<button data-c="${c.id}" class="${checkFilter === c.id ? 'on' : ''}"><b>${inBook.filter(x => x.miss.includes(c)).length}</b><small>No ${c.label}</small></button>`).join('')
+    + `<button data-c="tdoc" class="tdtile${checkFilter === 'tdoc' ? ' on' : ''}"><b>${inBook.filter(x => isTextDoc(x.s)).length}</b><small>Text docs</small></button>`;
   $('#checkBooks').innerHTML = ['', ...books].map(b => `<button class="chip${checkBook === b ? ' on' : ''}" data-b="${esc(b)}">${b ? esc(b) : 'All books'}</button>`).join('');
   const q = normalize($('#checkQ').value || '');
   let rows = all.filter(x => (!checkBook || x.s.collection === checkBook)
     && (showIgn || !checkIgnored.has(x.s.key))
-    && (!checkFilter || x.miss.some(c => c.id === checkFilter))
+    && (checkFilter === 'tdoc' ? isTextDoc(x.s) : !checkFilter || x.miss.some(c => c.id === checkFilter))
     && (!q || x.s.nTitle.includes(q) || x.s.number === q.replace(/^#/, '')));
   rows.sort((a, b) => (CFG.collectionOrder.indexOf(a.s.collection) - CFG.collectionOrder.indexOf(b.s.collection))
     || ((+a.s.number || 1e9) - (+b.s.number || 1e9)) || a.s.title.localeCompare(b.s.title));
@@ -1989,14 +2004,16 @@ function renderCheck() {
   $('#checkList').innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0 0 4px">${rows.length} song${rows.length === 1 ? '' : 's'}${ign ? ` · ${ign} ignored` : ''}</p>`
     + (rows.length ? rows.slice(0, checkLimit).map(x => { const ig = checkIgnored.has(x.s.key); return `<div class="crow${ig ? ' ign' : ''}">
       <div class="ci"><div class="ct">${x.s.number ? `<span class="num">${esc(x.s.number)}</span>` : ''}${esc(x.s.title)}</div>
-      <div class="cb">${esc(x.s.collection)}</div><div>${x.miss.map(c => `<span class="miss">No ${c.label}</span>`).join('')}</div></div>
-      <button class="pbtn ghost" data-ign="${esc(x.s.key)}">${ig ? 'Un-ignore' : 'Ignore'}</button></div>`; }).join('')
+      <div class="cb">${esc(x.s.collection)}${isTextDoc(x.s) ? ' · <b class="tdoc">Text doc</b>' : ''}</div><div>${x.miss.map(c => `<span class="miss">No ${c.label}</span>`).join('')}</div></div>
+      <div class="cbtns"><button class="pbtn ghost" data-ign="${esc(x.s.key)}">${ig ? 'Un-ignore' : 'Ignore'}</button>
+      <button class="pbtn ghost" data-tdoc="${esc(x.s.key)}">${isTextDoc(x.s) ? 'Not text doc' : 'Text doc'}</button></div></div>`; }).join('')
       + (rows.length > checkLimit ? `<button class="act" id="checkMore">Show more (${rows.length - checkLimit} left)</button>` : '')
     : '<div class="vmsg">Nothing missing here.</div>');
 }
 async function loadIgnored() {
   try { const r = await api('getIgnored'); if (r.ok) { checkIgnored = new Set(r.ignored); store.set('checkIgnored', r.ignored); renderCheck(); } }
   catch {}
+  loadTextDocs();
 }
 $('#checkBtn').onclick = () => { closeSheet(); checkLimit = 150; renderCheck(); openPanel('checkPanel'); loadIgnored(); };
 $('#checkRefresh').onclick = () => { loadIgnored(); sync(true); };
@@ -2006,6 +2023,17 @@ $('#checkPanel').addEventListener('click', async e => {
   const t = e.target.closest('[data-c]'); if (t) { checkFilter = checkFilter === t.dataset.c ? '' : t.dataset.c; checkLimit = 150; return renderCheck(); }
   const b = e.target.closest('[data-b]'); if (b) { checkBook = b.dataset.b; checkLimit = 150; return renderCheck(); }
   if (e.target.id === 'checkMore') { checkLimit += 300; return renderCheck(); }
+  const td = e.target.closest('[data-tdoc]');
+  if (td) {
+    const key = td.dataset.tdoc, s = songIndex.get(key), on = !textDocs.has(key);
+    on ? textDocs.add(key) : textDocs.delete(key); store.set('textDocs', [...textDocs]); renderCheck(); render();
+    try {
+      const r = await api('setTextDoc', { key, textDoc: on, title: s ? s.title : '', book: s ? s.collection : '' });
+      if (r.ok) applyTextDocs(r.textDocs);
+      else toast(r.error === 'Unknown action' ? 'The server needs updating to save this.' : (r.error || 'Couldn\'t save that'), 4500);
+    } catch { toast('Couldn\'t reach the server. Saved on this device for now.', 4000); }
+    return;
+  }
   const g = e.target.closest('[data-ign]'); if (!g) return;
   const key = g.dataset.ign, s = songIndex.get(key), on = !checkIgnored.has(key);
   on ? checkIgnored.add(key) : checkIgnored.delete(key); store.set('checkIgnored', [...checkIgnored]); renderCheck();
@@ -2135,6 +2163,7 @@ function startApp(fresh = false) {
   if (!started || fresh) {
     started = true; flushLog();
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
+    if (navigator.onLine && auth.token) loadTextDocs();
     if (navigator.onLine && auth.token) api('me').then(r => { if (r.ok) { auth.user = r.user; saveAuth(); renderWelcome(); } }).catch(() => {});
   }
 }
