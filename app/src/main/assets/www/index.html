@@ -1718,9 +1718,8 @@ async function checkUpdate(manual = false) {
       const asset = (rel.assets || []).find(a => /^MMCSongPoint\.apk$/i.test(a.name)) || (rel.assets || []).find(a => /\.apk$/i.test(a.name));
       updateInfo = { version: (rel.name || '').replace(/^.*?(\d+\.\d+\.\d+).*$/, '$1') || '1.0.' + latest, url: asset ? asset.browser_download_url : rel.html_url };
       showUpdateBadge(`Version ${updateInfo.version} is available. Tap to download.`);
-      if (manual || store.get('updateAsked', '') !== updateInfo.version) {
-        store.set('updateAsked', updateInfo.version);
-        if (manual) closeSheet();
+      if (manual) {   // automatic checks only show the red dot; asking happens when it's tapped
+        closeSheet();
         setTimeout(() => {
           if (confirm(`MMC SongPoint ${updateInfo.version} is available (you have ${v.name || 'an older version'}).\n\nDownload it now?`)) downloadUpdate();
         }, 50);
@@ -1755,7 +1754,9 @@ async function checkWebUpdate() {
     if (m && m[1] !== WEB_VERSION.split('|')[0]) { webUpdate = m[1]; showUpdateBadge(`Version ${m[1]} is available. Tap to reload.`); }
   } catch {}
 }
-setTimeout(checkWebUpdate, 4000);
+// Check for updates every time the app is opened, and again when it comes back after an hour or more
+setTimeout(() => { checkUpdate(); checkWebUpdate(); }, 1200);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - store.get('updateChecked', 0) > 3600000) checkUpdate(); });
 setInterval(checkWebUpdate, 20 * 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkWebUpdate(); });
 (() => {
@@ -1923,7 +1924,6 @@ function startApp(fresh = false) {
     started = true; flushLog();
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) api('me').then(r => { if (r.ok) { auth.user = r.user; saveAuth(); renderWelcome(); } }).catch(() => {});
-    if (Date.now() - store.get('updateChecked', 0) > 12 * 3600000) checkUpdate();
   }
 }
 refreshDownloaded();
