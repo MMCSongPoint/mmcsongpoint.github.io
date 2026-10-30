@@ -1707,15 +1707,22 @@ async function checkUpdate(manual = false) {
       const asset = (rel.assets || []).find(a => /MMC-SongPoint\.apk$/i.test(a.name)) || (rel.assets || []).find(a => /\.apk$/i.test(a.name));
       updateInfo = { version: (rel.name || '').replace(/^.*?(\d+\.\d+\.\d+).*$/, '$1') || '1.0.' + latest, url: asset ? asset.browser_download_url : rel.html_url };
       $('#updText').textContent = `Version ${updateInfo.version} is available.`; $('#updCard').classList.add('show');
-      if (manual) { closeSheet(); toast('An update is available'); }
+      if (manual || store.get('updateAsked', '') !== updateInfo.version) {
+        store.set('updateAsked', updateInfo.version);
+        if (manual) closeSheet();
+        setTimeout(() => {
+          if (confirm(`MMC SongPoint ${updateInfo.version} is available (you have ${v.name || 'an older version'}).\n\nDownload it now?`)) downloadUpdate();
+        }, 50);
+      }
     } else if (manual) toast('You have the latest version');
   } catch { if (manual) toast('Couldn\'t check for updates. Are you online?'); }
 }
-$('#updBtn').onclick = () => {
+$('#updBtn').onclick = () => downloadUpdate();
+function downloadUpdate() {
   if (!updateInfo) return;
   if (window.Native && window.Native.openUrl) window.Native.openUrl(updateInfo.url); else window.open(updateInfo.url, '_blank');
   toast('Downloading… open the file when it finishes to install.', 5000);
-};
+}
 $('#checkUpdBtn').onclick = () => checkUpdate(true);
 (() => {
   const v = appVersion();
