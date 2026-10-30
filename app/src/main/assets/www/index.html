@@ -238,7 +238,7 @@
   .slidechip { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-left: 6px; }
   .busybox { position: fixed; inset: 0; z-index: 95; background: var(--scrim); display: none; place-items: center; }
   .busybox.show { display: grid; }
-  .busybox div { background: var(--panel); border-radius: 16px; padding: 22px 24px; width: min(330px, 88vw); text-align: center; }
+  .busybox > div { background: var(--panel); border-radius: 16px; padding: 22px 24px; width: min(330px, 88vw); text-align: center; }
   .busybox .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent-text); margin: 0 auto 12px; animation: spin 1s linear infinite; }
   .sheet-bg { position: fixed; inset: 0; background: var(--scrim); display: none; z-index: 70; }
   .sheet-bg.show { display: block; }
@@ -423,6 +423,8 @@
   </div>
 </div>
 
+<div class="busybox" id="readyBox"><div><b id="readyTitle">Your file is ready</b><p id="readyText" style="color:var(--muted);font-size:14px;margin:8px 0 16px"></p>
+  <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="pbtn" id="readyShare">Share / Save</button><button class="pbtn" id="readyDl">Download</button><button class="pbtn ghost" id="readyClose">Close</button></div></div></div>
 <div class="busybox" id="busyBox"><div><div class="spinner"></div><b id="busyTitle">Working…</b><p id="busyText" style="color:var(--muted);font-size:14px;margin:8px 0 0"></p></div></div>
 
 <div class="pickbar" id="pickBar"><span id="pickText"></span><button id="pickDone">Done</button></div>
@@ -1125,13 +1127,7 @@ async function downloadSheet() {
       const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw new Error(r.status);
       return new File([await r.blob()], x.name, { type: mimeOf(x) });
     }));
-    if (navigator.canShare && navigator.canShare({ files: blobs }) && /iPhone|iPad|iPod|Android/.test(navigator.userAgent)) {
-      return await navigator.share({ files: blobs, title: viewing.title }).catch(() => {});
-    }
-    for (const f of blobs) {
-      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(f), download: f.name });
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-    }
+    await offerFiles(blobs, 'Sheet music ready');
   } catch { toast(navigator.onLine ? 'Couldn\'t download this file' : 'Connect to the internet to download'); }
 }
 $('#vDownload').onclick = downloadSheet;
@@ -1889,13 +1885,36 @@ $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') 
 function busy(on, title = '', text = '') {
   $('#busyBox').classList.toggle('show', on); $('#busyTitle').textContent = title; $('#busyText').textContent = text;
 }
+// Web: hand files to the user. Computers download them; phones open the share sheet
+// ("Save to Files" etc.). After a long wait the browser no longer allows the share sheet
+// to open by itself, so we show a "ready" box and open it from that tap instead.
+const isPhone = () => /iPhone|iPad|iPod|Android/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function saveBlobs(files) {
+  files.forEach((f, i) => setTimeout(() => {
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(f), download: f.name });
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  }, i * 300));
+}
+function showReady(files, title) {
+  const canShare = isPhone() && navigator.canShare && navigator.canShare({ files });
+  $('#readyTitle').textContent = title || 'Your file is ready';
+  $('#readyText').textContent = files.map(f => f.name).join(', ');
+  $('#readyShare').style.display = canShare ? '' : 'none';
+  $('#readyShare').onclick = () => { $('#readyBox').classList.remove('show'); navigator.share({ files, title: files[0].name }).catch(() => {}); };
+  $('#readyDl').onclick = () => { $('#readyBox').classList.remove('show'); saveBlobs(files); };
+  $('#readyBox').classList.add('show');
+}
+$('#readyClose').onclick = () => $('#readyBox').classList.remove('show');
+async function offerFiles(files, title, afterWait = false) {
+  if (!isPhone()) return saveBlobs(files);
+  if (afterWait || !(navigator.canShare && navigator.canShare({ files }))) return showReady(files, title);
+  try { await navigator.share({ files, title: files[0].name }); }
+  catch (e) { if (e && e.name !== 'AbortError') showReady(files, title); }
+}
 function deliverFile(name, base64, mime) {
   if (window.Native && window.Native.shareBase64) return window.Native.shareBase64(name, base64, mime);
   const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-  const file = new File([bytes], name, { type: mime });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: name }).catch(() => {});
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(file), download: name });
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  offerFiles([new File([bytes], name, { type: mime })], 'Your PowerPoint is ready', true);
 }
 $('#noteSlides').onclick = async () => {
   const n = editing; if (!n) return;
