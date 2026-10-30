@@ -148,6 +148,56 @@
   .install.show { display: flex; }
   .install span { flex: 1; }
   .install button { background: none; border: none; color: var(--muted); font-size: 20px; padding: 0 4px; }
+  /* welcome line */
+  .welcome { font-size: 15px; margin: -2px 2px 2px; color: var(--text); }
+  .welcome b { color: var(--accent-text); }
+  /* full-screen panels (notes, note editor, usage) */
+  .panel { position: fixed; inset: 0; z-index: 75; background: var(--bg); display: none; flex-direction: column; }
+  .panel.show { display: flex; }
+  .panel .phead { display: flex; align-items: center; gap: 8px; padding: calc(8px + env(safe-area-inset-top)) 10px 8px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .panel .phead h2 { flex: 1; margin: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel .pbody { flex: 1; overflow: auto; padding: 14px 14px calc(30px + env(safe-area-inset-bottom)); }
+  .pbtn { background: var(--accent); color: var(--accent-ink); border: none; border-radius: 10px; padding: 9px 14px; font-weight: 600; font-size: 14px; }
+  .pbtn.ghost { background: var(--row); color: var(--text); border: 1px solid var(--line); font-weight: 500; }
+  .pbtn:disabled { opacity: .45; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+  .card .t { font-weight: 600; }
+  .card .m { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .card .songsline { color: var(--muted); font-size: 13px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tag { display: inline-block; font-size: 11px; border-radius: 5px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; border: 1px solid var(--line); color: var(--muted); }
+  .tag.ok { color: var(--ok); border-color: var(--ok); }
+  .tag.wait { color: var(--accent-text); border-color: var(--accent-text); }
+  .field { display: block; margin: 0 0 12px; }
+  .field span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .field input, .field textarea { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; outline: none; }
+  .field input:focus, .field textarea:focus { border-color: var(--accent-text); }
+  .field textarea { min-height: 76px; resize: vertical; }
+  .nsong { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 8px; padding: 9px 4px 9px 10px; border-top: 1px solid var(--line); }
+  .nsong:first-child { border-top: none; }
+  .nsong .pos { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .nsong .ctl { display: flex; align-items: center; }
+  .nsong .ctl button { width: 34px; height: 34px; border: none; background: none; color: var(--muted); border-radius: 8px; display: grid; place-items: center; font-size: 17px; }
+  .nsong .ctl button:disabled { opacity: .25; }
+  .nsong.missing .t { color: var(--muted); text-decoration: line-through; }
+  .row2 { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .pickbar { position: fixed; left: 0; right: 0; z-index: 45; bottom: 0; background: var(--accent); color: var(--accent-ink); display: none; align-items: center; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .pickbar.show { display: flex; }
+  .pickbar span { flex: 1; font-size: 15px; }
+  .pickbar button { background: #fff; color: var(--accent); border: none; border-radius: 9px; padding: 8px 16px; font-weight: 700; }
+  body.picking .player { bottom: calc(58px + env(safe-area-inset-bottom)); }
+  .pick { color: var(--accent-text); font-size: 22px; font-weight: 600; }
+  .pick.on { color: var(--ok); }
+  .ustat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .ustat div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; }
+  .ustat b { display: block; font-size: 22px; }
+  .ustat small { color: var(--muted); font-size: 12px; }
+  .urow { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 10px 2px; border-top: 1px solid var(--line); }
+  .urow:first-child { border-top: none; }
+  .urow .n { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+  .urow .n small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+  .bar100 { height: 4px; background: var(--accent-text); border-radius: 2px; margin-top: 5px; opacity: .7; }
+  .used { color: var(--accent-text); }
+  .lock .who { margin-bottom: 10px; }
   .sheet-bg { position: fixed; inset: 0; background: var(--scrim); display: none; z-index: 70; }
   .sheet-bg.show { display: block; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-radius: 18px 18px 0 0; padding: 18px 18px calc(22px + env(safe-area-inset-bottom)); z-index: 71; transform: translateY(110%); transition: transform .2s; max-width: 900px; margin: 0 auto; }
@@ -167,8 +217,10 @@
   <header>
     <div class="brand"><i>♪</i><span id="appName">MMC SongPoint</span></div>
     <button class="hbtn" id="syncBtn" title="Check Drive for new songs"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+    <button class="hbtn" id="notesBtn" title="My notes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg></button>
     <button class="hbtn" id="menuBtn" title="More"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
   </header>
+  <div class="welcome" id="welcome"></div>
   <div class="syncline" id="syncLine"></div>
   <div class="install" id="installTip"><span>Install on your iPhone: tap <b>Share</b> <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8"/></svg> then <b>Add to Home Screen</b>.</span><button id="installClose" aria-label="Dismiss">×</button></div>
 
@@ -231,16 +283,74 @@
   <form id="lockForm" autocomplete="off">
     <div class="logo">♪</div>
     <h2 id="lockTitle">MMC SongPoint</h2>
-    <p>Enter the password to continue.</p>
+    <p id="lockMsg">Enter your name and the password to continue.</p>
+    <input id="lockName" class="who" type="text" placeholder="Your name" autocomplete="name" autocapitalize="words" enterkeyhint="next" maxlength="40">
     <input id="lockPw" type="password" placeholder="Password" autocomplete="current-password" enterkeyhint="go">
-    <button type="submit">Unlock</button>
+    <button type="submit" id="lockBtn">Unlock</button>
     <div class="err" id="lockErr"></div>
   </form>
 </div>
 
+<!-- My notes -->
+<div class="panel" id="notesPanel">
+  <div class="phead">
+    <button class="icon" data-close="notesPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>My notes</h2>
+    <button class="pbtn ghost" id="usageBtn">Usage</button>
+    <button class="pbtn" id="newNoteBtn">+ New</button>
+  </div>
+  <div class="pbody">
+    <div id="notesList"></div>
+    <div class="row2" style="margin-top:20px">
+      <button class="pbtn ghost" id="exportBtn">Export notes</button>
+      <button class="pbtn ghost" id="importBtn">Import notes</button>
+      <input type="file" id="importFile" accept="application/json,.json,text/plain" hidden>
+    </div>
+    <p style="color:var(--muted);font-size:13px" id="notesInfo"></p>
+  </div>
+</div>
+
+<!-- Note editor -->
+<div class="panel" id="notePanel">
+  <div class="phead">
+    <button class="icon" id="noteBack" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2 id="noteHead">Note</h2>
+    <button class="pbtn" id="noteSave">Save</button>
+  </div>
+  <div class="pbody">
+    <label class="field"><span>Title</span><input id="noteTitle" placeholder="e.g. Sunday morning" maxlength="80"></label>
+    <label class="field"><span>Date used</span><input id="noteDate" type="date"></label>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 6px">
+      <b>Songs</b><button class="pbtn ghost" id="addSongsBtn">+ Add songs</button>
+    </div>
+    <div class="list" id="noteSongs"></div>
+    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button></div>
+    <label class="field"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
+    <p style="color:var(--muted);font-size:13px" id="noteStatus"></p>
+    <div class="row2"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete note</button></div>
+  </div>
+</div>
+
+<!-- Usage -->
+<div class="panel" id="usagePanel">
+  <div class="phead">
+    <button class="icon" data-close="usagePanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Song usage</h2>
+    <button class="icon" id="usageRefresh" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+  </div>
+  <div class="pbody">
+    <div class="seg" id="usageSeg" style="margin-bottom:12px"><button data-u="songs" class="on">Most used</button><button data-u="recent">Recent</button><button data-u="leaders">Leaders</button></div>
+    <div id="usageBody"><div class="vmsg">Loading…</div></div>
+  </div>
+</div>
+
+<div class="pickbar" id="pickBar"><span id="pickText"></span><button id="pickDone">Done</button></div>
+
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet">
   <h3>Settings</h3>
+  <h4 style="margin-top:12px">You</h4>
+  <button class="act" id="changeNameBtn"></button>
   <h4 style="margin-top:12px">Offline songs</h4>
   <p id="storageInfo" style="margin-top:0"></p>
   <button class="act" id="dlPartBtn"></button>
@@ -690,9 +800,9 @@ function render() {
           : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
         <div class="info" data-act="${audioLess ? 'sheet' : 'play'}">
           <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
-          <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? ' · Sheet music only' : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
+          <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? ' · Sheet music only' : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
         </div>
-        <div class="acts">${s.sheets.length && !audioLess ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
+        <div class="acts">${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to note">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length && !audioLess ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
         ${showParts ? `<div class="parts">${s.parts.map(p =>
           `<button class="pp${now && now.part === p ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
       </div>`;
@@ -711,6 +821,7 @@ $('#list').addEventListener('click', e => {
   if (act === 'part') playTrack(s, s.parts.find(p => p.id === btn.dataset.id));
   else if (act === 'dl') toggleDownload(s);
   else if (act === 'sheet') openViewer(s);
+  else if (act === 'pick') togglePick(s);
   else if (act === 'play') playSong(s);
 });
 
@@ -959,10 +1070,269 @@ $('#clearDlBtn').onclick = () => {
   renderTabs(); search(); updateSheet(); toast('Saved songs removed');
 };
 
-// Android back button: close the sheet / clear the search first.
+// ------------------------------------------------------------------ notes (song lists, kept on this device)
+let notes = store.get('notes', []);
+let editing = null, editingDirty = false, picking = null;
+const userName = () => store.get('userName', '');
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+function shortDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T12:00:00');
+  return isNaN(d) ? iso : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+}
+function longDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return isNaN(d) ? iso : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+const saveNotes = () => store.set('notes', notes);
+const songRef = s => ({ key: s.key, book: s.collection, number: s.number || '', title: s.title });
+const songLabel = r => `${r.number ? r.number + '. ' : ''}${r.title}`;
+
+function openPanel(id) { $('#' + id).classList.add('show'); }
+function closePanel(id) { $('#' + id).classList.remove('show'); }
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closePanel(b.dataset.close));
+
+function renderNotes() {
+  const list = [...notes].sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.updated - a.updated);
+  $('#notesList').innerHTML = list.length ? list.map(n => {
+    const pending = outbox.some(x => x.noteId === n.id);
+    return `<div class="card" data-id="${esc(n.id)}">
+      <div class="t">${esc(n.title || 'Untitled')}${pending ? '<span class="tag wait">not logged yet</span>' : n.version ? '<span class="tag ok">logged</span>' : '<span class="tag">draft</span>'}</div>
+      <div class="m">${esc(longDate(n.date))} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}${n.leader ? ' · ' + esc(n.leader) : ''}</div>
+      ${n.songs.length ? `<div class="songsline">${esc(n.songs.map(songLabel).join(' · '))}</div>` : ''}
+    </div>`;
+  }).join('') : `<div class="empty"><b>No notes yet</b>Tap “+ New” to start a song list for your next time leading.</div>`;
+  $('#notesInfo').textContent = `${notes.length} note${notes.length === 1 ? '' : 's'} on this device. Export them to move to a new phone or computer.`;
+}
+$('#notesList').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) openNote(notes.find(n => n.id === c.dataset.id)); });
+$('#notesBtn').onclick = () => { renderNotes(); openPanel('notesPanel'); };
+$('#newNoteBtn').onclick = () => {
+  const d = new Date(), day = d.toLocaleDateString(undefined, { weekday: 'long' });
+  openNote({ id: uid(), title: `${day} ${d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening'}`, date: today(),
+    songs: [], text: '', version: 0, created: Date.now(), updated: Date.now(), leader: userName() }, true);
+};
+
+function openNote(n, isNew = false) {
+  editing = JSON.parse(JSON.stringify(n)); editing.isNew = isNew; editingDirty = isNew;
+  $('#noteTitle').value = editing.title; $('#noteDate').value = editing.date; $('#noteText').value = editing.text || '';
+  renderNoteSongs(); openPanel('notePanel');
+}
+function renderNoteSongs() {
+  const n = editing;
+  $('#noteHead').textContent = n.isNew ? 'New note' : 'Edit note';
+  $('#noteSongs').innerHTML = n.songs.length ? n.songs.map((r, i) => {
+    const s = songIndex.get(r.key);
+    return `<div class="nsong${s ? '' : ' missing'}" data-i="${i}">
+      <div class="pos">${i + 1}</div>
+      <div class="info" data-act="${s && s.parts.length ? 'play' : 'sheet'}"><div class="title t">${esc(songLabel(r))}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}</div></div>
+      <div class="ctl">
+        ${s && s.parts.length ? `<button data-act="play" aria-label="Play">▶</button>` : ''}
+        ${s && s.sheets.length ? `<button data-act="sheet" class="sm" aria-label="Sheet music">${ICON_MUSIC.replace(/20/g, '18')}</button>` : ''}
+        <button data-act="up" aria-label="Move up" ${i ? '' : 'disabled'}>↑</button>
+        <button data-act="down" aria-label="Move down" ${i < n.songs.length - 1 ? '' : 'disabled'}>↓</button>
+        <button data-act="del" aria-label="Remove">✕</button>
+      </div></div>`;
+  }).join('') : `<div class="empty" style="padding:22px"><b>No songs yet</b>Tap “+ Add songs”, then tap + next to each song.</div>`;
+  $('#notePlay').disabled = !n.songs.some(r => (songIndex.get(r.key) || {}).parts?.length);
+  $('#noteDelete').style.display = n.isNew ? 'none' : '';
+  const pending = outbox.some(x => x.noteId === n.id);
+  $('#noteStatus').textContent = n.isNew ? 'Saving logs this song list (with the date and your name) to the shared usage log.'
+    : `Saved ${n.version} time${n.version === 1 ? '' : 's'}${n.leader ? ' by ' + n.leader : ''}. ${pending ? 'Waiting for internet to log the latest save.' : 'Each save is logged.'}`;
+  $('#noteSave').textContent = editingDirty ? 'Save' : 'Saved';
+  $('#noteSave').disabled = !editingDirty;
+}
+function markDirty() { editingDirty = true; $('#noteSave').textContent = 'Save'; $('#noteSave').disabled = false; }
+['#noteTitle', '#noteDate', '#noteText'].forEach(sel => $(sel).addEventListener('input', () => {
+  editing.title = $('#noteTitle').value; editing.date = $('#noteDate').value || today(); editing.text = $('#noteText').value; markDirty();
+}));
+$('#noteSongs').addEventListener('click', e => {
+  const row = e.target.closest('.nsong'); if (!row) return;
+  const i = +row.dataset.i, act = e.target.closest('[data-act]')?.dataset.act, r = editing.songs[i], s = songIndex.get(r.key);
+  if (act === 'up' && i > 0) { [editing.songs[i - 1], editing.songs[i]] = [editing.songs[i], editing.songs[i - 1]]; markDirty(); renderNoteSongs(); }
+  else if (act === 'down' && i < editing.songs.length - 1) { [editing.songs[i + 1], editing.songs[i]] = [editing.songs[i], editing.songs[i + 1]]; markDirty(); renderNoteSongs(); }
+  else if (act === 'del') { editing.songs.splice(i, 1); markDirty(); renderNoteSongs(); }
+  else if (act === 'play' && s) { queue = noteQueue(); playTrack(s, pickPart(s)); }
+  else if (act === 'sheet' && s) openViewer(s);
+});
+const noteQueue = () => editing.songs.map(r => songIndex.get(r.key)).filter(s => s && s.parts.length);
+$('#notePlay').onclick = () => { const q = noteQueue(); if (!q.length) return; queue = q; playTrack(q[0], pickPart(q[0])); };
+
+function saveNote() {
+  const n = editing;
+  n.title = ($('#noteTitle').value || '').trim() || 'Untitled';
+  n.date = $('#noteDate').value || today(); n.text = $('#noteText').value;
+  n.version = (n.version || 0) + 1; n.updated = Date.now(); n.leader = userName();
+  delete n.isNew;
+  const i = notes.findIndex(x => x.id === n.id);
+  if (i >= 0) notes[i] = n; else notes.push(n);
+  saveNotes();
+  logEntry({ event: 'note saved', noteId: n.id, noteTitle: n.title, dateUsed: n.date, version: n.version, comment: n.text, songs: n.songs });
+  editing = JSON.parse(JSON.stringify(n)); editingDirty = false;
+  renderNoteSongs(); renderNotes();
+  toast(navigator.onLine && CFG.logUrl ? 'Saved and logged' : 'Saved — will log when you\'re online');
+}
+$('#noteSave').onclick = saveNote;
+function leaveNote() {
+  if (editingDirty && editing && (editing.songs.length || !editing.isNew)) {
+    if (confirm('Save your changes to this note?')) saveNote();
+  }
+  editing = null; editingDirty = false; closePanel('notePanel'); renderNotes();
+}
+$('#noteBack').onclick = leaveNote;
+$('#noteDelete').onclick = () => {
+  if (!confirm(`Delete “${editing.title}” from this device? (Past log entries stay in the usage log.)`)) return;
+  notes = notes.filter(n => n.id !== editing.id); saveNotes();
+  editing = null; editingDirty = false; closePanel('notePanel'); renderNotes(); toast('Note deleted');
+};
+
+// "Add songs": pick from the main list, then come back
+$('#addSongsBtn').onclick = () => {
+  picking = editing; closePanel('notePanel'); closePanel('notesPanel');
+  document.body.classList.add('picking'); $('#pickBar').classList.add('show'); updatePickBar(); render();
+  $('#q').focus();
+};
+function updatePickBar() { $('#pickText').textContent = `Adding to “${picking.title || 'note'}” · ${picking.songs.length} song${picking.songs.length === 1 ? '' : 's'}`; }
+function togglePick(s) {
+  const i = picking.songs.findIndex(x => x.key === s.key);
+  if (i >= 0) picking.songs.splice(i, 1); else picking.songs.push(songRef(s));
+  editingDirty = true; updatePickBar(); render();
+}
+function finishPicking() {
+  document.body.classList.remove('picking'); $('#pickBar').classList.remove('show');
+  editing = picking; picking = null; render();
+  openPanel('notesPanel'); openPanel('notePanel'); renderNoteSongs(); markDirty();
+}
+$('#pickDone').onclick = finishPicking;
+
+// Export / import
+function exportNotes() {
+  const data = JSON.stringify({ app: 'MMC SongPoint', format: 1, exported: new Date().toISOString(), by: userName(), notes }, null, 1);
+  const name = `SongPoint notes ${today()}.json`;
+  if (window.Native && window.Native.shareFile) return window.Native.shareFile(name, data, 'application/json');
+  const file = new File([data], name, { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: name }).catch(() => {});
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(file), download: name });
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+$('#exportBtn').onclick = () => { if (!notes.length) return toast('No notes to export yet'); exportNotes(); };
+$('#importBtn').onclick = () => $('#importFile').click();
+$('#importFile').onchange = async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    const incoming = Array.isArray(data) ? data : data.notes;
+    if (!Array.isArray(incoming)) throw new Error('not a notes file');
+    let added = 0, updated = 0;
+    for (const n of incoming) {
+      if (!n || !n.id || !Array.isArray(n.songs)) continue;
+      const i = notes.findIndex(x => x.id === n.id);
+      if (i < 0) { notes.push(n); added++; } else if ((n.updated || 0) > (notes[i].updated || 0)) { notes[i] = n; updated++; }
+    }
+    saveNotes(); renderNotes();
+    toast(`Imported ${added} new note${added === 1 ? '' : 's'}${updated ? `, updated ${updated}` : ''}`);
+  } catch { toast('That file isn\'t a SongPoint notes export'); }
+};
+
+// ------------------------------------------------------------------ usage log (Google Sheet via Apps Script)
+let outbox = store.get('outbox', []);
+function deviceName() {
+  if (window.Native && window.Native.isAndroid) return 'Android app';
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+  return (ios ? 'iPhone/iPad' : /Android/.test(navigator.userAgent) ? 'Android' : 'Computer') + (standalone ? ' app' : ' browser');
+}
+function logEntry(x) {
+  if (!CFG.logUrl) return;
+  outbox.push(Object.assign({ id: uid(), at: new Date().toISOString(), leader: userName(), device: deviceName() }, x,
+    { songs: (x.songs || []).map(r => ({ key: r.key, book: r.book, number: r.number, title: r.title })) }));
+  store.set('outbox', outbox); flushLog();
+}
+let flushing = false;
+async function flushLog() {
+  if (flushing || !outbox.length || !CFG.logUrl || !navigator.onLine) return;
+  flushing = true;
+  try {
+    const batch = outbox.slice(0, 20);
+    const r = await fetch(CFG.logUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ secret: CFG.passwordHash, entries: batch }) });
+    const body = await r.json();
+    if (body.ok) {
+      const done = new Set(body.saved || batch.map(b => b.id));
+      outbox = outbox.filter(x => !done.has(x.id)); store.set('outbox', outbox);
+      usageStale = true;
+    }
+  } catch (e) { console.warn('log failed', e); }
+  flushing = false;
+  if ($('#notesPanel').classList.contains('show')) renderNotes();
+  if (editing) renderNoteSongs();
+  if (outbox.length && navigator.onLine) setTimeout(flushLog, 30000);
+}
+window.addEventListener('online', flushLog);
+
+let usage = store.get('usage', null), usageMap = {}, usageView = 'songs', usageStale = true;
+function indexUsage() { usageMap = {}; (usage && usage.songs || []).forEach(u => { usageMap[u.key] = u; }); }
+indexUsage();
+async function loadUsage(show = false) {
+  if (!CFG.logUrl || !navigator.onLine) { if (show) renderUsage(); return; }
+  try {
+    const r = await fetch(`${CFG.logUrl}?action=usage&secret=${encodeURIComponent(CFG.passwordHash)}`);
+    const body = await r.json();
+    if (body.ok) { usage = body; usage.fetched = Date.now(); store.set('usage', usage); indexUsage(); usageStale = false; render(); }
+  } catch (e) { console.warn('usage failed', e); }
+  if (show) renderUsage();
+}
+function renderUsage() {
+  document.querySelectorAll('#usageSeg button').forEach(b => b.classList.toggle('on', b.dataset.u === usageView));
+  const box = $('#usageBody');
+  if (!usage) { box.innerHTML = `<div class="vmsg">${navigator.onLine ? 'Couldn\'t load usage yet.' : 'Connect to the internet to see usage.'}</div>`; return; }
+  const songsU = usage.songs || [], notesU = usage.notes || [];
+  const leaders = {};
+  notesU.forEach(n => { const l = n.leader || 'Unknown'; (leaders[l] ||= { name: l, times: 0, songs: 0, last: '' }); leaders[l].times++; leaders[l].songs += n.songs.length; if (n.date > leaders[l].last) leaders[l].last = n.date; });
+  const head = `<div class="ustat"><div><b>${notesU.length}</b><small>song lists</small></div><div><b>${songsU.length}</b><small>different songs</small></div><div><b>${Object.keys(leaders).length}</b><small>leaders</small></div></div>`;
+  let body = '';
+  if (usageView === 'songs') {
+    const max = songsU[0] ? songsU[0].count : 1;
+    body = songsU.length ? songsU.slice(0, 150).map(u => `<div class="urow" data-key="${esc(u.key)}"><div><div class="title">${esc(songLabel(u))}</div><div class="sub">${esc(u.book)} · last ${esc(shortDate(u.last))}${Object.keys(u.leaders || {}).length ? ' · ' + esc(Object.keys(u.leaders).join(', ')) : ''}</div><div class="bar100" style="width:${Math.max(4, u.count / max * 100)}%"></div></div><div class="n">${u.count}<small>time${u.count === 1 ? '' : 's'}</small></div></div>`).join('')
+      : '<div class="empty"><b>Nothing logged yet</b>Save a note with songs and it will show up here.</div>';
+  } else if (usageView === 'recent') {
+    body = notesU.length ? notesU.slice(0, 100).map(n => `<div class="card"><div class="t">${esc(n.title || 'Untitled')}</div><div class="m">${esc(longDate(n.date))} · ${esc(n.leader || 'Unknown')} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}</div><div class="songsline" style="white-space:normal">${esc(n.songs.map(songLabel).join(' · '))}</div></div>`).join('')
+      : '<div class="empty"><b>No song lists yet</b></div>';
+  } else {
+    const ls = Object.values(leaders).sort((a, b) => b.times - a.times);
+    body = ls.length ? ls.map(l => `<div class="urow"><div><div class="title">${esc(l.name)}</div><div class="sub">${l.songs} songs · last led ${esc(shortDate(l.last))}</div></div><div class="n">${l.times}<small>list${l.times === 1 ? '' : 's'}</small></div></div>`).join('')
+      : '<div class="empty"><b>No leaders yet</b></div>';
+  }
+  box.innerHTML = head + `<div class="${usageView === 'recent' ? '' : 'card'}">${body}</div>` +
+    `<p style="color:var(--muted);font-size:12px">Counts use the latest saved version of each song list. Updated ${usage.fetched ? ago(usage.fetched) : ''}.</p>`;
+}
+$('#usageSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { usageView = b.dataset.u; renderUsage(); } });
+$('#usageBody').addEventListener('click', e => {
+  const r = e.target.closest('.urow[data-key]'); if (!r) return;
+  const s = songIndex.get(r.dataset.key); if (!s) return toast('That song isn\'t in the library anymore');
+  closePanel('usagePanel'); closePanel('notesPanel');
+  $('#q').value = s.number || s.title; collection = ''; renderTabs(); search();
+});
+$('#usageBtn').onclick = () => { renderUsage(); openPanel('usagePanel'); loadUsage(true); };
+$('#usageRefresh').onclick = () => loadUsage(true);
+
+// ------------------------------------------------------------------ name / welcome
+function renderWelcome() {
+  const n = userName();
+  $('#welcome').innerHTML = n ? `Welcome, <b>${esc(n)}</b>` : '';
+  $('#changeNameBtn').textContent = n ? `Using as ${n} · change name` : 'Set your name';
+}
+$('#changeNameBtn').onclick = () => { closeSheet(); showLock(true); };
+
+// Android back button: close panels / the sheet / clear the search first.
 window.handleBack = () => {
   if ($('#lock').classList.contains('show')) return false;
   if (viewing) { closeViewer(); return true; }
+  if ($('#usagePanel').classList.contains('show')) { closePanel('usagePanel'); return true; }
+  if ($('#notePanel').classList.contains('show')) { leaveNote(); return true; }
+  if ($('#notesPanel').classList.contains('show')) { closePanel('notesPanel'); return true; }
+  if (picking) { finishPicking(); return true; }
   if ($('#sheet').classList.contains('show')) { closeSheet(); return true; }
   if ($('#q').value) { $('#q').value = ''; search(); return true; }
   return false;
@@ -994,21 +1364,39 @@ function sha256(str) {
   return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
 }
 const needsPassword = () => CFG.passwordHash && store.get('unlocked', '') !== CFG.passwordHash;
+const needsLogin = () => needsPassword() || !userName();
 $('#lockTitle').textContent = CFG.appName;
+let lockNameOnly = false;
+function showLock(nameOnly) {
+  lockNameOnly = nameOnly && !needsPassword();
+  $('#lockPw').style.display = lockNameOnly ? 'none' : '';
+  $('#lockMsg').textContent = lockNameOnly ? 'Who is using the app? Your name shows on song lists you save.' : 'Enter your name and the password to continue.';
+  $('#lockBtn').textContent = lockNameOnly ? 'Continue' : 'Unlock';
+  $('#lockName').value = userName(); $('#lockErr').textContent = '';
+  $('#lock').classList.add('show');
+  setTimeout(() => (userName() && !lockNameOnly ? $('#lockPw') : $('#lockName')).focus(), 300);
+}
+$('#lockName').addEventListener('keydown', e => { if (e.key === 'Enter' && !lockNameOnly) { e.preventDefault(); $('#lockPw').focus(); } });
 $('#lockForm').addEventListener('submit', e => {
   e.preventDefault();
-  if (sha256($('#lockPw').value) === CFG.passwordHash) {
-    store.set('unlocked', CFG.passwordHash);
-    $('#lock').classList.remove('show'); $('#lockPw').blur();
-    startApp();
-  } else {
-    $('#lockErr').textContent = 'That password isn\'t right.'; $('#lockPw').select();
+  const name = $('#lockName').value.trim().replace(/\s+/g, ' ');
+  if (name.length < 2) { $('#lockErr').textContent = 'Please enter your name.'; $('#lockName').focus(); return; }
+  if (!lockNameOnly && sha256($('#lockPw').value) !== CFG.passwordHash) {
+    $('#lockErr').textContent = 'That password isn\'t right.'; $('#lockPw').select(); return;
   }
+  const first = !userName();
+  store.set('userName', name); if (!lockNameOnly) store.set('unlocked', CFG.passwordHash);
+  $('#lock').classList.remove('show'); $('#lockPw').value = ''; document.activeElement.blur();
+  renderWelcome();
+  if (first || !lockNameOnly) toast(`Welcome, ${name}!`);
+  startApp();
 });
 
 // ------------------------------------------------------------------ start
+let started = false;
 function startApp() {
   if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000 || !library.sheets) sync();
+  if (!started) { started = true; flushLog(); if (!usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage(); }
 }
 refreshDownloaded();
 buildIndex(); renderTabs(); search();
@@ -1020,11 +1408,14 @@ if (N && N.ready) N.ready.then(() => { refreshDownloaded(); renderTabs(); render
   $('#installClose').onclick = () => { $('#installTip').classList.remove('show'); store.set('installTipClosed', true); };
 })();
 if (library.synced) setSyncLine(`${summary()} · updated ${ago(library.synced)}`);
-if (needsPassword()) { $('#lock').classList.add('show'); setTimeout(() => $('#lockPw').focus(), 300); }
+renderWelcome();
+if (needsLogin()) showLock(!needsPassword());
 else startApp();
-window.addEventListener('online', () => { if (!needsPassword() && Date.now() - library.synced > CFG.syncMinutes * 60000) sync(); });
+window.addEventListener('online', () => { if (!needsLogin() && Date.now() - library.synced > CFG.syncMinutes * 60000) sync(); });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && !needsPassword() && Date.now() - library.synced > CFG.syncMinutes * 60000) sync();
+  if (document.visibilityState !== 'visible' || needsLogin()) return;
+  if (Date.now() - library.synced > CFG.syncMinutes * 60000) sync();
+  flushLog(); if (usageStale && usage && Date.now() - (usage.fetched || 0) > 600000) loadUsage();
 });
 </script>
 </body>

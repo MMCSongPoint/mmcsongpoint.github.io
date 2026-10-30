@@ -44,6 +44,8 @@ public class MainActivity extends Activity {
     private final ExecutorService downloads = Executors.newFixedThreadPool(2);
     private final Set<String> inProgress = new HashSet<>();
     private boolean askedNotifications;
+    private android.webkit.ValueCallback<Uri[]> fileCallback;
+    private static final int PICK_FILE = 42;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -69,7 +71,22 @@ public class MainActivity extends Activity {
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
 
         web.addJavascriptInterface(new Bridge(), "Native");
-        web.setWebChromeClient(new WebChromeClient());
+        web.setWebChromeClient(new WebChromeClient() {
+            // Lets <input type="file"> (e.g. "Import notes") open Android's file picker.
+            @Override
+            public boolean onShowFileChooser(WebView view, android.webkit.ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (fileCallback != null) fileCallback.onReceiveValue(null);
+                fileCallback = callback;
+                try {
+                    Intent i = new Intent(Intent.ACTION_GET_CONTENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+                    startActivityForResult(Intent.createChooser(i, "Choose a file"), PICK_FILE);
+                    return true;
+                } catch (Exception e) {
+                    fileCallback = null;
+                    return false;
+                }
+            }
+        });
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
@@ -84,6 +101,17 @@ public class MainActivity extends Activity {
             web.restoreState(savedInstanceState);
         } else {
             web.loadUrl("file:///android_asset/www/index.html");
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_FILE && fileCallback != null) {
+            Uri[] result = null;
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) result = new Uri[]{data.getData()};
+            fileCallback.onReceiveValue(result);
+            fileCallback = null;
         }
     }
 
@@ -298,6 +326,39 @@ public class MainActivity extends Activity {
                 }
                 js("window.onNativePdf && window.onNativePdf(" + quote(id) + "," + ok + "," + quote(pages.toString()) + ")");
             });
+        }
+
+        /** Saves text (e.g. a notes backup) to a file and opens the Android share sheet for it. */
+        @JavascriptInterface
+        public void shareFile(String name, String content, String mime) {
+            shareBytes(name, content.getBytes(java.nio.charset.StandardCharsets.UTF_8), mime);
+        }
+
+        /** Same as shareFile, for binary files passed as base64 (e.g. a slide show). */
+        @JavascriptInterface
+        public void shareBase64(String name, String base64, String mime) {
+            shareBytes(name, android.util.Base64.decode(base64, android.util.Base64.DEFAULT), mime);
+        }
+
+        private void shareBytes(String name, byte[] bytes, String mime) {
+            try {
+                File dir = new File(getCacheDir(), "share");
+                dir.mkdirs();
+                File f = new File(dir, name.replaceAll("[^A-Za-z0-9 ._()-]", "_"));
+                try (OutputStream os = new FileOutputStream(f)) {
+                    os.write(bytes);
+                }
+                Uri uri = ShareProvider.uriFor(f);
+                Intent send = new Intent(Intent.ACTION_SEND)
+                        .setType(mime)
+                        .putExtra(Intent.EXTRA_STREAM, uri)
+                        .putExtra(Intent.EXTRA_SUBJECT, f.getName())
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                main.post(() -> startActivity(Intent.createChooser(send, f.getName())
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)));
+            } catch (Exception e) {
+                js("window.toast && window.toast('Could not share the file')");
+            }
         }
 
         @JavascriptInterface
