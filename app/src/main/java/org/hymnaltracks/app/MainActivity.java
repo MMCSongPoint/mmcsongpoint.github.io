@@ -136,6 +136,42 @@ public class MainActivity extends Activity {
         return d;
     }
 
+    private static final String[] EXTS = {"mp3", "png", "jpg", "jpeg", "pdf"};
+
+    /** A saved file for this Drive id, whatever its type, or null. */
+    private File findLocal(String id) {
+        String key = safeId(id);
+        for (String ext : EXTS) {
+            File f = new File(audioDir(), key + "." + ext);
+            if (f.exists() && f.length() > 0) return f;
+        }
+        return null;
+    }
+
+    private static boolean fetch(String url, File target) {
+        File tmp = new File(target.getPath() + ".part");
+        boolean ok = false;
+        try {
+            HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+            c.setConnectTimeout(20000);
+            c.setReadTimeout(60000);
+            c.setInstanceFollowRedirects(true);
+            if (c.getResponseCode() == 200) {
+                try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(tmp)) {
+                    byte[] buf = new byte[64 * 1024];
+                    int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                }
+                ok = tmp.length() > 0 && tmp.renameTo(target);
+            }
+            c.disconnect();
+        } catch (Exception ignored) {
+        } finally {
+            if (!ok) tmp.delete();
+        }
+        return ok;
+    }
+
     private static String safeId(String id) {
         return id.replaceAll("[^A-Za-z0-9_-]", "");
     }
@@ -157,8 +193,8 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String localUrl(String id) {
-            File f = new File(audioDir(), safeId(id) + ".mp3");
-            return f.exists() && f.length() > 0 ? Uri.fromFile(f).toString() : "";
+            File f = findLocal(id);
+            return f != null ? Uri.fromFile(f).toString() : "";
         }
 
         @JavascriptInterface
@@ -168,7 +204,8 @@ public class MainActivity extends Activity {
             if (files != null) {
                 for (File f : files) {
                     String n = f.getName();
-                    if (n.endsWith(".mp3") && f.length() > 0) out.put(n.substring(0, n.length() - 4));
+                    int dot = n.lastIndexOf('.');
+                    if (dot > 0 && !n.endsWith(".part") && f.length() > 0) out.put(n.substring(0, dot));
                 }
             }
             return out.toString();
@@ -184,31 +221,22 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void download(final String id, final String url) {
+            downloadAs(id, url, "mp3");
+        }
+
+        /** Saves a Drive file for offline use; calls window.onNativeDownload(id, ok). */
+        @JavascriptInterface
+        public void downloadAs(final String id, final String url, final String ext) {
             final String key = safeId(id);
+            final String type = ext != null && ext.matches("[a-z0-9]{2,4}") ? ext : "bin";
             synchronized (inProgress) {
                 if (!inProgress.add(key)) return;
             }
             downloads.execute(() -> {
-                File target = new File(audioDir(), key + ".mp3");
-                File tmp = new File(audioDir(), key + ".part");
-                boolean ok = false;
+                boolean ok;
                 try {
-                    HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-                    c.setConnectTimeout(20000);
-                    c.setReadTimeout(60000);
-                    c.setInstanceFollowRedirects(true);
-                    if (c.getResponseCode() == 200) {
-                        try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(tmp)) {
-                            byte[] buf = new byte[64 * 1024];
-                            int n;
-                            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-                        }
-                        ok = tmp.length() > 0 && tmp.renameTo(target);
-                    }
-                    c.disconnect();
-                } catch (Exception ignored) {
+                    ok = fetch(url, new File(audioDir(), key + "." + type));
                 } finally {
-                    if (!ok) tmp.delete();
                     synchronized (inProgress) {
                         inProgress.remove(key);
                     }
@@ -217,9 +245,73 @@ public class MainActivity extends Activity {
             });
         }
 
+        /**
+         * Turns a PDF (saved, cached, or downloaded now) into page images and calls
+         * window.onNativePdf(id, ok, jsonArrayOfImageUrls).
+         */
+        @JavascriptInterface
+        public void renderPdf(final String id, final String url) {
+            final String key = safeId(id);
+            downloads.execute(() -> {
+                JSONArray pages = new JSONArray();
+                boolean ok = false;
+                try {
+                    File pageDir = new File(getCacheDir(), "pages/" + key);
+                    File[] done = pageDir.listFiles();
+                    if (done != null && done.length > 0 && new File(pageDir, "count").exists()) {
+                        int count = Integer.parseInt(new String(java.nio.file.Files.readAllBytes(new File(pageDir, "count").toPath())).trim());
+                        for (int i = 0; i < count; i++) pages.put(Uri.fromFile(new File(pageDir, i + ".png")).toString());
+                        ok = true;
+                    } else {
+                        File pdf = findLocal(id);
+                        if (pdf == null) {
+                            File cacheDir = new File(getCacheDir(), "pdf");
+                            cacheDir.mkdirs();
+                            pdf = new File(cacheDir, key + ".pdf");
+                            if (!pdf.exists() && !fetch(url, pdf)) throw new java.io.IOException("download failed");
+                        }
+                        pageDir.mkdirs();
+                        try (android.os.ParcelFileDescriptor fd = android.os.ParcelFileDescriptor.open(pdf, android.os.ParcelFileDescriptor.MODE_READ_ONLY);
+                             android.graphics.pdf.PdfRenderer r = new android.graphics.pdf.PdfRenderer(fd)) {
+                            for (int i = 0; i < r.getPageCount(); i++) {
+                                try (android.graphics.pdf.PdfRenderer.Page page = r.openPage(i)) {
+                                    int w = 1500;
+                                    int h = Math.max(1, Math.round(w * (float) page.getHeight() / page.getWidth()));
+                                    android.graphics.Bitmap bm = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
+                                    bm.eraseColor(Color.WHITE);
+                                    page.render(bm, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                                    File out = new File(pageDir, i + ".png");
+                                    try (OutputStream os = new FileOutputStream(out)) {
+                                        bm.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, os);
+                                    }
+                                    bm.recycle();
+                                    pages.put(Uri.fromFile(out).toString());
+                                }
+                            }
+                            try (OutputStream os = new FileOutputStream(new File(pageDir, "count"))) {
+                                os.write(String.valueOf(r.getPageCount()).getBytes());
+                            }
+                        }
+                        ok = true;
+                    }
+                } catch (Exception ignored) {
+                }
+                js("window.onNativePdf && window.onNativePdf(" + quote(id) + "," + ok + "," + quote(pages.toString()) + ")");
+            });
+        }
+
+        @JavascriptInterface
+        public void keepScreenOn(boolean on) {
+            main.post(() -> {
+                if (on) getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            });
+        }
+
         @JavascriptInterface
         public void remove(String id) {
-            new File(audioDir(), safeId(id) + ".mp3").delete();
+            File f;
+            while ((f = findLocal(id)) != null) f.delete();
         }
 
         @JavascriptInterface

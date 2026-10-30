@@ -10,6 +10,12 @@ window.HYMNAL_CONFIG = {
   // The shared parent folder. Each subfolder becomes a tab.
   rootFolder: "1isx_RdmSCOOdgDwbczpD-DG0psx2cY2C",
 
+  // Shared folder with sheet music (PDF/PNG), organised in the same book folders.
+  sheetsFolder: "1vAVM0v-hyV0aIbRILII6w_U8We2S2Rxh",
+
+  // SHA-256 of the app password (asked once per phone). Set to "" for no password.
+  passwordHash: "cc85c1a96dffb0ec870badd6424035ff854532061ceca48db95fb8233781810f",
+
   // Tab order (folders not listed come last, A-Z).
   collectionOrder: ["Misc", "Songs of Faith and Praise", "Zions Praises", "Christian Hymnal"],
 

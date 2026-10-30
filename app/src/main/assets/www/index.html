@@ -67,7 +67,7 @@
   select { background: var(--row); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 13.5px; }
 
   .list { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel); }
-  .song { display: grid; grid-template-columns: 42px 1fr 40px; align-items: center; gap: 4px 10px; padding: 10px 8px 10px 10px; border-top: 1px solid var(--line); }
+  .song { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 4px 10px; padding: 10px 8px 10px 10px; border-top: 1px solid var(--line); }
   .song:first-child { border-top: none; }
   .song.sel { background: var(--row); }
   .play { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--row); display: grid; place-items: center; }
@@ -82,6 +82,8 @@
   .dl.done { color: var(--ok); }
   .dl.busy svg { animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .3; } }
+  .acts { display: flex; align-items: center; }
+  .sm { color: var(--accent-text); }
   .parts { grid-column: 2 / 4; display: flex; gap: 6px; flex-wrap: wrap; }
   .pp { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 13px; color: var(--muted); white-space: nowrap; }
   .pp.mine { color: var(--text); border-color: var(--accent-text); }
@@ -108,6 +110,32 @@
   .pparts { margin-top: 6px; }
   .extras { display: flex; align-items: center; gap: 6px; }
 
+  /* sheet music viewer */
+  .viewer { position: fixed; inset: 0; z-index: 80; background: var(--bg); display: none; flex-direction: column; }
+  .viewer.show { display: flex; }
+  .vhead { display: flex; align-items: center; gap: 8px; padding: 8px 8px 6px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .vhead .info { flex: 1; }
+  .vtabs { padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .vtabs:empty { display: none; }
+  .vbody { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; background: #e9e4e6; }
+  :root[data-theme="dark"] .vbody { background: #0b0809; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .vbody { background: #0b0809; } }
+  .pages { width: 100%; margin: 0 auto; }
+  .pages img { display: block; width: 100%; height: auto; background: #fff; margin: 0 auto 8px; }
+  .vmsg { padding: 60px 20px; text-align: center; color: var(--muted); }
+  .zoom { position: absolute; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 8px; }
+  .zoom button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 22px; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+  /* password screen */
+  .lock { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: none; place-items: center; padding: 24px; }
+  .lock.show { display: grid; }
+  .lock form { width: min(360px, 100%); text-align: center; }
+  .lock .logo { width: 64px; height: 64px; border-radius: 18px; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 30px; margin: 0 auto 14px; }
+  .lock h2 { margin: 0 0 6px; }
+  .lock p { color: var(--muted); margin: 0 0 20px; }
+  .lock input { width: 100%; padding: 14px; font-size: 17px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); outline: none; text-align: center; }
+  .lock input:focus { border-color: var(--accent-text); }
+  .lock button { width: 100%; margin-top: 12px; padding: 14px; border: none; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-size: 16px; font-weight: 600; }
+  .lock .err { color: var(--danger); min-height: 22px; margin-top: 10px; font-size: 14px; }
   .sheet-bg { position: fixed; inset: 0; background: var(--scrim); display: none; z-index: 70; }
   .sheet-bg.show { display: block; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-radius: 18px 18px 0 0; padding: 18px 18px calc(22px + env(safe-area-inset-bottom)); z-index: 71; transform: translateY(110%); transition: transform .2s; max-width: 900px; margin: 0 auto; }
@@ -157,6 +185,7 @@
     <div class="prow">
       <div class="info"><div class="title" id="nowTitle"></div><div class="sub" id="nowSub"></div></div>
       <div class="extras">
+        <button class="icon sm" id="musicBtn" title="Sheet music" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M10 17.5a1.5 1.5 0 1 1-1.5-1.5H10v-6l4-1"/></svg></button>
         <button class="icon" id="loopBtn" title="Repeat">⟲</button>
         <select id="rate" title="Speed"><option value="0.75">0.75×</option><option value="0.85">0.85×</option><option value="1" selected>1×</option><option value="1.1">1.1×</option></select>
       </div>
@@ -172,6 +201,28 @@
     <div class="scroller pparts" id="playerParts"></div>
   </div>
   <audio id="audio" preload="auto"></audio>
+</div>
+
+<div class="viewer" id="viewer">
+  <div class="vhead">
+    <button class="icon" id="vClose" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="info"><div class="title" id="vTitle"></div><div class="sub" id="vSub"></div></div>
+    <button class="icon" id="vPlay" aria-label="Play"></button>
+  </div>
+  <div class="vtabs scroller" id="vTabs"></div>
+  <div class="vbody" id="vBody"><div class="pages" id="vPages"></div></div>
+  <div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div>
+</div>
+
+<div class="lock" id="lock">
+  <form id="lockForm" autocomplete="off">
+    <div class="logo">♪</div>
+    <h2 id="lockTitle">Hymnal Tracks</h2>
+    <p>Enter the password to continue.</p>
+    <input id="lockPw" type="password" placeholder="Password" autocomplete="current-password" enterkeyhint="go">
+    <button type="submit">Unlock</button>
+    <div class="err" id="lockErr"></div>
+  </form>
 </div>
 
 <div class="sheet-bg" id="sheetBg"></div>
@@ -198,6 +249,7 @@ const ICON_PLAY = '<svg width="16" height="16" viewBox="0 0 24 24" fill="current
 const ICON_PAUSE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>';
 const BIG_PLAY = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
 const BIG_PAUSE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
+const ICON_MUSIC = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M10 17.5a1.5 1.5 0 1 1-1.5-1.5H10v-6l4-1"/></svg>';
 const ICON_DL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>';
 const ICON_DONE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5 9-10"/></svg>';
 $('#appName').textContent = CFG.appName; document.title = CFG.appName;
@@ -285,6 +337,22 @@ function titleCase(text) {
     return out;
   }).join('');
 }
+// Sheet music file names:
+//   "0001.png" (hymn number)  ·  "Ah Lord God-vocal-D.pdf"  ·  "All The Way (Alt Name)-lead-Ab.pdf"
+function parseSheet(filename) {
+  if (/\bsection\b/i.test(filename)) return null;            // book section title pages
+  const ext = (filename.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
+  if (!/^(png|jpe?g|pdf)$/.test(ext)) return null;
+  const stem = filename.slice(0, -(ext.length + 1)).replace(/_/g, ' ').trim();
+  let m;
+  if ((m = stem.match(/^#?(\d{1,5})([a-z]?)(?:\s*(?:p(?:age)?\s*)?(\d+))?$/i)))
+    return { ext, number: String(parseInt(m[1], 10)), title: '', label: 'Sheet music', page: +(m[3] || 0) };
+  let kind = '', key = '', title = stem;
+  if ((m = stem.match(/^(.+?)-(vocal|lead|piano|choral|satb|chord|chords|guitar|[a-z]+)-([A-G][#b]?m?)$/i))) { title = m[1]; kind = m[2]; key = m[3]; }
+  const p = parseName(title + '.x');
+  const label = kind ? `${kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase()} · ${key}` : 'Sheet music';
+  return { ext, number: p.number, title: p.title, label, page: 0 };
+}
 function partRank(p) {
   p = p.toLowerCase();
   const i = PART_ORDER.findIndex(n => p.startsWith(n));
@@ -303,19 +371,38 @@ function refreshDownloaded() {
   try { downloaded = new Set(JSON.parse(N.downloadedIds())); } catch { downloaded = new Set(); }
 }
 
+const baseTitle = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
 function buildIndex() {
   songIndex = new Map();
+  const newSong = (key, x) => ({ key, number: x.number, collection: x.collection, subfolder: x.subfolder || '', parts: [], sheets: [], modified: '' });
   for (const t of library.tracks) {
     const key = t.collection + '|' + (t.number ? '#' + t.number : normalize(t.title));
     let s = songIndex.get(key);
-    if (!s) songIndex.set(key, s = { key, number: t.number, collection: t.collection, subfolder: t.subfolder, parts: [], modified: '' });
+    if (!s) songIndex.set(key, s = newSong(key, t));
     s.parts.push(t);
     if ((t.modified || '') > s.modified) s.modified = t.modified || '';
   }
+  // Sheet music: numbered pages join the hymn with that number; titled PDFs join the song
+  // with the same title, or the same title without its "(alternate name)".
+  const sheets = library.sheets || [];
+  const exactTitles = new Set(sheets.filter(x => !x.number).map(x => x.collection + '|' + normalize(x.title)));
+  for (const x of sheets) {
+    let key = x.collection + '|' + (x.number ? '#' + x.number : normalize(x.title)), s = songIndex.get(key);
+    if (!s && !x.number) {
+      const base = x.collection + '|' + normalize(baseTitle(x.title));
+      if (songIndex.has(base) && songIndex.get(base).parts.length && !exactTitles.has(base)) { key = base; s = songIndex.get(base); }
+    }
+    if (!s) songIndex.set(key, s = newSong(key, x));
+    s.sheets.push(x);
+    if (!s.parts.length && (x.modified || '') > s.modified) s.modified = x.modified || '';
+  }
   for (const s of songIndex.values()) {
     s.parts.sort((a, b) => partRank(a.part) - partRank(b.part) || a.part.localeCompare(b.part));
+    const kindRank = l => { const i = ['vocal', 'choral', 'satb', 'piano', 'lead'].findIndex(k => l.toLowerCase().startsWith(k)); return i < 0 ? 9 : i; };
+    s.sheets.sort((a, b) => kindRank(a.label) - kindRank(b.label) || a.label.localeCompare(b.label) || a.page - b.page || a.name.localeCompare(b.name));
     const main = s.parts.filter(p => partRank(p.part) <= 1);
-    s.title = (main.length ? main : s.parts).map(p => p.title).sort((a, b) => a.length - b.length)[0];
+    s.title = s.parts.length ? (main.length ? main : s.parts).map(p => p.title).sort((a, b) => a.length - b.length)[0]
+      : (s.sheets.find(x => x.title) || {}).title || `Hymn ${s.number}`;
     s.nTitle = normalize(s.title);
     s.nAll = [s.nTitle, s.number, ...s.parts.map(p => normalize(p.part))].join(' ');
     s.grams = trigrams(s.nTitle);
@@ -379,18 +466,45 @@ async function sync(manual = false) {
       const ia = order.indexOf(normalize(a)), ib = order.indexOf(normalize(b));
       return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib) || a.localeCompare(b);
     });
-    const before = library.tracks.length;
-    library = { tracks, collections: seenColl, synced: Date.now() };
+    const sheets = [];
+    if (CFG.sheetsFolder) {
+      setSyncLine('Checking sheet music…');
+      const stack2 = [{ id: CFG.sheetsFolder, collection: null }];
+      while (stack2.length) {
+        const { id, collection } = stack2.shift();
+        for (const f of await driveList(id)) {
+          if (f.mimeType === 'application/vnd.google-apps.folder') { stack2.push({ id: f.id, collection: collection || f.name }); continue; }
+          const p = parseSheet(f.name); if (!p) continue;
+          sheets.push({ id: f.id, name: f.name, collection: collection || 'Other', number: p.number, title: p.title,
+            label: p.label, ext: p.ext, page: p.page, size: +f.size || 0, modified: f.modifiedTime || '' });
+        }
+        setSyncLine(`Checking sheet music… ${sheets.length} pages`);
+      }
+      for (const sh of sheets) {   // "Zion's Praises" (sheets) == "Zions Praises" (audio)
+        const same = seenColl.find(c => normalize(c) === normalize(sh.collection));
+        if (same) sh.collection = same; else if (!seenColl.includes(sh.collection)) seenColl.push(sh.collection);
+      }
+      seenColl.sort((a, b) => {
+        const ia = order.indexOf(normalize(a)), ib = order.indexOf(normalize(b));
+        return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib) || a.localeCompare(b);
+      });
+    }
+    const before = library.tracks.length + (library.sheets || []).length;
+    library = { tracks, sheets, collections: seenColl, synced: Date.now() };
     store.set('library', library);
     buildIndex(); renderTabs(); search();
-    setSyncLine(`${tracks.length} tracks · updated just now`);
-    if (manual) toast(tracks.length === before ? 'Up to date' : `Library updated: ${tracks.length} tracks`);
+    setSyncLine(`${summary()} · updated just now`);
+    if (manual) toast(tracks.length + sheets.length === before ? 'Up to date' : `Library updated: ${summary()}`);
   } catch (e) {
     setSyncLine(navigator.onLine ? `Couldn't update: ${e.message}` : 'You\'re offline.', true);
     if (manual) toast(e.message || 'Update failed', 4500);
   } finally {
     syncing = false; $('#syncBtn').classList.remove('spin');
   }
+}
+function summary() {
+  const t = library.tracks.length, m = songs.filter(s => s.sheets.length).length;
+  return `${t} track${t === 1 ? '' : 's'}` + (m ? ` · ${m} with sheet music` : '');
 }
 function setSyncLine(text, isErr = false) { const el = $('#syncLine'); el.textContent = text; el.classList.toggle('err', isErr); }
 $('#syncBtn').onclick = () => sync(true);
@@ -406,7 +520,7 @@ function runSearch(q) {
   q = q.replace(/(part|book|no|number):("([^"]*)"|(\S+))/gi, (_, k, __, a, b) => { fields[k.toLowerCase()] = normalize(a || b); return ' '; });
   const words = normalize(q.replace(/#/g, ' ')).split(' ').filter(Boolean);
   let pool = songs;
-  if (collection === '__saved') pool = pool.filter(s => s.parts.some(p => downloaded.has(p.id)));
+  if (collection === '__saved') pool = pool.filter(s => songFiles(s).some(p => downloaded.has(p.id)));
   else if (collection) pool = pool.filter(s => s.collection === collection);
   if (fields.part) pool = pool.filter(s => s.parts.some(p => normalize(p.part).includes(fields.part)));
   if (fields.book) pool = pool.filter(s => normalize(s.collection).includes(fields.book));
@@ -481,6 +595,7 @@ function typoMatch(a, b) {
   return d[a.length][b.length] <= max;
 }
 const songPlays = s => s.parts.reduce((n, p) => n + (plays[p.id] || 0), 0);
+const songFiles = s => [...s.parts, ...s.sheets];
 
 function search() {
   lastQ = $('#q').value;
@@ -524,7 +639,7 @@ function pickPart(s, prefer = myPart) {
 function renderTabs() {
   const counts = {};
   for (const s of songs) counts[s.collection] = (counts[s.collection] || 0) + 1;
-  const savedCount = N ? songs.filter(s => s.parts.some(p => downloaded.has(p.id))).length : 0;
+  const savedCount = N ? songs.filter(s => songFiles(s).some(p => downloaded.has(p.id))).length : 0;
   if (collection && collection !== '__saved' && !counts[collection]) collection = '';
   const tabs = [['', 'All', songs.length], ...library.collections.filter(c => counts[c]).map(c => [c, c, counts[c]])];
   if (N) tabs.push(['__saved', 'Saved', savedCount]);
@@ -542,7 +657,7 @@ const LIMIT_STEP = 200;
 let limit = LIMIT_STEP;
 function render() {
   const list = $('#list'), words = qWords(lastQ);
-  if (!library.tracks.length) {
+  if (!songs.length) {
     list.innerHTML = syncing || !library.synced
       ? `<div class="empty"><b>Loading your songs…</b>Reading the Google Drive folder.</div>`
       : `<div class="empty"><b>No songs found</b>Check that the Drive folder has MP3 files and is shared as “Anyone with the link”.</div>`;
@@ -552,17 +667,18 @@ function render() {
       : `<div class="empty"><b>No matches${lastQ ? ` for “${esc(lastQ)}”` : ''}</b>${collection ? 'Try the “All” tab, or fewer words.' : 'Try fewer words.'}</div>`;
   } else {
     list.innerHTML = results.slice(0, limit).map(({ s, fuzzy }, i) => {
-      const mine = pickPart(s), playing = !!now && s.parts.includes(now.part);
+      const mine = pickPart(s) || {}, playing = !!now && s.parts.includes(now.part), audioLess = !s.parts.length;
       const isMine = myPart && mine.part.toLowerCase().startsWith(myPart.toLowerCase());
-      const allSaved = s.parts.every(p => downloaded.has(p.id)), busy = s.parts.some(p => downloading.has(p.id));
+      const allSaved = songFiles(s).every(p => downloaded.has(p.id)), busy = songFiles(s).some(p => downloading.has(p.id));
       const showParts = s.parts.length > 1;
       return `<div class="song${i === sel ? ' sel' : ''}${playing ? ' playing' : ''}" data-i="${i}">
-        <button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>
-        <div class="info" data-act="play">
+        ${audioLess ? `<button class="play sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>`
+          : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
+        <div class="info" data-act="${audioLess ? 'sheet' : 'play'}">
           <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
-          <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${!showParts && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
+          <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? ' · Sheet music only' : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
         </div>
-        ${N ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : '<span></span>'}
+        <div class="acts">${s.sheets.length && !audioLess ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
         ${showParts ? `<div class="parts">${s.parts.map(p =>
           `<button class="pp${now && now.part === p ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
       </div>`;
@@ -580,27 +696,30 @@ $('#list').addEventListener('click', e => {
   sel = +row.dataset.i;
   if (act === 'part') playTrack(s, s.parts.find(p => p.id === btn.dataset.id));
   else if (act === 'dl') toggleDownload(s);
+  else if (act === 'sheet') openViewer(s);
   else if (act === 'play') playSong(s);
 });
 
 // ------------------------------------------------------------------ offline downloads (Android only)
 const mediaUrl = id => `${CFG.driveApi}/drive/v3/files/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(CFG.apiKey)}`;
-function downloadTracks(tracks) {
+function downloadTracks(files) {
   let started = 0;
-  for (const p of tracks) {
+  for (const p of files) {
     if (downloaded.has(p.id) || downloading.has(p.id)) continue;
-    downloading.add(p.id); N.download(p.id, mediaUrl(p.id)); started++;
+    downloading.add(p.id);
+    if (p.ext && N.downloadAs) N.downloadAs(p.id, mediaUrl(p.id), p.ext); else N.download(p.id, mediaUrl(p.id));
+    started++;
   }
   return started;
 }
 function toggleDownload(s) {
   if (!N) return;
-  if (s.parts.every(p => downloaded.has(p.id))) {
-    s.parts.forEach(p => { if (!(now && now.part === p)) { N.remove(p.id); downloaded.delete(p.id); } });
+  if (songFiles(s).every(p => downloaded.has(p.id))) {
+    songFiles(s).forEach(p => { if (!(now && now.part === p)) { N.remove(p.id); downloaded.delete(p.id); } });
     toast('Removed from this phone'); renderTabs(); render(); return;
   }
   if (!navigator.onLine) return toast('Connect to the internet to save songs');
-  const n = downloadTracks(s.parts);
+  const n = downloadTracks(songFiles(s));
   if (n) toast(`Saving ${s.title} for offline…`);
   render();
 }
@@ -620,13 +739,14 @@ function sourceFor(part) {
   return local || mediaUrl(part.id);
 }
 function playSong(s) {
+  if (!s.parts.length) return openViewer(s);
   if (now && s.parts.includes(now.part)) return togglePlay();
-  queue = results.map(r => r.s);
+  queue = results.map(r => r.s).filter(x => x.parts.length);
   playTrack(s, pickPart(s));
 }
 function playTrack(song, part, keepTime = false) {
   if (now && now.part === part) return togglePlay();
-  if (!queue.includes(song)) queue = results.some(r => r.s === song) ? results.map(r => r.s) : [song];
+  if (!queue.includes(song)) queue = results.some(r => r.s === song) ? results.map(r => r.s).filter(x => x.parts.length) : [song];
   const t = keepTime ? audio.currentTime : 0, resume = !keepTime || !audio.paused;
   now = { song, part };
   if (!N || !N.localUrl(part.id)) { if (!navigator.onLine) { toast('You\'re offline and this song isn\'t saved'); } }
@@ -639,6 +759,8 @@ function playTrack(song, part, keepTime = false) {
   $('#playerParts').innerHTML = song.parts.length > 1 ? song.parts.map(p =>
     `<button class="pp${p === part ? ' now' : ''}" data-id="${esc(p.id)}">${esc(p.part)}</button>`).join('') : '';
   $('#player').classList.add('show');
+  $('#musicBtn').style.display = song.sheets.length ? '' : 'none';
+  if (viewing && viewing !== song && song.sheets.length) openViewer(song, true);
   if (!keepTime) { plays[part.id] = (plays[part.id] || 0) + 1; store.set('plays', plays); }
   render();
 }
@@ -681,18 +803,113 @@ $('#fwdBtn').onclick = () => { audio.currentTime = Math.min(audio.duration || 1e
 $('#loopBtn').onclick = () => { audio.loop = !audio.loop; $('#loopBtn').classList.toggle('on', audio.loop); toast(audio.loop ? 'Repeat on' : 'Repeat off', 1200); };
 $('#rate').onchange = e => { audio.playbackRate = +e.target.value; };
 $('#toggleBtn').innerHTML = BIG_PLAY;
+$('#musicBtn').onclick = () => { if (now) openViewer(now.song); };
+
+// ------------------------------------------------------------------ sheet music viewer
+let viewing = null, vSheet = null, zoom = 1;
+const pdfWaiters = {};
+window.onNativePdf = (id, ok, json) => { const cb = pdfWaiters[id]; delete pdfWaiters[id]; if (cb) cb(ok, ok ? JSON.parse(json) : []); };
+function sheetSrc(x) { return (N && N.localUrl(x.id)) || mediaUrl(x.id); }
+function openViewer(s, keepOpen = false) {
+  if (!s.sheets.length) return toast('No sheet music for this song yet');
+  viewing = s;
+  $('#vTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
+  $('#vSub').textContent = s.collection;
+  $('#vPlay').innerHTML = s.parts.length ? (now && s.parts.includes(now.part) && !audio.paused ? BIG_PAUSE : BIG_PLAY).replace(/26/g, '22') : '';
+  $('#vPlay').style.visibility = s.parts.length ? '' : 'hidden';
+  // group pages by label (e.g. "Vocal · G", "Lead · Ab"); numbered hymns are one group
+  const groups = [...new Set(s.sheets.map(x => x.label))];
+  $('#vTabs').innerHTML = groups.length > 1 ? groups.map((g, i) => `<button class="pp${i ? '' : ' now'}" data-g="${esc(g)}">${esc(g)}</button>`).join('') : '';
+  showSheetGroup(groups[0]);
+  $('#viewer').classList.add('show');
+  if (N && N.keepScreenOn) N.keepScreenOn(true);
+}
+function showSheetGroup(label) {
+  const pages = viewing.sheets.filter(x => x.label === label);
+  vSheet = label; setZoom(1);
+  document.querySelectorAll('#vTabs .pp').forEach(b => b.classList.toggle('now', b.dataset.g === label));
+  const box = $('#vPages'); box.innerHTML = '';
+  $('#vBody').scrollTo(0, 0);
+  for (const x of pages) {
+    if (x.ext === 'pdf') {
+      const holder = document.createElement('div'); box.appendChild(holder);
+      if (N && N.renderPdf) {
+        holder.innerHTML = '<div class="vmsg">Opening PDF…</div>';
+        pdfWaiters[x.id] = (ok, urls) => {
+          if (vSheet !== label) return;
+          holder.innerHTML = ok ? urls.map(u => `<img src="${esc(u)}" alt="">`).join('')
+            : `<div class="vmsg">Couldn't open this PDF.${navigator.onLine ? '' : ' You\'re offline and it isn\'t saved.'}</div>`;
+        };
+        N.renderPdf(x.id, mediaUrl(x.id));
+      } else {
+        holder.innerHTML = `<div class="vmsg"><a href="https://drive.google.com/file/d/${encodeURIComponent(x.id)}/view" target="_blank" rel="noopener">Open “${esc(x.name)}”</a></div>`;
+      }
+    } else {
+      const img = new Image(); img.alt = ''; img.src = sheetSrc(x);
+      img.onerror = () => { img.replaceWith(Object.assign(document.createElement('div'), { className: 'vmsg', textContent: navigator.onLine ? 'Couldn\'t load this page.' : 'You\'re offline and this page isn\'t saved.' })); };
+      box.appendChild(img);
+    }
+  }
+}
+function closeViewer() {
+  viewing = null; vSheet = null;
+  $('#viewer').classList.remove('show');
+  if (N && N.keepScreenOn) N.keepScreenOn(false);
+}
+$('#vClose').onclick = closeViewer;
+$('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (b) showSheetGroup(b.dataset.g); });
+$('#vPlay').onclick = () => {
+  if (!viewing || !viewing.parts.length) return;
+  if (now && viewing.parts.includes(now.part)) togglePlay(); else { queue = [viewing]; playTrack(viewing, pickPart(viewing)); }
+};
+audio.addEventListener('play', () => { if (viewing) openViewerButtons(); });
+audio.addEventListener('pause', () => { if (viewing) openViewerButtons(); });
+function openViewerButtons() {
+  $('#vPlay').innerHTML = (now && viewing.parts.includes(now.part) && !audio.paused ? BIG_PAUSE : BIG_PLAY).replace(/26/g, '22');
+}
+
+// Pinch / double-tap / buttons to zoom, keeping the spot under your fingers in place.
+function setZoom(z, cx, cy) {
+  const body = $('#vBody'), pages = $('#vPages');
+  z = Math.min(4, Math.max(1, z));
+  const r = body.getBoundingClientRect();
+  cx = cx ?? r.width / 2; cy = cy ?? r.height / 2;
+  const fx = (body.scrollLeft + cx) / (pages.offsetWidth || 1), fy = (body.scrollTop + cy) / (pages.offsetHeight || 1);
+  zoom = z; pages.style.width = (z * 100) + '%';
+  body.scrollLeft = fx * pages.offsetWidth - cx; body.scrollTop = fy * pages.offsetHeight - cy;
+}
+$('#zIn').onclick = () => setZoom(zoom * 1.5);
+$('#zOut').onclick = () => setZoom(zoom / 1.5);
+(() => {
+  const body = $('#vBody'); let start = null, lastTap = 0;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  body.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      const r = body.getBoundingClientRect();
+      start = { d: dist(e.touches), z: zoom, cx: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left, cy: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top };
+    } else if (e.touches.length === 1) {
+      const t = Date.now();
+      if (t - lastTap < 300) { const r = body.getBoundingClientRect(); setZoom(zoom > 1.2 ? 1 : 2.5, e.touches[0].clientX - r.left, e.touches[0].clientY - r.top); e.preventDefault(); }
+      lastTap = t;
+    }
+  }, { passive: false });
+  body.addEventListener('touchmove', e => {
+    if (start && e.touches.length === 2) { e.preventDefault(); setZoom(start.z * dist(e.touches) / start.d, start.cx, start.cy); }
+  }, { passive: false });
+  body.addEventListener('touchend', e => { if (e.touches.length < 2) start = null; });
+})();
 
 // ------------------------------------------------------------------ menu sheet
 function openSheet() { updateSheet(); $('#sheet').classList.add('show'); $('#sheetBg').classList.add('show'); }
 function closeSheet() { $('#sheet').classList.remove('show'); $('#sheetBg').classList.remove('show'); }
 function updateSheet() {
   const mb = N ? (N.downloadedBytes() / 1048576).toFixed(0) : 0;
-  $('#storageInfo').textContent = N ? `${downloaded.size} track${downloaded.size === 1 ? '' : 's'} saved on this phone (${mb} MB).` : 'Offline saving works in the Android app.';
+  $('#storageInfo').textContent = N ? `${downloaded.size} file${downloaded.size === 1 ? '' : 's'} saved on this phone (${mb} MB).` : 'Offline saving works in the Android app.';
   const scope = collection && collection !== '__saved' ? collection : 'all books';
   $('#dlPartBtn').textContent = `Save every song in ${scope} for offline`;
   $('#dlPartBtn').style.display = N ? '' : 'none';
   $('#clearDlBtn').style.display = N && downloaded.size ? '' : 'none';
-  $('#aboutLine').textContent = `${library.tracks.length} tracks · ${library.synced ? 'updated ' + ago(library.synced) : 'not updated yet'}`;
+  $('#aboutLine').textContent = `${summary()} · ${library.synced ? 'updated ' + ago(library.synced) : 'not updated yet'}`;
 }
 let theme = store.get('theme', 'system');
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -714,12 +931,12 @@ $('#sheetBg').onclick = closeSheet;
 $('#dlPartBtn').onclick = () => {
   if (!navigator.onLine) return toast('Connect to the internet to save songs');
   const pool = songs.filter(s => !collection || collection === '__saved' || s.collection === collection);
-  const tracks = myPart ? pool.map(s => s.parts.find(p => p.part.toLowerCase().startsWith(myPart.toLowerCase()))).filter(Boolean) : pool.flatMap(s => s.parts);
+  const tracks = pool.flatMap(songFiles);
   const mb = tracks.filter(p => !downloaded.has(p.id)).reduce((n, p) => n + p.size, 0) / 1048576;
   if (!tracks.length) return toast('Nothing to save');
   if (mb > 200 && !confirm(`This will download about ${mb.toFixed(0)} MB. Continue?`)) return;
   const n = downloadTracks(tracks);
-  toast(n ? `Saving ${n} track${n === 1 ? '' : 's'}… you can keep using the app` : 'Already saved');
+  toast(n ? `Saving ${n} file${n === 1 ? '' : 's'}… you can keep using the app` : 'Already saved');
   closeSheet(); render();
 };
 $('#clearDlBtn').onclick = () => {
@@ -730,19 +947,63 @@ $('#clearDlBtn').onclick = () => {
 
 // Android back button: close the sheet / clear the search first.
 window.handleBack = () => {
+  if ($('#lock').classList.contains('show')) return false;
+  if (viewing) { closeViewer(); return true; }
   if ($('#sheet').classList.contains('show')) { closeSheet(); return true; }
   if ($('#q').value) { $('#q').value = ''; search(); return true; }
   return false;
 };
 
+// ------------------------------------------------------------------ password (asked once per phone)
+// Small SHA-256 so the password itself isn't stored in the app.
+function sha256(str) {
+  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const bytes = [...new TextEncoder().encode(str)], len = bytes.length * 8;
+  bytes.push(0x80); while (bytes.length % 64 !== 56) bytes.push(0);
+  for (let i = 7; i >= 0; i--) bytes.push(i > 3 ? 0 : (len >>> (i * 8)) & 255);
+  const H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19], w = new Array(64);
+  const rot = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let o = 0; o < bytes.length; o += 64) {
+    for (let i = 0; i < 16; i++) w[i] = (bytes[o+4*i] << 24) | (bytes[o+4*i+1] << 16) | (bytes[o+4*i+2] << 8) | bytes[o+4*i+3];
+    for (let i = 16; i < 64; i++) {
+      const s0 = rot(w[i-15], 7) ^ rot(w[i-15], 18) ^ (w[i-15] >>> 3), s1 = rot(w[i-2], 17) ^ rot(w[i-2], 19) ^ (w[i-2] >>> 10);
+      w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0;
+    }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i = 0; i < 64; i++) {
+      const t1 = (h + (rot(e, 6) ^ rot(e, 11) ^ rot(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0;
+      const t2 = ((rot(a, 2) ^ rot(a, 13) ^ rot(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    [a, b, c, d, e, f, g, h].forEach((v, i) => { H[i] = (H[i] + v) | 0; });
+  }
+  return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
+}
+const needsPassword = () => CFG.passwordHash && store.get('unlocked', '') !== CFG.passwordHash;
+$('#lockTitle').textContent = CFG.appName;
+$('#lockForm').addEventListener('submit', e => {
+  e.preventDefault();
+  if (sha256($('#lockPw').value) === CFG.passwordHash) {
+    store.set('unlocked', CFG.passwordHash);
+    $('#lock').classList.remove('show'); $('#lockPw').blur();
+    startApp();
+  } else {
+    $('#lockErr').textContent = 'That password isn\'t right.'; $('#lockPw').select();
+  }
+});
+
 // ------------------------------------------------------------------ start
+function startApp() {
+  if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000 || !library.sheets) sync();
+}
 refreshDownloaded();
 buildIndex(); renderTabs(); search();
-if (library.synced) setSyncLine(`${library.tracks.length} tracks · updated ${ago(library.synced)}`);
-if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000) sync();
-window.addEventListener('online', () => { if (Date.now() - library.synced > CFG.syncMinutes * 60000) sync(); });
+if (library.synced) setSyncLine(`${summary()} · updated ${ago(library.synced)}`);
+if (needsPassword()) { $('#lock').classList.add('show'); setTimeout(() => $('#lockPw').focus(), 300); }
+else startApp();
+window.addEventListener('online', () => { if (!needsPassword() && Date.now() - library.synced > CFG.syncMinutes * 60000) sync(); });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && Date.now() - library.synced > CFG.syncMinutes * 60000) sync();
+  if (document.visibilityState === 'visible' && !needsPassword() && Date.now() - library.synced > CFG.syncMinutes * 60000) sync();
 });
 </script>
 </body>
