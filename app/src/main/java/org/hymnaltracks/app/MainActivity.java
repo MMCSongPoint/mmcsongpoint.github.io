@@ -32,7 +32,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Hosts the Hymnal Tracks web interface (assets/www) in a WebView and gives it a
+ * Hosts the MMC SongPoint web interface (assets/www) in a WebView and gives it a
  * small native bridge for offline downloads and background playback.
  */
 public class MainActivity extends Activity {

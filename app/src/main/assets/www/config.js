@@ -1,6 +1,6 @@
-// Hymnal Tracks settings. Edit these, then rebuild the app.
+// MMC SongPoint settings. Edit these, then rebuild the app.
 window.HYMNAL_CONFIG = {
-  appName: "Hymnal Tracks",
+  appName: "MMC SongPoint",
 
   // Google API key (Google Cloud console > APIs & Services > Credentials),
   // restricted to the Google Drive API. It can only read folders shared as

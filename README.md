@@ -1,8 +1,8 @@
-# Hymnal Tracks for Android
+# MMC SongPoint for Android
 
 Search and play the rehearsal MP3s in the shared **Hymnal Mp3s** Google Drive folder.
 
-**Download the app:** [HymnalTracks.apk](../../releases/latest/download/HymnalTracks.apk)
+**Download the app:** [MMC-SongPoint.apk](../../releases/latest/download/MMC-SongPoint.apk)
 (on your Android phone, open the link, then open the downloaded file. If asked, allow
 installing apps from your browser.)
 
