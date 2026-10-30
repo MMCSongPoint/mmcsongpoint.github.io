@@ -605,7 +605,7 @@ const keyList = new Map();
 })();
 // Keys listed by hymn number (Songs of Faith and Praise)
 const keyNumbers = new Map();
-for (const b of window.SONG_KEYS_BY_NUMBER || []) for (const n in b.keys) keyNumbers.set(b.book + '|' + n, b.keys[n]);
+for (const b of window.SONG_KEYS_BY_NUMBER || []) for (const book of [b.book, ...(b.aka || [])]) for (const n in b.keys) keyNumbers.set(book + '|' + n, b.keys[n]);
 function buildIndex() {
   songIndex = new Map();
   const newSong = (key, x) => ({ key, number: x.number, collection: x.collection, subfolder: x.subfolder || '', parts: [], sheets: [], slides: [], modified: '' });

@@ -24,7 +24,7 @@ window.HYMNAL_CONFIG = {
   logUrl: "https://script.google.com/macros/s/AKfycbznkfdtHJ0RI_6MiQKlRu80g_XOxTZaGNkt18KEGXN-2T4zZoK1Qy7VK5W-88a8a6xgww/exec",
 
   // Tab order (folders not listed come last, A-Z).
-  collectionOrder: ["Misc", "Songs of Faith and Praise", "Zions Praises", "Christian Hymnal"],
+  collectionOrder: ["Misc", "SFP", "Zions Praises", "Christian Hymnal"],
 
   // Re-check Drive for changes when the app opens, if the last check is older than this.
   syncMinutes: 30,
