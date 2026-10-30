@@ -45,7 +45,7 @@
 
   header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   .brand { font-weight: 750; font-size: 20px; letter-spacing: -.02em; display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; }
-  .brand i { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: inline-grid; place-items: center; font-style: normal; color: #fff; font-size: 14px; flex: none; }
+  .brand i { position: relative; width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: inline-grid; place-items: center; font-style: normal; color: #fff; font-size: 14px; flex: none; }
   .hbtn { background: var(--row); border: 1px solid var(--line); border-radius: 10px; width: 40px; height: 40px; display: grid; place-items: center; flex: none; }
   .spin svg { animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -224,6 +224,10 @@
   .wsel { position: relative; }
   .wsel::before { content: ''; position: absolute; left: 0; right: 0; top: 88px; height: 44px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); pointer-events: none; z-index: 1; }
   .wheel .row2 { margin: 12px 0 0; justify-content: flex-end; }
+  .updbadge { display: none; position: absolute; top: -4px; right: -4px; width: 11px; height: 11px; border-radius: 50%; background: #e5484d; border: 2px solid var(--bg); }
+  .brand i.has-update { cursor: pointer; }
+  .brand i.has-update .updbadge { display: block; animation: updpulse 2s ease-out 3; }
+  @keyframes updpulse { 0% { box-shadow: 0 0 0 0 rgba(229,72,77,.6); } 100% { box-shadow: 0 0 0 9px rgba(229,72,77,0); } }
   .updcard { display: none; align-items: center; gap: 10px; background: var(--row); border: 1px solid var(--accent-text); border-radius: 12px; padding: 10px 12px; margin: 0 0 12px; font-size: 14px; }
   .updcard.show { display: flex; }
   .updcard span { flex: 1; }
@@ -253,7 +257,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="brand"><i>♪</i><span id="appName">MMC SongPoint</span></div>
+    <div class="brand"><i id="brandIcon" role="button" aria-label="MMC SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">MMC SongPoint</span></div>
     <button class="hbtn" id="syncBtn" title="Check Drive for new songs"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
     <button class="hbtn" id="notesBtn" title="Song Lists"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg></button>
     <button class="hbtn" id="menuBtn" title="More"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
@@ -674,7 +678,7 @@ let syncing = false;
 async function sync(manual = false) {
   if (syncing) return;
   if (!CFG.apiKey || CFG.apiKey.startsWith('PASTE')) { setSyncLine('The app is missing its Google API key (config.js).', true); return; }
-  if (!navigator.onLine) { setSyncLine(library.synced ? `Offline · last updated ${ago(library.synced)}` : 'You\'re offline.', !library.synced); if (manual) toast('No internet connection'); return; }
+  if (!navigator.onLine) { setSyncLine(library.synced ? `Offline · Last Refreshed ${ago(library.synced)}` : 'You\'re offline.', !library.synced); if (manual) toast('No internet connection'); return; }
   syncing = true; $('#syncBtn').classList.add('spin'); setSyncLine('Checking Google Drive…');
   try {
     const tracks = [], seenColl = [];
@@ -744,7 +748,7 @@ async function sync(manual = false) {
     library = { tracks, sheets, slides, collections: seenColl, synced: Date.now() };
     store.set('library', library);
     buildIndex(); renderTabs(); search();
-    setSyncLine(`${summary()} · updated just now`);
+    setSyncLine(`${summary()} · Last Refreshed just now`);
     if (manual) toast(tracks.length + sheets.length + slides.length === before ? 'Up to date' : `Library updated: ${summary()}`);
   } catch (e) {
     setSyncLine(navigator.onLine ? `Couldn't update: ${e.message}` : 'You\'re offline.', true);
@@ -1189,7 +1193,7 @@ function updateSheet() {
   $('#dlPartBtn').textContent = `Save every song in ${scope} for offline`;
   $('#dlPartBtn').style.display = N ? '' : 'none';
   $('#clearDlBtn').style.display = N && downloaded.size ? '' : 'none';
-  $('#aboutLine').textContent = `${summary()} · ${library.synced ? 'updated ' + ago(library.synced) : 'not updated yet'}`;
+  $('#aboutLine').textContent = `${summary()} · ${library.synced ? 'Last Refreshed ' + ago(library.synced) : 'Not refreshed yet'}`;
 }
 let theme = store.get('theme', 'system');
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -1713,7 +1717,7 @@ async function checkUpdate(manual = false) {
     if (latest > v.code) {
       const asset = (rel.assets || []).find(a => /^MMCSongPoint\.apk$/i.test(a.name)) || (rel.assets || []).find(a => /\.apk$/i.test(a.name));
       updateInfo = { version: (rel.name || '').replace(/^.*?(\d+\.\d+\.\d+).*$/, '$1') || '1.0.' + latest, url: asset ? asset.browser_download_url : rel.html_url };
-      $('#updText').textContent = `Version ${updateInfo.version} is available.`; $('#updCard').classList.add('show');
+      showUpdateBadge(`Version ${updateInfo.version} is available. Tap to download.`);
       if (manual || store.get('updateAsked', '') !== updateInfo.version) {
         store.set('updateAsked', updateInfo.version);
         if (manual) closeSheet();
@@ -1731,13 +1735,36 @@ function downloadUpdate() {
   toast('Downloading… open the file when it finishes to install.', 5000);
 }
 $('#checkUpdBtn').onclick = () => checkUpdate(true);
+// Red dot on the app icon (top left) when an update is ready; tapping it asks to download / reload
+function showUpdateBadge(title) { const b = $('#brandIcon'); b.classList.add('has-update'); b.title = title; }
+$('#brandIcon').onclick = () => {
+  if (!$('#brandIcon').classList.contains('has-update')) return;
+  if (updateInfo) {
+    if (confirm(`MMC SongPoint ${updateInfo.version} is available.\n\nDownload it now?`)) downloadUpdate();
+  } else if (webUpdate) {
+    if (confirm(`A new version of MMC SongPoint (${webUpdate}) is available.\n\nReload now to get it?`)) location.reload();
+  }
+};
+// Web app: notice when a newer version has been published while the page is open
+let webUpdate = null;
+async function checkWebUpdate() {
+  if (appVersion() || !/^\d/.test(WEB_VERSION) || !navigator.onLine) return;
+  try {
+    const html = await (await fetch('index.html', { cache: 'no-store' })).text();
+    const m = html.match(/const WEB_VERSION = '(\d[^'|]*)\|?[^']*'/);
+    if (m && m[1] !== WEB_VERSION.split('|')[0]) { webUpdate = m[1]; showUpdateBadge(`Version ${m[1]} is available. Tap to reload.`); }
+  } catch {}
+}
+setTimeout(checkWebUpdate, 4000);
+setInterval(checkWebUpdate, 20 * 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkWebUpdate(); });
 (() => {
   const v = appVersion();
   if (v) { $('#versionLine').textContent = `Version ${v.name} (Android app)`; $('#checkUpdBtn').style.display = ''; }
   else {
     const w = /^\d/.test(WEB_VERSION) ? WEB_VERSION.split('|') : null;   // "1.0.N|YYYY-MM-DD", stamped when the website is published
-    $('#versionLine').textContent = w ? `Version ${w[0]} (web app, ${new Date(w[1] + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}) · updates itself when you're online.`
-      : 'Web version · updates itself when you\'re online.';
+    $('#versionLine').textContent = w ? `Version ${w[0]} (web app, ${new Date(w[1] + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })})`
+      : 'Web version';
   }
 })();
 
@@ -1908,7 +1935,7 @@ if (N && N.ready) N.ready.then(() => { refreshDownloaded(); renderTabs(); render
   if (N && N.isWeb && ios && !standalone && !store.get('installTipClosed', false)) $('#installTip').classList.add('show');
   $('#installClose').onclick = () => { $('#installTip').classList.remove('show'); store.set('installTipClosed', true); };
 })();
-if (library.synced) setSyncLine(`${summary()} · updated ${ago(library.synced)}`);
+if (library.synced) setSyncLine(`${summary()} · Last Refreshed ${ago(library.synced)}`);
 renderWelcome();
 if (!auth.token) chooseLockMode();
 else if (auth.user && auth.user.mustChange) showLock('change');
