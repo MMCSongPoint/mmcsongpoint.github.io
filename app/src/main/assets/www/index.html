@@ -173,7 +173,12 @@
   .field input, .field textarea { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; outline: none; }
   .field input:focus, .field textarea:focus { border-color: var(--accent-text); }
   .field textarea { min-height: 76px; resize: vertical; }
-  .nsong { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 8px; padding: 9px 4px 9px 10px; border-top: 1px solid var(--line); }
+  .nsong { display: grid; grid-template-columns: 30px 22px 1fr auto; align-items: center; gap: 6px; padding: 9px 4px 9px 4px; border-top: 1px solid var(--line); background: var(--panel); position: relative; }
+  .nsong .handle { width: 30px; height: 40px; display: grid; place-items: center; color: var(--muted); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 20px; }
+  .nsong.dragging { z-index: 3; box-shadow: 0 6px 22px rgba(0,0,0,.25); border-radius: 10px; border-top-color: transparent; }
+  .nsong.dragging .handle { cursor: grabbing; color: var(--accent-text); }
+  .nsong.shift { transition: transform .15s ease; }
+  #noteSongs.reordering { user-select: none; -webkit-user-select: none; }
   .nsong:first-child { border-top: none; }
   .nsong .pos { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
   .nsong .ctl { display: flex; align-items: center; }
@@ -304,6 +309,7 @@
   <div class="vhead">
     <button class="icon" id="vClose" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
     <div class="info"><div class="title" id="vTitle"></div><div class="sub" id="vSub"></div></div>
+    <button class="icon" id="vDownload" aria-label="Download" title="Save to this device"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg></button>
     <button class="icon" id="vPlay" aria-label="Play"></button>
   </div>
   <div class="vtabs scroller" id="vTabs"></div>
@@ -1092,6 +1098,33 @@ function showSheetGroup(label) {
     }
   }
 }
+// Save the sheet music being shown (PDF or image) to the device itself.
+async function downloadSheet() {
+  if (!viewing) return;
+  const files = viewing.sheets.filter(x => x.label === vSheet);
+  if (!files.length) return;
+  const mimeOf = x => x.ext === 'pdf' ? 'application/pdf' : x.ext === 'png' ? 'image/png' : 'image/jpeg';
+  if (window.Native && window.Native.saveToDownloads) {
+    if (!navigator.onLine) return toast('Connect to the internet to download');
+    files.forEach(x => window.Native.saveToDownloads(mediaUrl(x.id), x.name, mimeOf(x)));
+    return;
+  }
+  try {
+    toast('Preparing download…', 1500);
+    const blobs = await Promise.all(files.map(async x => {
+      const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw new Error(r.status);
+      return new File([await r.blob()], x.name, { type: mimeOf(x) });
+    }));
+    if (navigator.canShare && navigator.canShare({ files: blobs }) && /iPhone|iPad|iPod|Android/.test(navigator.userAgent)) {
+      return await navigator.share({ files: blobs, title: viewing.title }).catch(() => {});
+    }
+    for (const f of blobs) {
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(f), download: f.name });
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    }
+  } catch { toast(navigator.onLine ? 'Couldn\'t download this file' : 'Connect to the internet to download'); }
+}
+$('#vDownload').onclick = downloadSheet;
 function closeViewer() {
   viewing = null; vSheet = null;
   $('#viewer').classList.remove('show');
@@ -1239,13 +1272,12 @@ function renderNoteSongs() {
   $('#noteSongs').innerHTML = n.songs.length ? n.songs.map((r, i) => {
     const s = songIndex.get(r.key);
     return `<div class="nsong${s ? '' : ' missing'}" data-i="${i}">
+      <div class="handle" aria-label="Drag to reorder" title="Drag to reorder">≡</div>
       <div class="pos">${i + 1}</div>
       <div class="info"><div class="title t">${esc(songLabel(r))}${s && s.slides.length ? '<span class="slidechip">slides</span>' : ''}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}</div></div>
       <div class="ctl">
         ${s && s.parts.length ? `<button data-act="play" aria-label="Play">▶</button>` : ''}
         ${s && s.sheets.length ? `<button data-act="sheet" class="sm" aria-label="Sheet music">${ICON_MUSIC.replace(/20/g, '18')}</button>` : ''}
-        <button data-act="up" aria-label="Move up" ${i ? '' : 'disabled'}>↑</button>
-        <button data-act="down" aria-label="Move down" ${i < n.songs.length - 1 ? '' : 'disabled'}>↓</button>
         <button data-act="del" aria-label="Remove">✕</button>
       </div></div>`;
   }).join('') : `<div class="empty" style="padding:22px"><b>No songs yet</b>Tap “+ Add songs”, then tap + next to each song.</div>`;
@@ -1266,12 +1298,65 @@ function markDirty() { editingDirty = true; $('#noteSave').textContent = 'Save';
 $('#noteSongs').addEventListener('click', e => {
   const row = e.target.closest('.nsong'); if (!row) return;
   const i = +row.dataset.i, act = e.target.closest('[data-act]')?.dataset.act, r = editing.songs[i], s = songIndex.get(r.key);
-  if (act === 'up' && i > 0) { [editing.songs[i - 1], editing.songs[i]] = [editing.songs[i], editing.songs[i - 1]]; markDirty(); renderNoteSongs(); }
-  else if (act === 'down' && i < editing.songs.length - 1) { [editing.songs[i + 1], editing.songs[i]] = [editing.songs[i], editing.songs[i + 1]]; markDirty(); renderNoteSongs(); }
-  else if (act === 'del') { editing.songs.splice(i, 1); markDirty(); renderNoteSongs(); }
+  if (act === 'del') { editing.songs.splice(i, 1); markDirty(); renderNoteSongs(); }
   else if (act === 'play' && s) { queue = noteQueue(); playTrack(s, pickPart(s)); }
   else if (act === 'sheet' && s) openViewer(s);
 });
+// Drag and drop: press the ≡ handle and drag the song to a new place.
+(() => {
+  const list = $('#noteSongs');
+  let d = null, raf = 0;
+  const scroller = () => $('#notePanel .pbody');
+  function layout() {
+    if (!d) return;
+    const sc = scroller(), dy = d.y - d.startY + (sc.scrollTop - d.scroll0);
+    d.row.style.transform = `translateY(${dy}px)`;
+    const center = d.tops[d.from] + d.h / 2 + dy;
+    let to = d.from;
+    for (let k = 0; k < d.rows.length; k++) if (center > d.tops[k] + d.hs[k] / 2) to = k > d.from ? k : to;
+    for (let k = d.rows.length - 1; k >= 0; k--) if (center < d.tops[k] + d.hs[k] / 2) to = k < d.from ? k : to;
+    d.to = to;
+    d.rows.forEach((r, k) => {
+      if (k === d.from) return;
+      const shift = d.from < to && k > d.from && k <= to ? -d.h : d.from > to && k >= to && k < d.from ? d.h : 0;
+      r.style.transform = shift ? `translateY(${shift}px)` : '';
+    });
+  }
+  function autoScroll() {
+    if (!d) return;
+    const sc = scroller(), r = sc.getBoundingClientRect(), edge = 70;
+    let v = 0;
+    if (d.y < r.top + edge) v = -Math.ceil((r.top + edge - d.y) / 6);
+    else if (d.y > r.bottom - edge) v = Math.ceil((d.y - (r.bottom - edge)) / 6);
+    if (v) { sc.scrollTop += v; layout(); }
+    raf = requestAnimationFrame(autoScroll);
+  }
+  list.addEventListener('pointerdown', e => {
+    const h = e.target.closest('.handle'); if (!h || !editing) return;
+    e.preventDefault();
+    const row = h.closest('.nsong'), rows = [...list.querySelectorAll('.nsong')], sc = scroller();
+    d = { row, rows, from: +row.dataset.i, to: +row.dataset.i, startY: e.clientY, y: e.clientY, scroll0: sc.scrollTop,
+      tops: rows.map(r => r.getBoundingClientRect().top + sc.scrollTop), hs: rows.map(r => r.offsetHeight), h: row.offsetHeight };
+    d.tops = d.tops.map(t => t - sc.scrollTop);
+    try { h.setPointerCapture(e.pointerId); } catch {}
+    list.classList.add('reordering'); row.classList.add('dragging');
+    rows.forEach(r => { if (r !== row) r.classList.add('shift'); });
+    if (navigator.vibrate) navigator.vibrate(10);
+    raf = requestAnimationFrame(autoScroll);
+  });
+  list.addEventListener('pointermove', e => { if (d) { e.preventDefault(); d.y = e.clientY; layout(); } });
+  const end = () => {
+    if (!d) return;
+    cancelAnimationFrame(raf);
+    const { from, to } = d;
+    d.rows.forEach(r => { r.style.transform = ''; r.classList.remove('shift', 'dragging'); });
+    list.classList.remove('reordering'); d = null;
+    if (to !== from) { const [item] = editing.songs.splice(from, 1); editing.songs.splice(to, 0, item); markDirty(); }
+    renderNoteSongs();
+  };
+  list.addEventListener('pointerup', end);
+  list.addEventListener('pointercancel', end);
+})();
 const noteQueue = () => editing.songs.map(r => songIndex.get(r.key)).filter(s => s && s.parts.length);
 $('#notePlay').onclick = () => { const q = noteQueue(); if (!q.length) return; queue = q; playTrack(q[0], pickPart(q[0])); };
 

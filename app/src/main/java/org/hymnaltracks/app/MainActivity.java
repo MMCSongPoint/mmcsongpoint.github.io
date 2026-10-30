@@ -373,6 +373,30 @@ public class MainActivity extends Activity {
             }
         }
 
+        /** Saves a file (e.g. sheet music PDF) to the phone's Downloads folder via Android's download manager. */
+        @JavascriptInterface
+        public void saveToDownloads(String url, String name, String mime) {
+            main.post(() -> {
+                try {
+                    if (Build.VERSION.SDK_INT < 29 && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 2);
+                        js("window.toast && window.toast('Allow storage access, then tap Download again')");
+                        return;
+                    }
+                    String safe = name.replaceAll("[\\\\/:*?\"<>|]", "_");
+                    android.app.DownloadManager.Request r = new android.app.DownloadManager.Request(Uri.parse(url))
+                            .setTitle(safe)
+                            .setMimeType(mime)
+                            .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                            .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, safe);
+                    ((android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE)).enqueue(r);
+                    js("window.toast && window.toast('Downloading to your Downloads folder…')");
+                } catch (Exception e) {
+                    js("window.toast && window.toast('Could not download the file')");
+                }
+            });
+        }
+
         @JavascriptInterface
         public void keepScreenOn(boolean on) {
             main.post(() -> {
