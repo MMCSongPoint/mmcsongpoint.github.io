@@ -49,7 +49,7 @@ self.addEventListener('fetch', e => {
   if (url.origin === self.location.origin) {
     e.respondWith((async () => {
       try {
-        const fresh = await fetch(req);
+        const fresh = await fetch(req, { cache: 'no-cache' });   // always check for a newer version
         if (fresh.ok) { const c = await caches.open(SHELL); c.put(req, fresh.clone()); }
         return fresh;
       } catch {
