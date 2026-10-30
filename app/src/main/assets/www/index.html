@@ -228,6 +228,8 @@
   .wscroll { position: relative; height: 220px; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); }
   .wscroll::-webkit-scrollbar { display: none; }
   .wscroll div { height: 44px; display: grid; place-items: center; scroll-snap-align: center; font-size: 20px; color: var(--muted); }
+  .wscroll .oct { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+  .wscroll div { grid-auto-flow: column; align-items: baseline; justify-content: center; }
   .wscroll div.on { color: var(--text); font-weight: 700; font-size: 24px; }
   .wscroll .pad { height: 88px; scroll-snap-align: none; }
   .wsel { position: relative; }
@@ -1856,7 +1858,10 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) chec
 // ------------------------------------------------------------------ starting note (Do) button
 const NOTE_NAMES = ['A', 'A♯/B♭', 'B', 'C', 'C♯/D♭', 'D', 'D♯/E♭', 'E', 'F', 'F♯/G♭', 'G', 'G♯/A♭'];
 const PC = { C: 3, D: 5, E: 7, F: 8, G: 10, A: 0, B: 2 };          // index into NOTE_NAMES
-const keyOverrides = new Map();                                      // this session only
+const keyOverrides = new Map();                                      // this session only (values are pitches 0..12)
+// Pitch numbers: 0 = middle C (C4) up to 12 = high C (C5). NOTE_NAMES index (A = 0) -> pitch:
+const pitchOf = i => (i + 9) % 12;
+const pitchName = (p, flat) => noteLabel((p + 3) % 12, flat);
 function keyIndex(k) {
   const m = String(k || '').match(/^([A-G])([#b♯♭]?)(m?)$/); if (!m) return -1;
   return (PC[m[1]] + (/[#♯]/.test(m[2]) ? 1 : /[b♭]/.test(m[2]) ? -1 : 0) + 12) % 12;
@@ -1868,60 +1873,43 @@ function noteLabel(i, preferFlat) {
 function songKeyState(s) {
   const base = s.musicKey ? keyIndex(s.musicKey) : -1, minor = /m$/.test(s.musicKey || '');
   const flat = !/[#♯]/.test(s.musicKey || '');
-  if (keyOverrides.has(s.key)) { const i = keyOverrides.get(s.key); return { i, label: noteLabel(i, flat) + (minor ? 'm' : ''), changed: true }; }
-  if (base >= 0) return { i: base, label: s.musicKey.replace('#', '♯').replace(/b(?=m?$)/, '♭'), changed: false };
-  return { i: -1, label: '', changed: false };
+  if (keyOverrides.has(s.key)) { const p = keyOverrides.get(s.key); return { i: (p + 3) % 12, p, label: pitchName(p, flat) + (minor ? 'm' : ''), changed: true }; }
+  if (base >= 0) return { i: base, p: pitchOf(base), label: s.musicKey.replace('#', '♯').replace(/b(?=m?$)/, '♭'), changed: false };
+  return { i: -1, p: -1, label: '', changed: false };
 }
 const PIPE_ICON = '<svg class="pipe" viewBox="0 0 48 48" aria-hidden="true"><defs><mask id="pipeMask"><rect width="48" height="48" fill="#fff"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(0 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(30 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(60 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(90 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(120 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(150 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(180 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(210 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(240 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(270 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(300 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(330 24 24)"/><circle cx="24" cy="24" r="3.6"/><circle cx="24" cy="24" r="7.5" fill="none" stroke="#000" stroke-width="1.6"/><text x="24" y="17.2" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="9.5">C</text><path d="M24 31.5v6M21.8 35.3l2.2 2.4 2.2-2.4" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></mask></defs><circle cx="24" cy="24" r="22.5" fill="currentColor" mask="url(#pipeMask)"/></svg>';
 function keyButton(s) {
   const k = songKeyState(s);
   return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note"${s.keyChange ? ` title="${esc(s.keyChange)}"` : ''}>${k.label ? esc(k.label) : PIPE_ICON}${s.keyChange ? '<sup>+</sup>' : ''}</button>`;
 }
-let actx = null, reedWave = null, pipeStop = null;
-function playPitch(i, el) {
-  if (i < 0) return;
+let actx = null, pipeStop = null, forkCurve = null;
+// Tuning fork: a pure tone that starts softly and slowly rings away. p = 0 (middle C) .. 12 (high C).
+const FORK_DUR = 3.5;
+function playPitch(p, el) {
+  if (p < 0) return;
   actx = actx || new (window.AudioContext || window.webkitAudioContext)();
   if (actx.state === 'suspended') actx.resume();
-  if (pipeStop) pipeStop();                                   // one note at a time, like a real pipe
-  if (!reedWave) {
-    // Open, round reed: mostly the fundamental, a little 2nd/3rd, very little above (no brassy buzz)
-    const amps = [0, 1, 0.32, 0.18, 0.07, 0.04, 0.02, 0.01];
-    reedWave = actx.createPeriodicWave(new Float32Array(amps.length), new Float32Array(amps));
+  if (pipeStop) pipeStop();                                   // one note at a time
+  if (!forkCurve) {                                           // soft 12 ms start, ring decaying over ~1.6 s, gentle end
+    const n = 600; forkCurve = new Float32Array(n);
+    for (let k = 0; k < n; k++) {
+      const t = k / (n - 1) * FORK_DUR;
+      forkCurve[k] = 0.7 * Math.min(1, t / 0.012) * Math.exp(-t / 1.6) * Math.min(1, (FORK_DUR - t) / 0.25);
+    }
   }
-  const semis = i + (i >= 3 ? -12 : 0);                       // C4..B4, the usual pitch-pipe range
-  const f = 440 * Math.pow(2, semis / 12), t = actx.currentTime, dur = 2.2;
-  const out = actx.createGain(), tone = actx.createBiquadFilter();
-  tone.type = 'lowpass'; tone.frequency.value = Math.min(2400, f * 5); tone.Q.value = 0.5;   // soft top, no resonant peak
-  tone.connect(out); out.connect(actx.destination);
-  out.gain.setValueAtTime(0.0001, t);
-  out.gain.linearRampToValueAtTime(0.42, t + 0.14);           // gentle blown attack
-  out.gain.setValueAtTime(0.42, t + dur - 0.25);
-  out.gain.linearRampToValueAtTime(0.0001, t + dur);          // breath fades out
-  const oscs = [-2.5, 2.5].map(cents => {                     // two reeds a hair apart -> soft, slow shimmer
-    const o = actx.createOscillator();
-    o.setPeriodicWave(reedWave);
-    o.frequency.value = f * Math.pow(2, cents / 1200);
-    const g = actx.createGain(); g.gain.value = 0.5;
-    o.connect(g); g.connect(tone); o.start(t); o.stop(t + dur + 0.05);
-    return o;
-  });
-  // breath: a soft airy layer through the whole note, a little stronger at the start
-  const len = Math.floor(actx.sampleRate * dur), buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
-  for (let k = 0; k < len; k++) d[k] = Math.random() * 2 - 1;
-  const breath = actx.createBufferSource(), bf = actx.createBiquadFilter(), bg = actx.createGain();
-  breath.buffer = buf; bf.type = 'bandpass'; bf.frequency.value = f * 2; bf.Q.value = 0.9;
-  bg.gain.setValueAtTime(0.0001, t); bg.gain.linearRampToValueAtTime(0.06, t + 0.08); bg.gain.linearRampToValueAtTime(0.022, t + 0.4);
-  breath.connect(bf); bf.connect(bg); bg.connect(out); breath.start(t); breath.stop(t + dur);
+  const f = 261.6256 * Math.pow(2, p / 12), t = actx.currentTime + 0.01;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'sine'; o.frequency.value = f;
+  g.gain.value = 0; g.gain.setValueCurveAtTime(forkCurve, t, FORK_DUR);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + FORK_DUR + 0.05);
   const stop = () => {
     const n = actx.currentTime;
-    out.gain.cancelScheduledValues(n); out.gain.setValueAtTime(out.gain.value, n); out.gain.linearRampToValueAtTime(0.0001, n + 0.06);
-    oscs.forEach(o => { try { o.stop(n + 0.07); } catch {} });
-    try { breath.stop(n + 0.07); } catch {}
+    try { g.gain.cancelScheduledValues(n); g.gain.setValueAtTime(g.gain.value, n); g.gain.linearRampToValueAtTime(0, n + 0.06); o.stop(n + 0.08); } catch {}
     if (pipeStop === stop) pipeStop = null;
   };
   pipeStop = stop;
-  setTimeout(() => { if (pipeStop === stop) pipeStop = null; }, dur * 1000);
-  if (el) { el.classList.add('ringing'); setTimeout(() => el.classList.remove('ringing'), dur * 1000 - 200); }
+  setTimeout(() => { if (pipeStop === stop) pipeStop = null; }, FORK_DUR * 1000);
+  if (el) { el.classList.add('ringing'); setTimeout(() => el.classList.remove('ringing'), 1800); }
 }
 // tap = play Do; press and hold = choose another note
 let wheelSong = null, wheelIdx = 0, holdTimer = null, held = false;
@@ -1939,30 +1927,31 @@ function keyTap(s, el) {
   if (held) { held = false; return; }
   const k = songKeyState(s);
   if (k.i < 0) return openWheel(s);
-  playPitch(k.i, el);
+  playPitch(k.p, el);
 }
 function openWheel(s) {
   wheelSong = s;
   const k = songKeyState(s);
-  wheelIdx = k.i >= 0 ? k.i : 3;
+  wheelIdx = k.p >= 0 ? k.p : 0;   // pitch 0..12; middle C if no key
   $('#wheelTitle').textContent = `Starting note · ${s.number ? s.number + '. ' : ''}${s.title}`;
   $('#wheelSub').textContent = (s.musicKey ? `Written in ${s.musicKey}.${s.keyChange ? ' ' + s.keyChange + '.' : ''}` : 'No key is listed for this song.') + ' Scroll to choose, then tap Play to hear it. Your choice lasts until you close the app.';
   const sc = $('#wheelScroll');
-  sc.innerHTML = '<div class="pad"></div>' + NOTE_NAMES.map((n, i) => `<div data-i="${i}">${n}</div>`).join('') + '<div class="pad"></div>';
+  const rows = []; for (let p = 12; p >= 0; p--) rows.push(`<div data-i="${p}">${NOTE_NAMES[(p + 3) % 12]}${p === 12 ? '<small class="oct">high</small>' : p === 0 ? '<small class="oct">middle</small>' : ''}</div>`);   // high C at the top, middle C at the bottom
+  sc.innerHTML = '<div class="pad"></div>' + rows.join('') + '<div class="pad"></div>';
   $('#wheelBox').classList.add('show');
-  requestAnimationFrame(() => { sc.scrollTop = wheelIdx * 44; markWheel(); });
+  requestAnimationFrame(() => { sc.scrollTop = (12 - wheelIdx) * 44; markWheel(); });
 }
 function markWheel() { document.querySelectorAll('#wheelScroll [data-i]').forEach(d => d.classList.toggle('on', +d.dataset.i === wheelIdx)); }
 let wheelT;
 $('#wheelScroll').addEventListener('scroll', () => {
-  const i = Math.max(0, Math.min(11, Math.round($('#wheelScroll').scrollTop / 44)));
+  const i = 12 - Math.max(0, Math.min(12, Math.round($('#wheelScroll').scrollTop / 44)));
   if (i !== wheelIdx) { wheelIdx = i; markWheel(); }
 });
-$('#wheelScroll').addEventListener('click', e => { const d = e.target.closest('[data-i]'); if (d) $('#wheelScroll').scrollTo({ top: +d.dataset.i * 44, behavior: 'smooth' }); });
+$('#wheelScroll').addEventListener('click', e => { const d = e.target.closest('[data-i]'); if (d) $('#wheelScroll').scrollTo({ top: (12 - +d.dataset.i) * 44, behavior: 'smooth' }); });
 function closeWheel() { $('#wheelBox').classList.remove('show'); wheelSong = null; }
 $('#wheelPlay').onclick = () => playPitch(wheelIdx);
 $('#wheelDone').onclick = () => {
-  const base = wheelSong.musicKey ? keyIndex(wheelSong.musicKey) : -1;
+  const base = wheelSong.musicKey && keyIndex(wheelSong.musicKey) >= 0 ? pitchOf(keyIndex(wheelSong.musicKey)) : -1;
   if (wheelIdx === base) keyOverrides.delete(wheelSong.key); else keyOverrides.set(wheelSong.key, wheelIdx);
   closeWheel(); render();
 };
