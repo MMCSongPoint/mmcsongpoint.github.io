@@ -5,7 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#72173b">
 <title>MMC SongPoint</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SongPoint">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="config.js"></script>
+<script src="web.js"></script>
 <style>
   /* Brand color #72173b. --accent fills buttons; --accent-text is for colored text/borders. */
   :root, :root[data-theme="dark"] {
@@ -32,7 +40,7 @@
   html, body { margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overscroll-behavior-y: contain; }
   button { font: inherit; color: inherit; cursor: pointer; }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 14px 14px 190px; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: calc(14px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 190px calc(14px + env(safe-area-inset-left)); }
 
   header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   .brand { font-weight: 750; font-size: 20px; letter-spacing: -.02em; display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; }
@@ -113,7 +121,7 @@
   /* sheet music viewer */
   .viewer { position: fixed; inset: 0; z-index: 80; background: var(--bg); display: none; flex-direction: column; }
   .viewer.show { display: flex; }
-  .vhead { display: flex; align-items: center; gap: 8px; padding: 8px 8px 6px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .vhead { display: flex; align-items: center; gap: 8px; padding: calc(8px + env(safe-area-inset-top)) 8px 6px; border-bottom: 1px solid var(--line); background: var(--panel); }
   .vhead .info { flex: 1; }
   .vtabs { padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
   .vtabs:empty { display: none; }
@@ -136,6 +144,10 @@
   .lock input:focus { border-color: var(--accent-text); }
   .lock button { width: 100%; margin-top: 12px; padding: 14px; border: none; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-size: 16px; font-weight: 600; }
   .lock .err { color: var(--danger); min-height: 22px; margin-top: 10px; font-size: 14px; }
+  .install { display: none; align-items: center; gap: 10px; background: var(--row); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 0 0 12px; font-size: 14px; }
+  .install.show { display: flex; }
+  .install span { flex: 1; }
+  .install button { background: none; border: none; color: var(--muted); font-size: 20px; padding: 0 4px; }
   .sheet-bg { position: fixed; inset: 0; background: var(--scrim); display: none; z-index: 70; }
   .sheet-bg.show { display: block; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-radius: 18px 18px 0 0; padding: 18px 18px calc(22px + env(safe-area-inset-bottom)); z-index: 71; transform: translateY(110%); transition: transform .2s; max-width: 900px; margin: 0 auto; }
@@ -158,6 +170,7 @@
     <button class="hbtn" id="menuBtn" title="More"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
   </header>
   <div class="syncline" id="syncLine"></div>
+  <div class="install" id="installTip"><span>Install on your iPhone: tap <b>Share</b> <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8"/></svg> then <b>Add to Home Screen</b>.</span><button id="installClose" aria-label="Dismiss">×</button></div>
 
   <div class="search" id="searchBox">
     <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -242,7 +255,8 @@
 <script>
 'use strict';
 const CFG = Object.assign({ appName: 'MMC SongPoint', syncMinutes: 30, collectionOrder: [], driveApi: 'https://www.googleapis.com' }, window.HYMNAL_CONFIG || {});
-const N = window.Native && window.Native.isAndroid ? window.Native : null;   // Android bridge (absent in a browser)
+// Android app: window.Native (Java). Website / iPhone: window.WebNative (web.js). Opened as a local file: none.
+const N = (window.Native && window.Native.isAndroid ? window.Native : null) || window.WebNative || null;
 const $ = s => document.querySelector(s);
 const audio = $('#audio');
 const ICON_PLAY = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg>';
@@ -663,7 +677,7 @@ function render() {
       : `<div class="empty"><b>No songs found</b>Check that the Drive folder has MP3 files and is shared as “Anyone with the link”.</div>`;
   } else if (!results.length) {
     list.innerHTML = collection === '__saved' && !lastQ
-      ? `<div class="empty"><b>No saved songs yet</b>Tap the ⬇ next to a song to keep it on this phone for offline use.</div>`
+      ? `<div class="empty"><b>No saved songs yet</b>Tap the ⬇ next to a song to keep it on this device for offline use.</div>`
       : `<div class="empty"><b>No matches${lastQ ? ` for “${esc(lastQ)}”` : ''}</b>${collection ? 'Try the “All” tab, or fewer words.' : 'Try fewer words.'}</div>`;
   } else {
     list.innerHTML = results.slice(0, limit).map(({ s, fuzzy }, i) => {
@@ -716,7 +730,7 @@ function toggleDownload(s) {
   if (!N) return;
   if (songFiles(s).every(p => downloaded.has(p.id))) {
     songFiles(s).forEach(p => { if (!(now && now.part === p)) { N.remove(p.id); downloaded.delete(p.id); } });
-    toast('Removed from this phone'); renderTabs(); render(); return;
+    toast('Removed from this device'); renderTabs(); render(); return;
   }
   if (!navigator.onLine) return toast('Connect to the internet to save songs');
   const n = downloadTracks(songFiles(s));
@@ -904,7 +918,7 @@ function openSheet() { updateSheet(); $('#sheet').classList.add('show'); $('#she
 function closeSheet() { $('#sheet').classList.remove('show'); $('#sheetBg').classList.remove('show'); }
 function updateSheet() {
   const mb = N ? (N.downloadedBytes() / 1048576).toFixed(0) : 0;
-  $('#storageInfo').textContent = N ? `${downloaded.size} file${downloaded.size === 1 ? '' : 's'} saved on this phone (${mb} MB).` : 'Offline saving works in the Android app.';
+  $('#storageInfo').textContent = N ? `${downloaded.size} file${downloaded.size === 1 ? '' : 's'} saved on this device (${mb} MB).` : 'Offline saving isn\'t available in this browser.';
   const scope = collection && collection !== '__saved' ? collection : 'all books';
   $('#dlPartBtn').textContent = `Save every song in ${scope} for offline`;
   $('#dlPartBtn').style.display = N ? '' : 'none';
@@ -940,7 +954,7 @@ $('#dlPartBtn').onclick = () => {
   closeSheet(); render();
 };
 $('#clearDlBtn').onclick = () => {
-  if (!confirm('Remove all saved songs from this phone?')) return;
+  if (!confirm('Remove all saved songs from this device?')) return;
   N.removeAll(); downloaded.clear(); if (collection === '__saved') collection = '';
   renderTabs(); search(); updateSheet(); toast('Saved songs removed');
 };
@@ -998,6 +1012,13 @@ function startApp() {
 }
 refreshDownloaded();
 buildIndex(); renderTabs(); search();
+if (N && N.ready) N.ready.then(() => { refreshDownloaded(); renderTabs(); render(); });
+(() => {
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+  if (N && N.isWeb && ios && !standalone && !store.get('installTipClosed', false)) $('#installTip').classList.add('show');
+  $('#installClose').onclick = () => { $('#installTip').classList.remove('show'); store.set('installTipClosed', true); };
+})();
 if (library.synced) setSyncLine(`${summary()} · updated ${ago(library.synced)}`);
 if (needsPassword()) { $('#lock').classList.add('show'); setTimeout(() => $('#lockPw').focus(), 300); }
 else startApp();
