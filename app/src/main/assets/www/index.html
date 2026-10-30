@@ -1974,12 +1974,12 @@ $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') 
 // ------------------------------------------------------------------ library check (admins)
 // Songs missing an MP3, sheet music, a key or a PowerPoint. Admins can mark songs "ignore";
 // that list is kept on the server so every admin sees the same thing.
-// Text docs (readings etc.) never have an MP3 or a key, so those aren't counted as missing.
+// Text docs (readings etc.) never have an MP3, a key or a PowerPoint, so those aren't counted as missing.
 const CHECKS = [
   { id: 'mp3', label: 'MP3', test: s => !s.parts.length && !isTextDoc(s) },
   { id: 'sheet', label: 'Sheet music', test: s => !s.sheets.length },
   { id: 'key', label: 'Key', test: s => !s.musicKey && !isTextDoc(s) },
-  { id: 'ppt', label: 'PowerPoint', test: s => !s.slides.length },
+  { id: 'ppt', label: 'PowerPoint', test: s => !s.slides.length && !isTextDoc(s) },
 ];
 let checkIgnored = new Set(store.get('checkIgnored', [])), checkFilter = '', checkBook = '', checkLimit = 150;
 function checkRows() {
