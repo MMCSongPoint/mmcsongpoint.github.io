@@ -154,6 +154,8 @@ function handle_(d) {
   if (a === 'resetPassword') return resetPassword_(d);
   if (a === 'setAdmin') return setAdmin_(me, d);
   if (a === 'setDisabled') return setDisabled_(me, d);
+  if (a === 'getIgnored') return { ok: true, ignored: ignored_() };
+  if (a === 'setIgnored') return setIgnored_(me, d);
   return { ok: false, error: 'Unknown action' };
 }
 
@@ -395,4 +397,25 @@ function bugReport_(me, d) {
   sh.appendRow([new Date(), me.name || '', me.username, text, link, String(d.where || '').slice(0, 300),
     String(d.version || ''), String(d.device || '').slice(0, 300), 'New']);
   return { ok: true };
+}
+
+// ------------------------------------------------------------------ library check (admins)
+/** Songs admins have marked "ignore" on the Library check screen (shared by all admins). */
+var IGNORE = 'Library Ignore', IHEAD = ['Song', 'Title', 'Book', 'Marked by', 'When'];
+function ignored_() {
+  var sh = tab_(IGNORE, IHEAD), n = sh.getLastRow() - 1;
+  if (n < 1) return [];
+  return sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }).filter(String);
+}
+function setIgnored_(me, d) {
+  var key = String(d.key || ''); if (!key) return { ok: false, error: 'No song given.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(IGNORE, IHEAD), n = sh.getLastRow() - 1;
+    var keys = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [];
+    var i = keys.indexOf(key);
+    if (d.ignored && i < 0) sh.appendRow([key, String(d.title || ''), String(d.book || ''), me.name || me.username, new Date()]);
+    if (!d.ignored && i >= 0) sh.deleteRow(i + 2);
+  } finally { lock.releaseLock(); }
+  return { ok: true, ignored: ignored_() };
 }

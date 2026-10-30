@@ -230,6 +230,20 @@
   #bugRec.recording { background: #e5484d; }
   #bugRec.recording .recdot { border-radius: 2px; animation: pulse 1s ease-in-out infinite; }
   .rectime { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+  .ctiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .ctiles button { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 4px; text-align: center; color: var(--text); font: inherit; }
+  .ctiles button.on { border-color: var(--accent-text); box-shadow: inset 0 0 0 1px var(--accent-text); }
+  .ctiles b { display: block; font-size: 21px; }
+  .ctiles small { color: var(--muted); font-size: 11.5px; line-height: 1.25; display: block; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .crow { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+  .crow.ign { opacity: .5; }
+  .crow .ci { flex: 1; min-width: 0; }
+  .crow .ct { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crow .cb { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .miss { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; margin: 4px 4px 0 0; background: rgba(229,72,77,.12); color: #c4323a; }
+  html.dark .miss, .dark .miss { color: #ff8a8f; }
+  .crow .pbtn { padding: 6px 10px; font-size: 13px; flex: none; }
   .updbadge { display: none; position: absolute; top: -4px; right: -4px; width: 11px; height: 11px; border-radius: 50%; background: #e5484d; border: 2px solid var(--bg); }
   .brand i.has-update { cursor: pointer; }
   .brand i.has-update .updbadge { display: block; animation: updpulse 2s ease-out 3; }
@@ -400,6 +414,24 @@
   </div>
 </div>
 
+<!-- Library check (admins) -->
+<div class="panel" id="checkPanel">
+  <div class="phead">
+    <button class="icon" data-close="checkPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Library check</h2>
+    <button class="icon" id="checkRefresh" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+  </div>
+  <div class="pbody">
+    <div class="ctiles" id="checkTiles"></div>
+    <div class="chips" id="checkBooks" style="margin:0 0 10px"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px">
+      <input id="checkQ" type="search" placeholder="Filter by title or number" style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;white-space:nowrap"><input type="checkbox" id="checkShowIgn"> Show ignored</label>
+    </div>
+    <div id="checkList"></div>
+  </div>
+</div>
+
 <!-- Report a problem -->
 <div class="panel" id="bugPanel">
   <div class="phead">
@@ -462,6 +494,7 @@
   <h4 style="margin-top:12px">Account</h4>
   <p id="acctLine" style="margin:0 0 4px"></p>
   <button class="act" id="usersBtn">Manage users</button>
+  <button class="act" id="checkBtn">Library check (missing files)</button>
   <button class="act" id="changePwBtn">Change password</button>
   <button class="act" id="signOutBtn">Sign out</button>
   <h4 style="margin-top:12px">Offline songs</h4>
@@ -779,6 +812,7 @@ async function sync(manual = false) {
     store.set('library', library);
     buildIndex(); renderTabs(); search();
     setSyncLine(`${summary()} · last refreshed just now`);
+    if ($('#checkPanel').classList.contains('show')) renderCheck();
     if (manual) toast(tracks.length + sheets.length + slides.length === before ? 'Up to date' : `Library updated: ${summary()}`);
   } catch (e) {
     setSyncLine(navigator.onLine ? `Couldn't update: ${e.message}` : 'You\'re offline.', true);
@@ -1581,6 +1615,7 @@ function renderWelcome() {
   $('#welcome').innerHTML = n ? `Welcome, <b>${esc(n)}</b>` : '';
   $('#acctLine').textContent = auth.user ? `Signed in as ${auth.user.name} (${auth.user.username})${auth.user.admin ? ' · Admin' : ''}` : '';
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
+  $('#checkBtn').style.display = isAdmin() ? '' : 'none';
 }
 function signOut(expired = false) {
   auth = {}; saveAuth(); renderWelcome(); closeSheet();
@@ -1908,6 +1943,64 @@ $('#wheelDone').onclick = () => {
 };
 $('#wheelReset').onclick = () => { keyOverrides.delete(wheelSong.key); closeWheel(); render(); };
 $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') closeWheel(); });
+
+// ------------------------------------------------------------------ library check (admins)
+// Songs missing an MP3, sheet music, a key or a PowerPoint. Admins can mark songs "ignore";
+// that list is kept on the server so every admin sees the same thing.
+const CHECKS = [
+  { id: 'mp3', label: 'MP3', test: s => !s.parts.length },
+  { id: 'sheet', label: 'Sheet music', test: s => !s.sheets.length },
+  { id: 'key', label: 'Key', test: s => !s.musicKey },
+  { id: 'ppt', label: 'PowerPoint', test: s => !s.slides.length },
+];
+let checkIgnored = new Set(store.get('checkIgnored', [])), checkFilter = '', checkBook = '', checkLimit = 150;
+function checkRows() {
+  return [...songIndex.values()].map(s => ({ s, miss: CHECKS.filter(c => c.test(s)) })).filter(x => x.miss.length);
+}
+function renderCheck() {
+  const all = checkRows(), showIgn = $('#checkShowIgn').checked;
+  const books = CFG.collectionOrder.filter(b => all.some(x => x.s.collection === b));
+  for (const x of all) if (!books.includes(x.s.collection)) books.push(x.s.collection);
+  const inBook = all.filter(x => (!checkBook || x.s.collection === checkBook) && !checkIgnored.has(x.s.key));
+  $('#checkTiles').innerHTML = CHECKS.map(c => `<button data-c="${c.id}" class="${checkFilter === c.id ? 'on' : ''}"><b>${inBook.filter(x => x.miss.includes(c)).length}</b><small>No ${c.label}</small></button>`).join('');
+  $('#checkBooks').innerHTML = ['', ...books].map(b => `<button class="chip${checkBook === b ? ' on' : ''}" data-b="${esc(b)}">${b ? esc(b) : 'All books'}</button>`).join('');
+  const q = normalize($('#checkQ').value || '');
+  let rows = all.filter(x => (!checkBook || x.s.collection === checkBook)
+    && (showIgn || !checkIgnored.has(x.s.key))
+    && (!checkFilter || x.miss.some(c => c.id === checkFilter))
+    && (!q || x.s.nTitle.includes(q) || x.s.number === q.replace(/^#/, '')));
+  rows.sort((a, b) => (CFG.collectionOrder.indexOf(a.s.collection) - CFG.collectionOrder.indexOf(b.s.collection))
+    || ((+a.s.number || 1e9) - (+b.s.number || 1e9)) || a.s.title.localeCompare(b.s.title));
+  const ign = all.filter(x => checkIgnored.has(x.s.key) && (!checkBook || x.s.collection === checkBook)).length;
+  $('#checkList').innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0 0 4px">${rows.length} song${rows.length === 1 ? '' : 's'}${ign ? ` · ${ign} ignored` : ''}</p>`
+    + (rows.length ? rows.slice(0, checkLimit).map(x => { const ig = checkIgnored.has(x.s.key); return `<div class="crow${ig ? ' ign' : ''}">
+      <div class="ci"><div class="ct">${x.s.number ? `<span class="num">${esc(x.s.number)}</span>` : ''}${esc(x.s.title)}</div>
+      <div class="cb">${esc(x.s.collection)}</div><div>${x.miss.map(c => `<span class="miss">No ${c.label}</span>`).join('')}</div></div>
+      <button class="pbtn ghost" data-ign="${esc(x.s.key)}">${ig ? 'Un-ignore' : 'Ignore'}</button></div>`; }).join('')
+      + (rows.length > checkLimit ? `<button class="act" id="checkMore">Show more (${rows.length - checkLimit} left)</button>` : '')
+    : '<div class="vmsg">Nothing missing here.</div>');
+}
+async function loadIgnored() {
+  try { const r = await api('getIgnored'); if (r.ok) { checkIgnored = new Set(r.ignored); store.set('checkIgnored', r.ignored); renderCheck(); } }
+  catch {}
+}
+$('#checkBtn').onclick = () => { closeSheet(); checkLimit = 150; renderCheck(); openPanel('checkPanel'); loadIgnored(); };
+$('#checkRefresh').onclick = () => { loadIgnored(); sync(true); };
+$('#checkShowIgn').onchange = renderCheck;
+$('#checkQ').oninput = () => { checkLimit = 150; renderCheck(); };
+$('#checkPanel').addEventListener('click', async e => {
+  const t = e.target.closest('[data-c]'); if (t) { checkFilter = checkFilter === t.dataset.c ? '' : t.dataset.c; checkLimit = 150; return renderCheck(); }
+  const b = e.target.closest('[data-b]'); if (b) { checkBook = b.dataset.b; checkLimit = 150; return renderCheck(); }
+  if (e.target.id === 'checkMore') { checkLimit += 300; return renderCheck(); }
+  const g = e.target.closest('[data-ign]'); if (!g) return;
+  const key = g.dataset.ign, s = songIndex.get(key), on = !checkIgnored.has(key);
+  on ? checkIgnored.add(key) : checkIgnored.delete(key); store.set('checkIgnored', [...checkIgnored]); renderCheck();
+  try {
+    const r = await api('setIgnored', { key, ignored: on, title: s ? s.title : '', book: s ? s.collection : '' });
+    if (r.ok) { checkIgnored = new Set(r.ignored); store.set('checkIgnored', r.ignored); renderCheck(); }
+    else toast(r.error === 'Unknown action' ? 'The server needs updating to save this.' : (r.error || 'Couldn\'t save that'), 4500);
+  } catch { toast('Couldn\'t reach the server. Saved on this device for now.', 4000); }
+});
 
 // ------------------------------------------------------------------ report a problem
 let bugRec = null, bugChunks = [], bugBlob = null, bugTimer = null, bugStart = 0;
