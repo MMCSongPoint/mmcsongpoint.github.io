@@ -72,6 +72,22 @@ public class MainActivity extends Activity {
 
         web.addJavascriptInterface(new Bridge(), "Native");
         web.setWebChromeClient(new WebChromeClient() {
+            // App-styled pop-ups (no "The page at file:// says" title).
+            @Override
+            public boolean onJsAlert(WebView view, String url, String message, android.webkit.JsResult result) {
+                new android.app.AlertDialog.Builder(MainActivity.this).setMessage(message)
+                    .setPositiveButton(android.R.string.ok, (d, w) -> result.confirm())
+                    .setOnCancelListener(d -> result.confirm()).show();
+                return true;
+            }
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, android.webkit.JsResult result) {
+                new android.app.AlertDialog.Builder(MainActivity.this).setMessage(message)
+                    .setPositiveButton(android.R.string.ok, (d, w) -> result.confirm())
+                    .setNegativeButton(android.R.string.cancel, (d, w) -> result.cancel())
+                    .setOnCancelListener(d -> result.cancel()).show();
+                return true;
+            }
             // Microphone for voice memos in "Report a problem": ask Android first, then let the page record.
             @Override
             public void onPermissionRequest(final android.webkit.PermissionRequest request) {
