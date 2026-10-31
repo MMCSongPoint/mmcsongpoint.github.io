@@ -120,7 +120,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 3 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 4 }); }
 
 function doPost(e) {
   var d;
@@ -158,6 +158,8 @@ function handle_(d) {
   if (a === 'getIgnored') return { ok: true, ignored: ignored_() };
   if (a === 'setIgnored') return setIgnored_(me, d);
   if (a === 'setTextDoc') return setTextDoc_(me, d);
+  if (a === 'logRecords') return logRecords_();
+  if (a === 'deleteLog') return deleteLog_(me, d);
   return { ok: false, error: 'Unknown action' };
 }
 
@@ -440,4 +442,60 @@ function setTextDoc_(me, d) {
     if (!d.textDoc && i >= 0) sh.deleteRow(i + 2);
   } finally { lock.releaseLock(); }
   return { ok: true, textDocs: textDocs_() };
+}
+
+// ------------------------------------------------------------------ usage records (admins)
+/** Every logged song list (all versions together) and every PowerPoint build, newest first. */
+function logRecords_() {
+  var v = logTab_().getDataRange().getValues(); v.shift();
+  var groups = {}, order = [];
+  v.forEach(function (r) {
+    var event = String(r[3] || ''), noteId = String(r[5] || ''), entry = String(r[14] || '');
+    var key = event === 'note saved' && noteId ? 'n:' + noteId : 'e:' + (entry || Utilities.getUuid());
+    var g = groups[key];
+    if (!g) {
+      g = groups[key] = { key: key, kind: event === 'note saved' ? 'list' : 'slides', noteId: noteId, entryId: entry,
+        title: String(r[4] || ''), leader: String(r[2] || ''), username: String(r[15] || ''), dateUsed: day_(r[1]),
+        logged: '', versions: {}, latest: 0, songs: [], rows: 0, device: String(r[12] || ''), comment: String(r[13] || '') };
+      order.push(key);
+    }
+    g.rows++;
+    var ver = Number(r[6]) || 0; g.versions[ver] = true;
+    var at = r[0] instanceof Date ? r[0].toISOString() : String(r[0] || '');
+    if (at > g.logged) g.logged = at;
+    if (ver > g.latest || (ver === g.latest && g.kind === 'list' && !g.songs.length)) {
+      if (ver > g.latest) g.songs = [];
+      g.latest = ver; g.title = String(r[4] || g.title); g.dateUsed = day_(r[1]) || g.dateUsed; g.leader = String(r[2] || g.leader);
+    }
+    if ((Number(r[6]) || 0) === g.latest && r[10]) g.songs.push(String(r[9] ? r[9] + '. ' : '') + String(r[10]));
+  });
+  var list = order.map(function (k) { var g = groups[k]; g.versions = Object.keys(g.versions).length; return g; });
+  list.sort(function (a, b) { return a.logged < b.logged ? 1 : -1; });
+  return { ok: true, records: list };
+}
+
+/** Deletes whole song-list records (every version) and/or single entries. Deleted rows go to a "Deleted log" tab. */
+function deleteLog_(me, d) {
+  var noteIds = {}, entryIds = {}, n = 0;
+  (d.noteIds || []).forEach(function (x) { if (x) noteIds[String(x)] = true; });
+  (d.entryIds || []).forEach(function (x) { if (x) entryIds[String(x)] = true; });
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    var sh = logTab_(), last = sh.getLastRow();
+    if (last < 2) return { ok: true, deleted: 0 };
+    var v = sh.getRange(2, 1, last - 1, HEAD.length).getValues(), keep = [], gone = [];
+    v.forEach(function (r) {
+      var del = (String(r[3]) === 'note saved' && noteIds[String(r[5])]) || entryIds[String(r[14])];
+      (del ? gone : keep).push(r);
+    });
+    if (!gone.length) return { ok: true, deleted: 0 };
+    var bin = tab_('Deleted log', HEAD.concat(['Deleted at', 'Deleted by']));
+    var stamp = new Date(), by = me.name || me.username;
+    bin.getRange(bin.getLastRow() + 1, 1, gone.length, HEAD.length + 2).setValues(gone.map(function (r) { return r.concat([stamp, by]); }));
+    sh.getRange(2, 1, last - 1, HEAD.length).clearContent();
+    if (keep.length) sh.getRange(2, 1, keep.length, HEAD.length).setValues(keep);
+    if (keep.length && last - 1 > keep.length) sh.deleteRows(keep.length + 2, last - 1 - keep.length);
+    n = gone.length;
+  } finally { lock.releaseLock(); }
+  return { ok: true, deleted: n };
 }

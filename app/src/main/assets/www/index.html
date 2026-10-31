@@ -307,6 +307,17 @@
   .tab.tabdrag { background: var(--row); border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.25); transform: scale(1.06); position: relative; z-index: 2; }
   #tabs.reordering { overflow-x: hidden; }
   .tab { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .recbar { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 13.5px; }
+  .recbar label { display: flex; align-items: center; gap: 6px; }
+  .recbar span { flex: 1; color: var(--muted); font-size: 12.5px; }
+  .recbar .pbtn:disabled { opacity: .4; }
+  .rec { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: start; padding: 11px 4px; border-top: 1px solid var(--line); }
+  .rec input { margin-top: 3px; width: 18px; height: 18px; }
+  .rec .rt { font-weight: 600; }
+  .rec .rs { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .rec .rsongs { color: var(--muted); font-size: 12.5px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec .kind { font-size: 11px; font-weight: 600; border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; margin-left: 6px; color: var(--muted); }
+  .rec button { background: none; border: none; color: var(--muted); font-size: 18px; width: 34px; height: 34px; border-radius: 8px; }
   .drawer-bg { position: fixed; inset: 0; background: var(--scrim); z-index: 72; opacity: 0; pointer-events: none; transition: opacity .2s; }
   .drawer-bg.show { opacity: 1; pointer-events: auto; }
   .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(300px, 82vw); background: var(--panel); z-index: 73; transform: translateX(105%); transition: transform .22s ease; box-shadow: -6px 0 24px rgba(0,0,0,.25); padding: calc(10px + env(safe-area-inset-top)) 10px 20px; display: flex; flex-direction: column; gap: 4px; }
@@ -534,6 +545,21 @@
   </div>
 </div>
 
+<!-- Usage records (admins) -->
+<div class="panel" id="recordsPanel">
+  <div class="phead">
+    <button class="icon" data-close="recordsPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Usage records</h2>
+    <button class="icon" id="recRefresh" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+  </div>
+  <div class="pbody">
+    <p style="color:var(--muted);font-size:13px;margin:0 0 10px">Every saved song list and PowerPoint build in the usage log. Deleting removes it from usage counts for everyone (it's kept in a “Deleted log” tab in the Google Sheet, just in case).</p>
+    <input id="recQ" type="search" placeholder="Filter by title, leader or song" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;margin-bottom:8px">
+    <div class="recbar"><label><input type="checkbox" id="recAll"> Select all shown</label><span id="recCount"></span><button class="pbtn" id="recDelete" disabled style="background:var(--danger)">Delete</button></div>
+    <div id="recList"><div class="vmsg">Loading…</div></div>
+  </div>
+</div>
+
 <!-- Report a problem -->
 <div class="panel" id="bugPanel">
   <div class="phead">
@@ -651,6 +677,7 @@
   <h4 style="margin-top:12px">Account</h4>
   <p id="acctLine" style="margin:0 0 4px"></p>
   <button class="act" id="usersBtn">Manage users</button>
+  <button class="act" id="recordsBtn">Usage records (delete entries)</button>
   <button class="act" id="checkBtn">Library check (missing files)</button>
   <button class="act" id="changePwBtn">Change password</button>
   <button class="act" id="signOutBtn">Sign out</button>
@@ -1883,6 +1910,7 @@ function renderWelcome() {
   $('#acctLine').textContent = auth.user ? `Signed in as ${auth.user.name} (${auth.user.username})${auth.user.admin ? ' · Admin' : ''}` : '';
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
+  $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
 }
 function signOut(expired = false) {
   auth = {}; saveAuth(); renderWelcome(); closeSheet();
@@ -2477,6 +2505,57 @@ $('#pipeDisc').addEventListener('click', e => {
     else { ptr.style.opacity = 0; ptr.style.transform = 'translateY(-50px)'; }
   });
 })();
+// ------------------------------------------------------------------ usage records (admins can delete log entries)
+let records = [], recSel = new Set();
+function recShown() {
+  const q = normalize($('#recQ').value || '');
+  return records.filter(r => !q || normalize([r.title, r.leader, r.username, r.comment, ...r.songs].join(' ')).includes(q));
+}
+function renderRecords() {
+  const shown = recShown();
+  $('#recList').innerHTML = shown.length ? shown.map(r => `<div class="rec" data-k="${esc(r.key)}">
+      <input type="checkbox" data-sel ${recSel.has(r.key) ? 'checked' : ''} aria-label="Select">
+      <div><div class="rt">${esc(r.title || (r.kind === 'slides' ? 'PowerPoint' : 'Untitled'))}<span class="kind">${r.kind === 'slides' ? 'PowerPoint' : 'Song list'}</span></div>
+        <div class="rs">${esc(r.leader || r.username || '')}${r.dateUsed ? ' · used ' + esc(shortDate(r.dateUsed)) : ''} · logged ${r.logged ? new Date(r.logged).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '?'}${r.versions > 1 ? ` · ${r.versions} saves` : ''}${r.songs.length ? ` · ${r.songs.length} song${r.songs.length === 1 ? '' : 's'}` : ''}</div>
+        ${r.songs.length ? `<div class="rsongs">${esc(r.songs.join(', '))}</div>` : ''}</div>
+      <button data-del aria-label="Delete">✕</button></div>`).join('')
+    : `<div class="vmsg">${records.length ? 'Nothing matches.' : 'No usage records yet.'}</div>`;
+  const picked = [...recSel].filter(k => records.some(r => r.key === k)).length;
+  $('#recCount').textContent = `${shown.length} shown${picked ? ` · ${picked} selected` : ''}`;
+  $('#recDelete').disabled = !picked; $('#recDelete').textContent = picked ? `Delete ${picked}` : 'Delete';
+  $('#recAll').checked = shown.length > 0 && shown.every(r => recSel.has(r.key));
+}
+async function loadRecords() {
+  $('#recList').innerHTML = '<div class="vmsg">Loading…</div>';
+  try {
+    const r = await api('logRecords');
+    if (!r.ok) { $('#recList').innerHTML = `<div class="vmsg">${esc(r.error === 'Unknown action' ? 'The server needs updating first.' : r.error || 'Couldn’t load records')}</div>`; return; }
+    records = r.records; recSel = new Set([...recSel].filter(k => records.some(x => x.key === k))); renderRecords();
+  } catch { $('#recList').innerHTML = '<div class="vmsg">Couldn’t reach the server.</div>'; }
+}
+async function deleteRecords(keys) {
+  const list = records.filter(r => keys.includes(r.key)); if (!list.length) return;
+  const label = list.length === 1 ? `“${list[0].title || 'this record'}”` : `${list.length} records`;
+  if (!confirm(`Are you sure you want to delete ${label} from the usage log?`)) return;
+  busy(true, 'Deleting…', '');
+  try {
+    const r = await api('deleteLog', { noteIds: list.filter(x => x.kind === 'list').map(x => x.noteId), entryIds: list.filter(x => x.kind !== 'list').map(x => x.entryId) });
+    busy(false);
+    if (!r.ok) return toast(r.error || 'Couldn’t delete', 4500);
+    toast(`Deleted ${list.length} record${list.length === 1 ? '' : 's'}`);
+    keys.forEach(k => recSel.delete(k)); usageAll = null; loadRecords(); loadUsage(true);
+  } catch { busy(false); toast('Couldn’t reach the server. Try again.', 4500); }
+}
+$('#recordsBtn').onclick = () => { closeSheet(); recSel.clear(); $('#recQ').value = ''; openPanel('recordsPanel'); loadRecords(); };
+$('#recRefresh').onclick = loadRecords;
+$('#recQ').oninput = renderRecords;
+$('#recAll').onchange = e => { recShown().forEach(r => e.target.checked ? recSel.add(r.key) : recSel.delete(r.key)); renderRecords(); };
+$('#recDelete').onclick = () => deleteRecords([...recSel]);
+$('#recList').addEventListener('click', e => {
+  const row = e.target.closest('.rec'); if (!row) return; const k = row.dataset.k;
+  if (e.target.closest('[data-del]')) return deleteRecords([k]);
+  if (e.target.closest('[data-sel]')) { e.target.checked ? recSel.add(k) : recSel.delete(k); renderRecords(); }
+});
 // ------------------------------------------------------------------ library check (admins)
 // Songs missing an MP3, sheet music, a key or a PowerPoint. Admins can mark songs "ignore";
 // that list is kept on the server so every admin sees the same thing.
