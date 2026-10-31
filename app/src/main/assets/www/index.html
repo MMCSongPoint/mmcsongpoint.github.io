@@ -190,7 +190,7 @@
   .field input, .field textarea { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; outline: none; }
   .field input:focus, .field textarea:focus { border-color: var(--accent-text); }
   .field textarea { min-height: 76px; resize: vertical; }
-  .nsong { display: grid; grid-template-columns: 30px 22px 1fr auto; align-items: center; gap: 6px; padding: 9px 4px 9px 4px; border-top: 1px solid var(--line); background: var(--panel); position: relative; }
+  .nsong { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 6px; padding: 9px 4px 9px 4px; border-top: 1px solid var(--line); background: var(--panel); position: relative; }
   .nsong .handle { width: 30px; height: 40px; display: grid; place-items: center; color: var(--muted); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 20px; }
   .nsong.dragging { z-index: 3; box-shadow: 0 6px 22px rgba(0,0,0,.25); border-radius: 10px; border-top-color: transparent; }
   .nsong.dragging .handle { cursor: grabbing; color: var(--accent-text); }
@@ -292,6 +292,11 @@
   .pipeswap { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: radial-gradient(circle at 50% 40%, #2a2a2a, #050505); color: #eee; font: 600 13px system-ui, sans-serif; display: grid; place-items: center; position: relative; }
   .pipeswap::after { content: ''; position: absolute; width: 9px; height: 9px; border-radius: 50%; background: #bbb; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: 0; }
   .pipeswap span { line-height: 1; }
+  body.songspanel .player { z-index: 76; }
+  #songsPanel .pbody { padding-bottom: 200px; }
+  .tab.tabdrag { background: var(--row); border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.25); transform: scale(1.06); position: relative; z-index: 2; }
+  #tabs.reordering { overflow-x: hidden; }
+  .tab { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   .drawer-bg { position: fixed; inset: 0; background: var(--scrim); z-index: 72; opacity: 0; pointer-events: none; transition: opacity .2s; }
   .drawer-bg.show { opacity: 1; pointer-events: auto; }
   .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(300px, 82vw); background: var(--panel); z-index: 73; transform: translateX(105%); transition: transform .22s ease; box-shadow: -6px 0 24px rgba(0,0,0,.25); padding: calc(10px + env(safe-area-inset-top)) 10px 20px; display: flex; flex-direction: column; gap: 4px; }
@@ -318,7 +323,7 @@
   .nview .vtext { white-space: pre-wrap; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-size: 14px; }
   #notePanel.viewing .editonly { display: none !important; }
   #notePanel:not(.viewing) .viewonly { display: none !important; }
-  .nsong.view { grid-template-columns: 22px 1fr auto; }
+  .nsong.view { grid-template-columns: 1fr auto; padding-left: 10px; }
   .nsong .ctl button.keyb { min-width: 38px; width: auto; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--accent-text); font-weight: 700; font-size: 13.5px; padding: 0 6px; margin-right: 4px; }
   .nsong .ctl button.keyb.unknown { color: var(--accent-text); }
   .nsong .ctl button.keyb.ringing { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
@@ -574,11 +579,21 @@
   <button class="ditem" id="dNotes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg>Song Lists</button>
   <button class="ditem" id="dSlides"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4M8 21h8M7 9h6M7 12h10"/></svg>PowerPoints</button>
   <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
+  <button class="ditem" id="dOffline"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Offline songs<small id="dOffCount"></small></button>
   <button class="ditem" id="dSettings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
 </nav>
 
 <!-- Song row "more" menu -->
 <div class="rowmenu" id="rowMenu" role="menu"></div>
+
+<!-- Favorites / Offline songs -->
+<div class="panel" id="songsPanel">
+  <div class="phead">
+    <button class="icon" data-close="songsPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2 id="songsTitle">Favorites</h2>
+  </div>
+  <div class="pbody"><div class="list" id="songsList"></div></div>
+</div>
 
 <!-- PowerPoints -->
 <div class="panel" id="slidesPanel">
@@ -1098,12 +1113,47 @@ function renderTabs() {
   const counts = {};
   for (const s of songs) counts[s.collection] = (counts[s.collection] || 0) + 1;
   const favCount = songs.filter(isFav).length;
-  if (collection && collection !== '__fav' && !counts[collection]) collection = '';
-  const tabs = [['', 'All', songs.length], ...library.collections.filter(c => counts[c]).map(c => [c, c, counts[c]])];
-  if (collection === '__fav') tabs.unshift(['__fav', '★ Favorites', favCount]);   // shown only while viewing favorites (opened from the menu)
+  if (collection && !counts[collection]) collection = '';
+  const order = store.get('tabOrder', []), rank = c => { const i = order.indexOf(c); return i < 0 ? 999 + library.collections.indexOf(c) : i; };
+  const books = library.collections.filter(c => counts[c]).sort((a, b) => rank(a) - rank(b));
+  const tabs = [['', 'All', songs.length], ...books.map(c => [c, c, counts[c]])];
   $('#tabs').innerHTML = tabs.map(([v, label, n]) =>
     `<button class="tab${v === collection ? ' on' : ''}" data-c="${esc(v)}">${esc(label)}<small>${n}</small></button>`).join('');
 }
+// Press and hold a book tab, then drag it left or right to change the order ("All" stays first).
+(() => {
+  const bar = $('#tabs'); let hold = null, drag = null, sx = 0, sy = 0, suppress = false;
+  const tabs = () => [...bar.querySelectorAll('.tab')].filter(t => t.dataset.c);
+  bar.addEventListener('pointerdown', e => {
+    const t = e.target.closest('.tab'); if (!t || !t.dataset.c) return;
+    sx = e.clientX; sy = e.clientY;
+    hold = setTimeout(() => {
+      drag = { t, id: e.pointerId }; t.classList.add('tabdrag'); bar.classList.add('reordering');
+      try { t.setPointerCapture(e.pointerId); } catch {}
+      if (navigator.vibrate) navigator.vibrate(15);
+    }, 420);
+  });
+  bar.addEventListener('pointermove', e => {
+    if (!drag) { if (hold && (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8)) { clearTimeout(hold); hold = null; } return; }
+    const list = tabs(), over = list.find(o => { const r = o.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right; });
+    if (over && over !== drag.t) {
+      const r = over.getBoundingClientRect();
+      bar.insertBefore(drag.t, e.clientX < r.left + r.width / 2 ? over : over.nextSibling);
+    }
+    const br = bar.getBoundingClientRect();                       // scroll the bar near its edges
+    if (e.clientX < br.left + 30) bar.scrollLeft -= 8; else if (e.clientX > br.right - 30) bar.scrollLeft += 8;
+  });
+  const end = () => {
+    clearTimeout(hold); hold = null; if (!drag) return;
+    drag.t.classList.remove('tabdrag'); bar.classList.remove('reordering');
+    store.set('tabOrder', tabs().map(t => t.dataset.c)); drag = null; suppress = true; setTimeout(() => suppress = false, 50);
+    toast('Tab order saved');
+  };
+  bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', end);
+  bar.addEventListener('touchmove', e => { if (drag) e.preventDefault(); }, { passive: false });
+  bar.addEventListener('contextmenu', e => { if (e.target.closest('.tab')) e.preventDefault(); });
+  bar.addEventListener('click', e => { if (suppress) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+})();
 $('#tabs').addEventListener('click', e => {
   const t = e.target.closest('.tab'); if (!t) return;
   collection = t.dataset.c; store.set('collection', collection);
@@ -1113,6 +1163,24 @@ $('#tabs').addEventListener('click', e => {
 
 const LIMIT_STEP = 200;
 let limit = LIMIT_STEP;
+// One song row (main list, Favorites and Offline screens all use it).
+function songRow(s, i, words = [], fuzzy = false, inPanel = false) {
+      const mine = pickPart(s) || {}, playing = !!now && s.parts.includes(now.part), audioLess = !s.parts.length;
+  const isMine = myPart && mine.part.toLowerCase().startsWith(myPart.toLowerCase());
+  const allSaved = songFiles(s).every(p => downloaded.has(p.id)), busy = songFiles(s).some(p => downloading.has(p.id));
+  const showParts = s.parts.length > 1;
+  return `<div class="song${i === sel && !inPanel ? ' sel' : ''}${playing ? ' playing' : ''}" data-i="${i}">
+    ${audioLess ? '<span></span>'
+      : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
+    <div class="info"${audioLess && s.sheets.length ? ' data-act="sheet"' : ''}>
+      <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
+      <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? (s.sheets.length ? ' · Sheet music only' : ' · Slides only') : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
+    </div>
+    <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
+    ${showParts ? `<div class="parts">${s.parts.map(p =>
+      `<button class="pp${(playing ? now.part === p : chosenPart.get(s.key) === p.id) ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
+  </div>`;
+}
 function render() {
   const list = $('#list'), words = qWords(lastQ);
   if (!songs.length) {
@@ -1124,24 +1192,9 @@ function render() {
       ? `<div class="empty"><b>No favorites yet</b>Tap ⋮ next to a song, then “Add to favorites”.</div>`
       : `<div class="empty"><b>No matches${lastQ ? ` for “${esc(lastQ)}”` : ''}</b>${collection ? 'Try the “All” tab, or fewer words.' : 'Try fewer words.'}</div>`;
   } else {
-    list.innerHTML = results.slice(0, limit).map(({ s, fuzzy }, i) => {
-      const mine = pickPart(s) || {}, playing = !!now && s.parts.includes(now.part), audioLess = !s.parts.length;
-      const isMine = myPart && mine.part.toLowerCase().startsWith(myPart.toLowerCase());
-      const allSaved = songFiles(s).every(p => downloaded.has(p.id)), busy = songFiles(s).some(p => downloading.has(p.id));
-      const showParts = s.parts.length > 1;
-      return `<div class="song${i === sel ? ' sel' : ''}${playing ? ' playing' : ''}" data-i="${i}">
-        ${audioLess ? '<span></span>'
-          : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
-        <div class="info"${audioLess && s.sheets.length ? ' data-act="sheet"' : ''}>
-          <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
-          <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? (s.sheets.length ? ' · Sheet music only' : ' · Slides only') : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
-        </div>
-        <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
-        ${showParts ? `<div class="parts">${s.parts.map(p =>
-          `<button class="pp${(playing ? now.part === p : chosenPart.get(s.key) === p.id) ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
-      </div>`;
-    }).join('') + (results.length > limit ? `<div class="empty" style="padding:18px"><button class="chip" id="moreBtn">Show more (${results.length - limit})</button></div>` : '');
+    list.innerHTML = results.slice(0, limit).map(({ s, fuzzy }, i) => songRow(s, i, words, fuzzy)).join('') + (results.length > limit ? `<div class="empty" style="padding:18px"><button class="chip" id="moreBtn">Show more (${results.length - limit})</button></div>` : '');
   }
+  if ($('#songsPanel').classList.contains('show')) renderSongsPanel();
   const n = results.length;
   $('#status').textContent = lastQ.trim()
     ? `${n} song${n === 1 ? '' : 's'}${results.some(r => r.fuzzy) ? ' (incl. close matches)' : ''}`
@@ -1152,6 +1205,9 @@ $('#list').addEventListener('click', e => {
   const row = e.target.closest('.song'); if (!row) return;
   const s = results[+row.dataset.i].s, btn = e.target.closest('[data-act]'), act = btn && btn.dataset.act;
   sel = +row.dataset.i;
+  rowAction(s, btn, act);
+});
+function rowAction(s, btn, act, list = null) {
   if (act === 'part') {
     // Choose a version; it only starts when ▶ is tapped. If this song is already loaded, switch in place.
     const part = s.parts.find(p => p.id === btn.dataset.id); if (!part) return;
@@ -1168,8 +1224,12 @@ $('#list').addEventListener('click', e => {
   else if (act === 'sheet') openViewer(s);
   else if (act === 'pick') togglePick(s);
   else if (act === 'key') keyTap(s, btn);
-  else if (act === 'play') playSong(s);
-});
+  else if (act === 'play') {
+    if (list && !(now && s.parts.includes(now.part))) { queue = list.filter(x => x.parts.length); playTrack(s, pickPart(s)); }
+    else playSong(s);
+  }
+  else if (!act && list && !s.parts.length && s.sheets.length) openViewer(s);
+}
 
 // ------------------------------------------------------------------ offline downloads (Android only)
 const mediaUrl = id => `${CFG.driveApi}/drive/v3/files/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(CFG.apiKey)}`;
@@ -1513,7 +1573,6 @@ function renderNoteSongs() {
     const s = songIndex.get(r.key);
     return `<div class="nsong${s ? '' : ' missing'}${noteViewing ? ' view' : ''}" data-i="${i}">
       ${noteViewing ? '' : '<div class="handle" aria-label="Drag to reorder" title="Drag to reorder">≡</div>'}
-      <div class="pos">${i + 1}</div>
       <div class="info"><div class="title t">${esc(songLabel(r))}${s && s.slides.length ? '<span class="slidechip">slides</span>' : ''}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}</div></div>
       <div class="ctl">
         ${s ? keyButton(s) : ''}
@@ -1874,7 +1933,8 @@ window.handleBack = () => {
   if ($('#notesPanel').classList.contains('show')) { closePanel('notesPanel'); return true; }
   if ($('#readyBox').classList.contains('show')) { $('#readyBox').classList.remove('show'); return true; }
   const panel = [...document.querySelectorAll('.panel.show')].pop();   // Library check, Report a problem, …
-  if (panel) { if (panel.id === 'bugPanel' && bugRec && bugRec.state === 'recording') bugRec.stop(); closePanel(panel.id); return true; }
+  if (panel) { if (panel.id === 'songsPanel') document.body.classList.remove('songspanel');
+    if (panel.id === 'bugPanel' && bugRec && bugRec.state === 'recording') bugRec.stop(); closePanel(panel.id); return true; }
   if (picking) { finishPicking(); return true; }
   if ($('#sheet').classList.contains('show')) { closeSheet(); return true; }
   if ($('#q').value) { $('#q').value = ''; search(); return true; }
@@ -2127,7 +2187,7 @@ $('#wheelReset').onclick = () => { keyOverrides.delete(wheelSong.key); closeWhee
 $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') closeWheel(); });
 
 // ------------------------------------------------------------------ menu (from the right)
-function openDrawer() { $('#dFavCount').textContent = favs.size || ''; $('#drawer').classList.add('show'); $('#drawerBg').classList.add('show'); }
+function openDrawer() { $('#dFavCount').textContent = songs.filter(isFav).length || ''; $('#dOffCount').textContent = songs.filter(x => songFiles(x).some(p => downloaded.has(p.id))).length || ''; $('#drawer').classList.add('show'); $('#drawerBg').classList.add('show'); }
 function closeDrawer() { $('#drawer').classList.remove('show'); $('#drawerBg').classList.remove('show'); }
 $('#menuBtn').onclick = openDrawer;
 $('#drawerBg').onclick = closeDrawer;
@@ -2135,10 +2195,7 @@ $('#drawerClose').onclick = closeDrawer;
 $('#dNotes').onclick = () => { closeDrawer(); renderNotes(); openPanel('notesPanel'); };
 $('#dSlides').onclick = () => { closeDrawer(); openSlides(); };
 $('#dSettings').onclick = () => { closeDrawer(); openSheet(); };
-$('#dFavs').onclick = () => {
-  closeDrawer(); collection = '__fav'; store.set('collection', collection);
-  renderTabs(); search(); window.scrollTo({ top: 0 });
-};
+$('#dFavs').onclick = () => { closeDrawer(); openSongsPanel('fav'); };
 
 // ------------------------------------------------------------------ song "more" menu (favorite, save offline)
 let rowMenuSong = null;
@@ -2202,6 +2259,25 @@ $('#slidesList').addEventListener('click', async e => {
   if (b.dataset.s === 'open') { const rec = await slideTx('readonly', st => st.get(id)); if (rec) openSlideFile(rec); }
   else if (confirm('Are you sure you want to delete this PowerPoint?')) { await slideTx('readwrite', st => st.delete(id)); openSlides(); }
 });
+// ------------------------------------------------------------------ Favorites / Offline songs screens
+let songsPanelKind = 'fav', songsPanelList = [];
+function openSongsPanel(kind) { songsPanelKind = kind; renderSongsPanel(); openPanel('songsPanel'); document.body.classList.add('songspanel'); }
+function renderSongsPanel() {
+  const fav = songsPanelKind === 'fav';
+  songsPanelList = songs.filter(s => fav ? isFav(s) : songFiles(s).some(p => downloaded.has(p.id)))
+    .sort((a, b) => a.collection.localeCompare(b.collection) || ((+a.number || 1e9) - (+b.number || 1e9)) || a.title.localeCompare(b.title));
+  $('#songsTitle').textContent = fav ? 'Favorites' : 'Offline songs';
+  $('#songsList').innerHTML = songsPanelList.length ? songsPanelList.map((s, i) => songRow(s, i, [], false, true)).join('')
+    : fav ? '<div class="empty"><b>No favorites yet</b>Tap ⋮ next to a song, then “Add to favorites”.</div>'
+      : '<div class="empty"><b>No offline songs yet</b>Tap ⋮ next to a song, then “Save for offline”.</div>';
+}
+$('#songsList').addEventListener('click', e => {
+  const row = e.target.closest('.song'); if (!row) return;
+  const s = songsPanelList[+row.dataset.i], btn = e.target.closest('[data-act]');
+  if (s) rowAction(s, btn, btn && btn.dataset.act, songsPanelList);
+});
+document.querySelector('[data-close=songsPanel]').addEventListener('click', () => document.body.classList.remove('songspanel'));
+$('#dOffline').onclick = () => { closeDrawer(); openSongsPanel('off'); };
 // ------------------------------------------------------------------ pitch pipe tool
 $('#pipeBtnIcon').outerHTML = PIPE_ICON;
 // Two pipes, like the real ones: C to C (middle C up to high C) and F to F (the F below middle C up to the F above it).
