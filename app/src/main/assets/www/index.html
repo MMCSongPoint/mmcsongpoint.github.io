@@ -99,6 +99,8 @@
   .dl.busy svg { animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .3; } }
   .acts { display: flex; align-items: center; }
+  .dl.fav { width: 30px; font-size: 21px; line-height: 1; color: var(--muted); }
+  .dl.fav.on { color: #f2b632; }
   .sm { color: var(--accent-text); }
   .parts { grid-column: 2 / 4; display: flex; gap: 6px; flex-wrap: wrap; }
   .pp { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 13px; color: var(--muted); white-space: nowrap; }
@@ -720,6 +722,8 @@ let library = store.get('library', { tracks: [], collections: [], synced: 0 });
 let songs = [], songIndex = new Map();
 let plays = store.get('plays', {});
 let downloaded = new Set();
+let favs = new Set(store.get('favs', []));   // favorite songs (this device)
+const isFav = s => favs.has(s.key);
 const downloading = new Set();
 
 function refreshDownloaded() {
@@ -914,7 +918,7 @@ function runSearch(q) {
   q = q.replace(/(part|book|no|number):("([^"]*)"|(\S+))/gi, (_, k, __, a, b) => { fields[k.toLowerCase()] = normalize(a || b); return ' '; });
   const words = normalize(q.replace(/#/g, ' ')).split(' ').filter(Boolean);
   let pool = songs;
-  if (collection === '__saved') pool = pool.filter(s => songFiles(s).some(p => downloaded.has(p.id)));
+  if (collection === '__fav') pool = pool.filter(isFav);
   else if (collection) pool = pool.filter(s => s.collection === collection);
   if (fields.part) pool = pool.filter(s => s.parts.some(p => normalize(p.part).includes(fields.part)));
   if (fields.book) pool = pool.filter(s => normalize(s.collection).includes(fields.book));
@@ -1036,10 +1040,9 @@ function pickPart(s, prefer = myPart) {
 function renderTabs() {
   const counts = {};
   for (const s of songs) counts[s.collection] = (counts[s.collection] || 0) + 1;
-  const savedCount = N ? songs.filter(s => songFiles(s).some(p => downloaded.has(p.id))).length : 0;
-  if (collection && collection !== '__saved' && !counts[collection]) collection = '';
-  const tabs = [['', 'All', songs.length], ...library.collections.filter(c => counts[c]).map(c => [c, c, counts[c]])];
-  if (N) tabs.push(['__saved', 'Saved', savedCount]);
+  const favCount = songs.filter(isFav).length;
+  if (collection && collection !== '__fav' && !counts[collection]) collection = '';
+  const tabs = [['', 'All', songs.length], ['__fav', '★ Favorites', favCount], ...library.collections.filter(c => counts[c]).map(c => [c, c, counts[c]])];
   $('#tabs').innerHTML = tabs.map(([v, label, n]) =>
     `<button class="tab${v === collection ? ' on' : ''}" data-c="${esc(v)}">${esc(label)}<small>${n}</small></button>`).join('');
 }
@@ -1059,8 +1062,8 @@ function render() {
       ? `<div class="empty"><b>Loading your songs…</b>Reading the Google Drive folder.</div>`
       : `<div class="empty"><b>No songs found</b>Check that the Drive folder has MP3 files and is shared as “Anyone with the link”.</div>`;
   } else if (!results.length) {
-    list.innerHTML = collection === '__saved' && !lastQ
-      ? `<div class="empty"><b>No saved songs yet</b>Tap the ⬇ next to a song to keep it on this device for offline use.</div>`
+    list.innerHTML = collection === '__fav' && !lastQ
+      ? `<div class="empty"><b>No favorites yet</b>Tap the ☆ next to a song to add it here.</div>`
       : `<div class="empty"><b>No matches${lastQ ? ` for “${esc(lastQ)}”` : ''}</b>${collection ? 'Try the “All” tab, or fewer words.' : 'Try fewer words.'}</div>`;
   } else {
     list.innerHTML = results.slice(0, limit).map(({ s, fuzzy }, i) => {
@@ -1069,13 +1072,13 @@ function render() {
       const allSaved = songFiles(s).every(p => downloaded.has(p.id)), busy = songFiles(s).some(p => downloading.has(p.id));
       const showParts = s.parts.length > 1;
       return `<div class="song${i === sel ? ' sel' : ''}${playing ? ' playing' : ''}" data-i="${i}">
-        ${audioLess ? (s.sheets.length ? `<button class="play sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : '<span></span>')
+        ${audioLess ? '<span></span>'
           : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
         <div class="info"${audioLess && s.sheets.length ? ' data-act="sheet"' : ''}>
           <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
           <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? (s.sheets.length ? ' · Sheet music only' : ' · Slides only') : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
         </div>
-        <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length && !audioLess ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N && (s.parts.length || s.sheets.length) ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
+        <div class="acts"><button class="dl fav${isFav(s) ? ' on' : ''}" data-act="fav" aria-label="${isFav(s) ? 'Remove from favorites' : 'Add to favorites'}">${isFav(s) ? '★' : '☆'}</button>${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N && (s.parts.length || s.sheets.length) ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
         ${showParts ? `<div class="parts">${s.parts.map(p =>
           `<button class="pp${(playing ? now.part === p : chosenPart.get(s.key) === p.id) ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
       </div>`;
@@ -1097,6 +1100,10 @@ $('#list').addEventListener('click', e => {
     chosenPart.set(s.key, part.id);
     if (now && now.song === s) { if (now.part !== part) playTrack(s, part, true); }
     else render();
+  }
+  else if (act === 'fav') {
+    isFav(s) ? favs.delete(s.key) : favs.add(s.key); store.set('favs', [...favs]);
+    renderTabs(); if (collection === '__fav') search(); else render();
   }
   else if (act === 'dl') toggleDownload(s);
   else if (act === 'sheet') openViewer(s);
@@ -1345,7 +1352,7 @@ function closeSheet() { $('#sheet').classList.remove('show'); $('#sheetBg').clas
 function updateSheet() {
   const mb = N ? (N.downloadedBytes() / 1048576).toFixed(0) : 0;
   $('#storageInfo').textContent = N ? `${downloaded.size} file${downloaded.size === 1 ? '' : 's'} saved on this device (${mb} MB).` : 'Offline saving isn\'t available in this browser.';
-  const scope = collection && collection !== '__saved' ? collection : 'all books';
+  const scope = collection === '__fav' ? 'Favorites' : collection || 'all books';
   $('#dlPartBtn').textContent = `Save every song in ${scope} for offline`;
   $('#dlPartBtn').style.display = N ? '' : 'none';
   $('#clearDlBtn').style.display = N && downloaded.size ? '' : 'none';
@@ -1370,7 +1377,7 @@ $('#menuBtn').onclick = openSheet;
 $('#sheetBg').onclick = closeSheet;
 $('#dlPartBtn').onclick = () => {
   if (!navigator.onLine) return toast('Connect to the internet to save songs');
-  const pool = songs.filter(s => !collection || collection === '__saved' || s.collection === collection);
+  const pool = songs.filter(s => !collection || (collection === '__fav' ? isFav(s) : s.collection === collection));
   const tracks = pool.flatMap(songFiles);
   const mb = tracks.filter(p => !downloaded.has(p.id)).reduce((n, p) => n + p.size, 0) / 1048576;
   if (!tracks.length) return toast('Nothing to save');
@@ -1381,7 +1388,7 @@ $('#dlPartBtn').onclick = () => {
 };
 $('#clearDlBtn').onclick = () => {
   if (!confirm('Remove all saved songs from this device?')) return;
-  N.removeAll(); downloaded.clear(); if (collection === '__saved') collection = '';
+  N.removeAll(); downloaded.clear();
   renderTabs(); search(); updateSheet(); toast('Saved songs removed');
 };
 
