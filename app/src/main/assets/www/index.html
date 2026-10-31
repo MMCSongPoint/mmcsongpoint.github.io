@@ -1292,12 +1292,14 @@ function playTrack(song, part, keepTime = false) {
   const t = keepTime ? audio.currentTime : 0, resume = !keepTime || !audio.paused;
   now = { song, part };
   if (!N || !N.localUrl(part.id)) { if (!navigator.onLine) { toast('You\'re offline and this song isn\'t saved'); } }
+  if (shift || shiftSemis(song)) audio.crossOrigin = 'anonymous';
   audio.src = sourceFor(part);
   audio.playbackRate = +$('#rate').value;
   if (t) audio.addEventListener('loadedmetadata', () => { audio.currentTime = t; }, { once: true });
   if (resume) audio.play().catch(() => {});
   $('#nowTitle').textContent = (song.number ? song.number + '. ' : '') + song.title;
   $('#nowSub').textContent = `${part.part} · ${song.collection}`;
+  applyShift();
   $('#playerParts').innerHTML = song.parts.length > 1 ? song.parts.map(p =>
     `<button class="pp${p === part ? ' now' : ''}" data-id="${esc(p.id)}">${esc(p.part)}</button>`).join('') : '';
   $('#player').classList.add('show'); document.body.classList.add('playing-bar');
@@ -2206,9 +2208,10 @@ $('#wheelPlay').onclick = () => playPitch(wheelIdx);
 $('#wheelDone').onclick = () => {
   const base = wheelSong.musicKey && keyIndex(wheelSong.musicKey) >= 0 ? pitchOf(keyIndex(wheelSong.musicKey)) : -1;
   if (wheelIdx === base) keyOverrides.delete(wheelSong.key); else keyOverrides.set(wheelSong.key, wheelIdx);
-  closeWheel(); render();
+  const loaded = now && now.song === wheelSong;
+  closeWheel(); render(); if (loaded) applyShift();
 };
-$('#wheelReset').onclick = () => { keyOverrides.delete(wheelSong.key); closeWheel(); render(); };
+$('#wheelReset').onclick = () => { const loaded = now && now.song === wheelSong; keyOverrides.delete(wheelSong.key); closeWheel(); render(); if (loaded) applyShift(); };
 $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') closeWheel(); });
 
 // ------------------------------------------------------------------ menu (from the right)
@@ -2303,6 +2306,108 @@ $('#songsList').addEventListener('click', e => {
 });
 document.querySelector('[data-close=songsPanel]').addEventListener('click', () => document.body.classList.remove('songspanel'));
 $('#dOffline').onclick = () => { closeDrawer(); openSongsPanel('off'); };
+// ------------------------------------------------------------------ key change for MP3s (pitch shift, same speed)
+// When a song's key is changed on the note wheel, its MP3 is shifted by the difference (the shortest way, at most
+// 6 half steps). The audio is routed through Web Audio only once a shift is first needed; after that, unshifted songs
+// pass straight through. The shifter is a two-tap delay-line pitch shifter with crossfaded windows (low latency).
+const SHIFT_WORKLET = `
+class Shift extends AudioWorkletProcessor {
+  constructor(o) { super(); this.ratio = (o && o.processorOptions && o.processorOptions.ratio) || 1; this.N = 1 << 16; this.buf = [new Float32Array(this.N), new Float32Array(this.N)];
+    this.w = 0; this.p = 0; this.W = Math.round(sampleRate * 0.06);
+    this.port.onmessage = e => { this.ratio = e.data.ratio; }; }
+  process(inputs, outputs) {
+    const inp = inputs[0], out = outputs[0]; if (!out.length) return true;
+    const n = out[0].length, N = this.N, M = N - 1, W = this.W, r = this.ratio;
+    for (let c = 0; c < out.length; c++) {
+      const x = inp[c] || inp[0];
+      if (!x) { out[c].fill(0); continue; }
+      if (r === 1) { out[c].set(x); }
+    }
+    if (r === 1) { for (let c = 0; c < 2; c++) { const x = inp[c] || inp[0]; if (x) for (let i = 0; i < n; i++) this.buf[c][(this.w + i) & M] = x[i]; } this.w = (this.w + n) & M; return true; }
+    let p = this.p;
+    for (let i = 0; i < n; i++) {
+      const w = (this.w + i) & M;
+      for (let c = 0; c < 2; c++) { const x = inp[c] || inp[0]; this.buf[c][w] = x ? x[i] : 0; }
+      const d1 = p, d2 = (p + W / 2) % W, g1 = Math.sin(Math.PI * d1 / W) ** 2, g2 = 1 - g1;
+      for (let c = 0; c < out.length; c++) {
+        const b = this.buf[Math.min(c, 1)];
+        const r1 = w - d1 - 2, i1 = Math.floor(r1), f1 = r1 - i1, a1 = b[i1 & M] + (b[(i1 + 1) & M] - b[i1 & M]) * f1;
+        const r2 = w - d2 - 2, i2 = Math.floor(r2), f2 = r2 - i2, a2 = b[i2 & M] + (b[(i2 + 1) & M] - b[i2 & M]) * f2;
+        out[c][i] = a1 * g1 + a2 * g2;
+      }
+      p += 1 - r; if (p < 0) p += W; else if (p >= W) p -= W;
+    }
+    this.p = p; this.w = (this.w + n) & M; return true;
+  }
+}
+registerProcessor('songpoint-shift', Shift);`;
+let shift = null;   // { ctx, node, set(ratio) }
+function shiftSemis(s) {
+  if (!s || !keyOverrides.has(s.key) || !s.musicKey || keyIndex(s.musicKey) < 0) return 0;
+  const d = keyOverrides.get(s.key) - pitchOf(keyIndex(s.musicKey));
+  return ((d + 6) % 12 + 12) % 12 - 6;    // shortest way: -6 .. +5
+}
+async function setupShift() {
+  if (shift) return shift;
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) throw new Error('no audio');
+  const ctx = actx || (actx = new AC());
+  if (ctx.state === 'suspended') ctx.resume();
+  // Web Audio may only read the MP3 if it was loaded with CORS, so reload the current track that way first.
+  if (audio.crossOrigin !== 'anonymous') {
+    const t = audio.currentTime, playing = !audio.paused, src = audio.currentSrc || audio.src;
+    audio.crossOrigin = 'anonymous';
+    if (src) { audio.src = src; if (t) audio.addEventListener('loadedmetadata', () => { audio.currentTime = t; }, { once: true }); if (playing) audio.play().catch(() => {}); }
+  }
+  const input = ctx.createMediaElementSource(audio);
+  let node, set;
+  try {
+    const url = URL.createObjectURL(new Blob([SHIFT_WORKLET], { type: 'application/javascript' }));
+    await ctx.audioWorklet.addModule(url);
+    node = new AudioWorkletNode(ctx, 'songpoint-shift', { outputChannelCount: [2] });
+    set = r => node.port.postMessage({ ratio: r });
+  } catch {
+    // Older browsers: same shifter on the main thread.
+    const N = 1 << 16, M = N - 1, W = Math.round(ctx.sampleRate * 0.06), buf = [new Float32Array(N), new Float32Array(N)];
+    let w = 0, p = 0, ratio = 1;
+    node = ctx.createScriptProcessor(2048, 2, 2);
+    node.onaudioprocess = e => {
+      const ib = e.inputBuffer, ob = e.outputBuffer, n = ob.length, x0 = ib.getChannelData(0), x1 = ib.numberOfChannels > 1 ? ib.getChannelData(1) : x0;
+      const o0 = ob.getChannelData(0), o1 = ob.getChannelData(1);
+      for (let i = 0; i < n; i++) {
+        const k = (w + i) & M; buf[0][k] = x0[i]; buf[1][k] = x1[i];
+        if (ratio === 1) { o0[i] = x0[i]; o1[i] = x1[i]; continue; }
+        const d1 = p, d2 = (p + W / 2) % W, g1 = Math.sin(Math.PI * d1 / W) ** 2, g2 = 1 - g1;
+        for (let c = 0; c < 2; c++) {
+          const b = buf[c], o = c ? o1 : o0;
+          const r1 = k - d1 - 2, i1 = Math.floor(r1), f1 = r1 - i1, r2 = k - d2 - 2, i2 = Math.floor(r2), f2 = r2 - i2;
+          o[i] = (b[i1 & M] + (b[(i1 + 1) & M] - b[i1 & M]) * f1) * g1 + (b[i2 & M] + (b[(i2 + 1) & M] - b[i2 & M]) * f2) * g2;
+        }
+        p += 1 - ratio; if (p < 0) p += W; else if (p >= W) p -= W;
+      }
+      w = (w + n) & M;
+    };
+    set = r => { ratio = r; };
+  }
+  input.connect(node); node.connect(ctx.destination);
+  shift = { ctx, node, set };
+  return shift;
+}
+// Apply the right shift for the song that's loaded (called when a track starts or its key changes).
+async function applyShift() {
+  const semis = now ? shiftSemis(now.song) : 0;
+  updateShiftLabel(semis);
+  if (!semis && !shift) return;                 // nothing to do: normal playback
+  try {
+    const sh = await setupShift();
+    if (sh.ctx.state === 'suspended') sh.ctx.resume();
+    sh.set(Math.pow(2, semis / 12));
+  } catch { if (semis) toast('This device can’t change the key of the recording', 4000); }
+}
+function updateShiftLabel(semis) {
+  if (!now) return;
+  const k = songKeyState(now.song);
+  $('#nowSub').textContent = `${now.part.part} · ${now.song.collection}` + (semis ? ` · in ${k.label} (${semis > 0 ? '+' : '−'}${Math.abs(semis)})` : '');
+}
 // ------------------------------------------------------------------ pitch pipe tool
 $('#pipeBtnIcon').outerHTML = PIPE_ICON;
 // Two pipes, like the real ones: C to C (middle C up to high C) and F to F (the F below middle C up to the F above it).
