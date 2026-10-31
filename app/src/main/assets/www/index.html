@@ -50,6 +50,11 @@
   .brand i { position: relative; width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: inline-grid; place-items: center; font-style: normal; color: #fff; font-size: 14px; flex: none; }
   .hbtn { background: var(--row); border: 1px solid var(--line); border-radius: 10px; width: 40px; height: 40px; display: grid; place-items: center; flex: none; }
   .spin svg { animation: spin 1s linear infinite; }
+  .ptr { position: fixed; left: 50%; top: calc(6px + env(safe-area-inset-top)); z-index: 45; width: 38px; height: 38px; margin-left: -19px; border-radius: 50%; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.18); display: grid; place-items: center; color: var(--accent-text); opacity: 0; transform: translateY(-50px); pointer-events: none; }
+  .ptr.ready svg { transform: rotate(180deg); }
+  .ptr svg { transition: transform .15s; }
+  .ptr.busy svg { animation: spin 1s linear infinite; }
+  #pipeBtn .pipe { width: 22px; height: 22px; color: var(--accent-text); display: block; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .syncline { color: var(--muted); font-size: 12.5px; margin: -4px 2px 10px; min-height: 16px; }
   .syncline.err { color: var(--danger); }
@@ -265,6 +270,23 @@
   .tdoc { color: var(--accent-text); font-weight: 600; }
   .ctiles { grid-template-columns: repeat(5, 1fr); gap: 6px; }
   .ctiles button.tdtile b { color: var(--accent-text); }
+  .pipebox { position: fixed; inset: 0; z-index: 90; background: var(--scrim); display: none; place-items: center; padding: 12px; }
+  .pipebox.show { display: grid; }
+  .pipecard { background: var(--panel); border-radius: 20px; padding: 10px 14px 14px; width: min(420px, 94vw); box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+  .pipehead { display: flex; align-items: center; justify-content: space-between; padding: 0 0 0 6px; }
+  .pipehead b { font-size: 17px; }
+  #pipeDisc { display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  #pipeDisc text { fill: #eee; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; pointer-events: none; }
+  #pipeDisc .nat { font-size: 40px; font-weight: 300; }
+  #pipeDisc .acc { font-size: 22px; }
+  #pipeDisc .acc .arr { font-size: 20px; }
+  #pipeDisc .clef { font-size: 46px; font-family: 'Noto Music', 'Segoe UI Symbol', 'Apple Symbols', serif; }
+  #pipeDisc .hit { fill: transparent; }
+  #pipeDisc .pslot { cursor: pointer; }
+  #pipeDisc .pslot.ringing .hit { fill: rgba(232,117,160,.28); }
+  #pipeDisc .pslot.ringing text { fill: #ff9cc2; }
+  #pipeDisc #pipeHub { cursor: pointer; }
+  .pipenote { color: var(--muted); font-size: 13px; text-align: center; margin: 6px 0 0; min-height: 18px; }
   .updbadge { display: none; position: absolute; top: -4px; right: -4px; width: 11px; height: 11px; border-radius: 50%; background: #e5484d; border: 2px solid var(--bg); }
   .brand i.has-update { cursor: pointer; }
   .brand i.has-update .updbadge { display: block; animation: updpulse 2s ease-out 3; }
@@ -296,12 +318,13 @@
 </style>
 </head>
 <body>
+<div class="ptr" id="ptr"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></div>
 <div class="wrap">
   <header>
     <div class="brand"><i id="brandIcon" role="button" aria-label="MMC SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">MMC SongPoint</span></div>
-    <button class="hbtn" id="syncBtn" title="Check Drive for new songs"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+    <button class="hbtn" id="pipeBtn" title="Pitch pipe" aria-label="Pitch pipe"><span id="pipeBtnIcon"></span></button>
     <button class="hbtn" id="notesBtn" title="Song Lists"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg></button>
-    <button class="hbtn" id="menuBtn" title="More"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+    <button class="hbtn" id="menuBtn" title="Settings" aria-label="Settings"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
   </header>
   <div class="welcome" id="welcome"></div>
   <div class="updcard" id="updCard"><span id="updText"></span><button class="pbtn" id="updBtn">Update</button></div>
@@ -506,6 +529,25 @@
   </div>
 </div>
 
+<!-- Pitch pipe tool -->
+<div class="pipebox" id="pipeBox">
+  <div class="pipecard">
+    <div class="pipehead"><b>Pitch pipe</b><button class="icon" id="pipeClose" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <svg id="pipeDisc" viewBox="0 0 320 320" aria-label="Pitch pipe">
+      <defs><radialGradient id="ppG" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#2a2a2a"/><stop offset="1" stop-color="#050505"/></radialGradient>
+      <linearGradient id="ppNut" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1f1f1"/><stop offset="1" stop-color="#9a9a9a"/></linearGradient></defs>
+      <circle cx="160" cy="162" r="156" fill="#000" opacity=".35"/>
+      <circle cx="160" cy="160" r="154" fill="url(#ppG)" stroke="#3a3a3a" stroke-width="2"/>
+      <circle cx="160" cy="160" r="66" fill="#000" stroke="#1e1e1e" stroke-width="2"/>
+      <g id="pipeHub" role="button" aria-label="Stop"><circle cx="160" cy="160" r="40" fill="transparent"/><polygon points="182.0,160.0 171.0,179.1 149.0,179.1 138.0,160.0 149.0,140.9 171.0,140.9" fill="url(#ppNut)" stroke="#777" stroke-width="1"/>
+      <circle cx="160" cy="160" r="12" fill="#ddd" stroke="#888" stroke-width="2"/><circle cx="160" cy="160" r="7" fill="#c9c9c9"/></g>
+      <text x="160" y="44" class="clef" text-anchor="middle" dominant-baseline="central">𝄞</text>
+      <g class="pslot" data-p="0" transform="translate(211.2 53.7) rotate(25.7)" role="button" aria-label="C (middle)"><circle r="25" class="hit"/><text class="nat" text-anchor="middle" dominant-baseline="central">C</text></g><g class="pslot" data-p="1" transform="translate(252.3 86.4) rotate(51.4)" role="button" aria-label="C♯/D♭"><circle r="25" class="hit"/><text class="acc" text-anchor="middle" dominant-baseline="central">♯<tspan class="arr">↑</tspan>♭</text></g><g class="pslot" data-p="2" transform="translate(275.0 133.7) rotate(77.1)" role="button" aria-label="D"><circle r="25" class="hit"/><text class="nat" text-anchor="middle" dominant-baseline="central">D</text></g><g class="pslot" data-p="3" transform="translate(275.0 186.3) rotate(102.9)" role="button" aria-label="D♯/E♭"><circle r="25" class="hit"/><text class="acc" text-anchor="middle" dominant-baseline="central">♯<tspan class="arr">↑</tspan>♭</text></g><g class="pslot" data-p="4" transform="translate(252.3 233.6) rotate(128.6)" role="button" aria-label="E"><circle r="25" class="hit"/><text class="nat" text-anchor="middle" dominant-baseline="central">E</text></g><g class="pslot" data-p="5" transform="translate(211.2 266.3) rotate(154.3)" role="button" aria-label="F"><circle r="25" class="hit"/><text class="nat" text-anchor="middle" dominant-baseline="central">F</text></g><g class="pslot" data-p="6" transform="translate(160.0 278.0) rotate(180.0)" role="button" aria-label="F♯/G♭"><circle r="25" class="hit"/><text class="acc" text-anchor="middle" dominant-baseline="central">♯<tspan class="arr">↑</tspan>♭</text></g><g class="pslot" data-p="7" transform="translate(108.8 266.3) rotate(205.7)" role="button" aria-label="G"><circle r="25" class="hit"/><text class="nat" text-anchor="middle" dominant-baseline="central">G</text></g><g class="pslot" data-p="8" transform="translate(67.7 233.6) rotate(231.4)" role="button" aria-label="G♯/A♭"><circle r="25" class="hit"/><text class="acc" text-anchor="middle" dominant-baseline="central">♯<tspan class="arr">↑</tspan>♭</text></g><g class="pslot" data-p="9" transform="translate(45.0 186.3) rotate(257.1)" role="button" aria-label="A"><circle r="25" class="hit"/><text class="nat" text-anchor="middle" dominant-baseline="central">A</text></g><g class="pslot" data-p="10" transform="translate(45.0 133.7) rotate(282.9)" role="button" aria-label="A♯/B♭"><circle r="25" class="hit"/><text class="acc" text-anchor="middle" dominant-baseline="central">♯<tspan class="arr">↑</tspan>♭</text></g><g class="pslot" data-p="11" transform="translate(67.7 86.4) rotate(308.6)" role="button" aria-label="B"><circle r="25" class="hit"/><text class="nat" text-anchor="middle" dominant-baseline="central">B</text></g><g class="pslot" data-p="12" transform="translate(108.8 53.7) rotate(334.3)" role="button" aria-label="C (high)"><circle r="25" class="hit"/><text class="nat" text-anchor="middle" dominant-baseline="central">C</text></g>
+    </svg>
+    <p class="pipenote" id="pipeNote">Tap a note to hear it. Tap it again (or the center) to stop.</p>
+  </div>
+</div>
+
 <div class="busybox" id="readyBox"><div><b id="readyTitle">Your file is ready</b><p id="readyText" style="color:var(--muted);font-size:14px;margin:8px 0 16px"></p>
   <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="pbtn" id="readyShare">Share / Save</button><button class="pbtn" id="readyDl">Download</button><button class="pbtn ghost" id="readyClose">Close</button></div></div></div>
 <div class="busybox" id="busyBox"><div><div class="spinner"></div><b id="busyTitle">Working…</b><p id="busyText" style="color:var(--muted);font-size:14px;margin:8px 0 0"></p></div></div>
@@ -521,6 +563,9 @@
   <button class="act" id="checkBtn">Library check (missing files)</button>
   <button class="act" id="changePwBtn">Change password</button>
   <button class="act" id="signOutBtn">Sign out</button>
+  <h4 style="margin-top:12px">Song library</h4>
+  <button class="act" id="syncBtn">Refresh songs from Google Drive</button>
+  <p style="margin:6px 0 0;font-size:12.5px">Tip: you can also pull down from the top of the song list.</p>
   <h4 style="margin-top:12px">Offline songs</h4>
   <p id="storageInfo" style="margin-top:0"></p>
   <button class="act" id="dlPartBtn"></button>
@@ -842,7 +887,7 @@ async function sync(manual = false) {
     setSyncLine(navigator.onLine ? `Couldn't update: ${e.message}` : 'You\'re offline.', true);
     if (manual) toast(e.message || 'Update failed', 4500);
   } finally {
-    syncing = false; $('#syncBtn').classList.remove('spin');
+    syncing = false; $('#syncBtn').classList.remove('spin'); $('#ptr').classList.remove('busy'); $('#ptr').style.opacity = 0;
   }
 }
 function summary() {
@@ -850,7 +895,7 @@ function summary() {
   return `${t} track${t === 1 ? '' : 's'}` + (m ? ` · ${m} with sheet music` : '');
 }
 function setSyncLine(text, isErr = false) { const el = $('#syncLine'); el.textContent = text; el.classList.toggle('err', isErr); }
-$('#syncBtn').onclick = () => sync(true);
+$('#syncBtn').onclick = () => { closeSheet(); sync(true); };
 
 // ------------------------------------------------------------------ search
 let collection = store.get('collection', ''), sortBy = store.get('sort', 'title');
@@ -1732,6 +1777,7 @@ $('#usersList').addEventListener('click', async e => {
 // Android back button: close panels / the sheet / clear the search first.
 window.handleBack = () => {
   if ($('#lock').classList.contains('show')) return false;
+  if ($('#pipeBox').classList.contains('show')) { closePipe(); return true; }
   if (viewing) { closeViewer(); return true; }
   if ($('#wheelBox').classList.contains('show')) { closeWheel(); return true; }
   if ($('#usersPanel').classList.contains('show')) { closePanel('usersPanel'); return true; }
@@ -1914,34 +1960,33 @@ function keyButton(s) {
   const k = songKeyState(s);
   return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note"${s.keyChange ? ` title="${esc(s.keyChange)}"` : ''}>${k.label ? esc(k.label) : PIPE_ICON}${s.keyChange ? '<sup>+</sup>' : ''}</button>`;
 }
-let actx = null, pipeStop = null, forkCurve = null;
-// Tuning fork: a pure tone that starts softly and slowly rings away. p = 0 (middle C) .. 12 (high C).
-const FORK_DUR = 3.5;
+let actx = null, pipeStop = null, pipeWave = null, pipeEl = null;
+// Pitch-pipe reed tone, measured from a real pitch-pipe recording: steady, no wobble, strong odd overtones
+// (3rd, 5th, 7th), faint even ones; swells in over ~1.5 s and dies quickly when it stops. p = 0 (middle C) .. 12 (high C).
+const PIPE_AMPS = [0, 1, 0.068, 0.202, 0.015, 0.245, 0.027, 0.115, 0.015, 0.005, 0.004, 0.016, 0.007, 0.008, 0.004];
+const PIPE_HOLD = 3.2, PIPE_SWELL = 0.7, PIPE_FADE = 0.12;
 function playPitch(p, el) {
   if (p < 0) return;
   actx = actx || new (window.AudioContext || window.webkitAudioContext)();
   if (actx.state === 'suspended') actx.resume();
   if (pipeStop) pipeStop();                                   // one note at a time
-  if (!forkCurve) {                                           // soft 12 ms start, ring decaying over ~1.6 s, gentle end
-    const n = 600; forkCurve = new Float32Array(n);
-    for (let k = 0; k < n; k++) {
-      const t = k / (n - 1) * FORK_DUR;
-      forkCurve[k] = 0.7 * Math.min(1, t / 0.012) * Math.exp(-t / 1.6) * Math.min(1, (FORK_DUR - t) / 0.25);
-    }
-  }
+  if (!pipeWave) pipeWave = actx.createPeriodicWave(new Float32Array(PIPE_AMPS.length), new Float32Array(PIPE_AMPS));
   const f = 261.6256 * Math.pow(2, p / 12), t = actx.currentTime + 0.01;
   const o = actx.createOscillator(), g = actx.createGain();
-  o.type = 'sine'; o.frequency.value = f;
-  g.gain.value = 0; g.gain.setValueCurveAtTime(forkCurve, t, FORK_DUR);
-  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + FORK_DUR + 0.05);
+  o.setPeriodicWave(pipeWave); o.frequency.value = f;
+  g.gain.setValueAtTime(0, t);
+  g.gain.setTargetAtTime(0.5, t, PIPE_SWELL);                 // breath swells the reed in
+  g.gain.setTargetAtTime(0, t + PIPE_HOLD, PIPE_FADE);         // then it stops
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + PIPE_HOLD + 1);
+  const mark = on => { if (el) el.classList.toggle('ringing', on); };
+  mark(true); pipeEl = el;
   const stop = () => {
     const n = actx.currentTime;
-    try { g.gain.cancelScheduledValues(n); g.gain.setValueAtTime(g.gain.value, n); g.gain.linearRampToValueAtTime(0, n + 0.06); o.stop(n + 0.08); } catch {}
-    if (pipeStop === stop) pipeStop = null;
+    try { g.gain.cancelScheduledValues(n); g.gain.setValueAtTime(g.gain.value, n); g.gain.setTargetAtTime(0, n, 0.05); o.stop(n + 0.4); } catch {}
+    mark(false); if (pipeStop === stop) { pipeStop = null; pipeEl = null; }
   };
   pipeStop = stop;
-  setTimeout(() => { if (pipeStop === stop) pipeStop = null; }, FORK_DUR * 1000);
-  if (el) { el.classList.add('ringing'); setTimeout(() => el.classList.remove('ringing'), 1800); }
+  setTimeout(() => { if (pipeStop === stop) { mark(false); pipeStop = null; pipeEl = null; } }, (PIPE_HOLD + 0.3) * 1000);
 }
 // tap = play Do; press and hold = choose another note
 let wheelSong = null, wheelIdx = 0, holdTimer = null, held = false;
@@ -1990,6 +2035,46 @@ $('#wheelDone').onclick = () => {
 $('#wheelReset').onclick = () => { keyOverrides.delete(wheelSong.key); closeWheel(); render(); };
 $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') closeWheel(); });
 
+// ------------------------------------------------------------------ pitch pipe tool
+$('#pipeBtnIcon').outerHTML = PIPE_ICON;
+const PIPE_NAMES = ['C', 'C♯/D♭', 'D', 'D♯/E♭', 'E', 'F', 'F♯/G♭', 'G', 'G♯/A♭', 'A', 'A♯/B♭', 'B', 'C'];
+$('#pipeBtn').onclick = () => { $('#pipeBox').classList.add('show'); };
+function closePipe() { if (pipeStop) pipeStop(); $('#pipeBox').classList.remove('show'); }
+$('#pipeClose').onclick = closePipe;
+$('#pipeBox').addEventListener('click', e => { if (e.target.id === 'pipeBox') closePipe(); });
+$('#pipeHub').addEventListener('click', () => { if (pipeStop) pipeStop(); });
+$('#pipeDisc').addEventListener('click', e => {
+  const g = e.target.closest('.pslot'); if (!g) return;
+  const p = +g.dataset.p;
+  if (pipeEl === g && pipeStop) { pipeStop(); return; }     // tap the ringing note again to stop it
+  playPitch(p, g);
+  $('#pipeNote').textContent = PIPE_NAMES[p] + (p === 0 ? ' (middle C)' : p === 12 ? ' (high C)' : '');
+});
+
+// ------------------------------------------------------------------ pull down from the top to refresh
+(() => {
+  let y0 = null, dy = 0;
+  const ptr = $('#ptr'), LIMIT = 75;
+  const blocked = () => document.querySelector('.panel.show, .sheet.show, .viewer.show, .pipebox.show, .busybox.show, .wheelbox.show, #lock.show');
+  document.addEventListener('touchstart', e => {
+    y0 = (window.scrollY <= 0 && e.touches.length === 1 && !blocked() && !e.target.closest('#player')) ? e.touches[0].clientY : null; dy = 0;
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (y0 === null) return;
+    dy = e.touches[0].clientY - y0;
+    if (dy <= 0 || window.scrollY > 0) { ptr.style.opacity = 0; ptr.style.transform = 'translateY(-50px)'; return; }
+    const pull = Math.min(dy * 0.5, LIMIT + 20);
+    ptr.style.opacity = Math.min(1, pull / LIMIT); ptr.style.transform = `translateY(${pull - 40}px)`;
+    ptr.classList.toggle('ready', pull >= LIMIT);
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if (y0 === null) return;
+    const go = dy * 0.5 >= LIMIT && window.scrollY <= 0; y0 = null;
+    ptr.classList.remove('ready');
+    if (go && !syncing) { ptr.classList.add('busy'); ptr.style.transform = 'translateY(30px)'; sync(true); }
+    else { ptr.style.opacity = 0; ptr.style.transform = 'translateY(-50px)'; }
+  });
+})();
 // ------------------------------------------------------------------ library check (admins)
 // Songs missing an MP3, sheet music, a key or a PowerPoint. Admins can mark songs "ignore";
 // that list is kept on the server so every admin sees the same thing.
