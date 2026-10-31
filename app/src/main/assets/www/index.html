@@ -2218,7 +2218,7 @@ $('#wheelReset').onclick = () => { const loaded = now && now.song === wheelSong;
 $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') closeWheel(); });
 
 // Settings › Copy web app link
-const WEB_APP_URL = CFG.webUrl || 'https://jadon1676-cpu.github.io/hymnal-tracks/';
+const WEB_APP_URL = CFG.webUrl || 'https://mmcsongpoint.github.io/';
 $('#copyLinkBtn').onclick = async () => {
   try { await navigator.clipboard.writeText(WEB_APP_URL); toast('Link copied: ' + WEB_APP_URL.replace(/^https:\/\//, ''), 3500); }
   catch {

@@ -18,8 +18,8 @@ window.HYMNAL_CONFIG = {
   slidesFolder: "14piomFAoPOo8nBAOT2qs3majiEtZunLq",
 
   // Where the Android app looks for updates (GitHub releases).
-  updateRepo: "jadon1676-cpu/hymnal-tracks",
-  webUrl: "https://jadon1676-cpu.github.io/hymnal-tracks/",
+  updateRepo: "MMCSongPoint/mmcsongpoint.github.io",
+  webUrl: "https://mmcsongpoint.github.io/",
 
   // SongPoint server: accounts, song-list log, PowerPoint builder (Google Sheet "SongPoint Log" via its Apps Script web app).
   logUrl: "https://script.google.com/macros/s/AKfycbznkfdtHJ0RI_6MiQKlRu80g_XOxTZaGNkt18KEGXN-2T4zZoK1Qy7VK5W-88a8a6xgww/exec",
