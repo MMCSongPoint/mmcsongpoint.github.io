@@ -99,8 +99,6 @@
   .dl.busy svg { animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .3; } }
   .acts { display: flex; align-items: center; }
-  .dl.fav { width: 30px; font-size: 21px; line-height: 1; color: var(--muted); }
-  .dl.fav.on { color: #f2b632; }
   .sm { color: var(--accent-text); }
   .parts { grid-column: 2 / 4; display: flex; gap: 6px; flex-wrap: wrap; }
   .pp { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 13px; color: var(--muted); white-space: nowrap; }
@@ -294,6 +292,37 @@
   .pipeswap { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: radial-gradient(circle at 50% 40%, #2a2a2a, #050505); color: #eee; font: 600 13px system-ui, sans-serif; display: grid; place-items: center; position: relative; }
   .pipeswap::after { content: ''; position: absolute; width: 9px; height: 9px; border-radius: 50%; background: #bbb; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: 0; }
   .pipeswap span { line-height: 1; }
+  .drawer-bg { position: fixed; inset: 0; background: var(--scrim); z-index: 72; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .drawer-bg.show { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(300px, 82vw); background: var(--panel); z-index: 73; transform: translateX(105%); transition: transform .22s ease; box-shadow: -6px 0 24px rgba(0,0,0,.25); padding: calc(10px + env(safe-area-inset-top)) 10px 20px; display: flex; flex-direction: column; gap: 4px; }
+  .drawer.show { transform: none; }
+  .dhead { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 8px 10px; }
+  .dhead b { font-size: 18px; }
+  .ditem { display: flex; align-items: center; gap: 14px; width: 100%; background: none; border: none; color: var(--text); font: inherit; font-size: 16px; padding: 13px 12px; border-radius: 12px; text-align: left; }
+  .ditem:active, .ditem:hover { background: var(--row); }
+  .ditem svg, .ditem .dstar { width: 22px; flex: none; color: var(--accent-text); text-align: center; font-size: 20px; }
+  .ditem small { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .rowmenu { position: fixed; z-index: 74; background: var(--raised, var(--panel)); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.3); padding: 4px; display: none; min-width: 210px; }
+  .rowmenu.show { display: block; }
+  .rowmenu button { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; color: var(--text); font: inherit; font-size: 15px; padding: 11px 12px; border-radius: 8px; text-align: left; }
+  .rowmenu button:active, .rowmenu button:hover { background: var(--row); }
+  .rowmenu .ic { width: 20px; text-align: center; color: var(--accent-text); }
+  .rowmenu .ic.star { color: #f2b632; }
+  .dl.more { width: 32px; color: var(--muted); }
+  .scard { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); margin-bottom: 8px; }
+  .scard .si { flex: 1; min-width: 0; }
+  .scard .st { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .scard .ss { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .scard .pbtn { padding: 7px 11px; font-size: 13px; flex: none; }
+  .nview .vmeta { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
+  .nview .vtext { white-space: pre-wrap; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-size: 14px; }
+  #notePanel.viewing .editonly { display: none !important; }
+  #notePanel:not(.viewing) .viewonly { display: none !important; }
+  .nsong.view { grid-template-columns: 22px 1fr auto; }
+  .nsong .ctl button.keyb { min-width: 38px; width: auto; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--accent-text); font-weight: 700; font-size: 13.5px; padding: 0 6px; margin-right: 4px; }
+  .nsong .ctl button.keyb.unknown { color: var(--accent-text); }
+  .nsong .ctl button.keyb.ringing { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .nsong .ctl .keyb .pipe { width: 20px; height: 20px; }
   .updbadge { display: none; position: absolute; top: -4px; right: -4px; width: 11px; height: 11px; border-radius: 50%; background: #e5484d; border: 2px solid var(--bg); }
   .brand i.has-update { cursor: pointer; }
   .brand i.has-update .updbadge { display: block; animation: updpulse 2s ease-out 3; }
@@ -330,8 +359,7 @@
   <header>
     <div class="brand"><i id="brandIcon" role="button" aria-label="MMC SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">MMC SongPoint</span></div>
     <button class="hbtn" id="pipeBtn" title="Pitch pipe" aria-label="Pitch pipe"><span id="pipeBtnIcon"></span></button>
-    <button class="hbtn" id="notesBtn" title="Song Lists"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg></button>
-    <button class="hbtn" id="menuBtn" title="Settings" aria-label="Settings"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    <button class="hbtn" id="menuBtn" title="Menu" aria-label="Menu"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </header>
   <div class="welcome" id="welcome"></div>
   <div class="updcard" id="updCard"><span id="updText"></span><button class="pbtn" id="updBtn">Update</button></div>
@@ -437,20 +465,23 @@
   <div class="phead">
     <button class="icon" id="noteBack" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
     <h2 id="noteHead">Note</h2>
-    <button class="pbtn" id="noteSave">Save</button>
+    <button class="pbtn viewonly" id="noteEdit">Edit</button>
+    <button class="pbtn editonly" id="noteSave">Save</button>
   </div>
   <div class="pbody">
-    <label class="field"><span>Title</span><input id="noteTitle" placeholder="e.g. Sunday morning" maxlength="80"></label>
-    <label class="field"><span>Date used</span><input id="noteDate" type="date"></label>
+    <div class="nview viewonly"><p class="vmeta" id="viewMeta"></p></div>
+    <label class="field editonly"><span>Title</span><input id="noteTitle" placeholder="e.g. Sunday morning" maxlength="80"></label>
+    <label class="field editonly"><span>Date used</span><input id="noteDate" type="date"></label>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 6px">
-      <b>Songs</b><button class="pbtn ghost" id="addSongsBtn">+ Add songs</button>
+      <b>Songs</b><button class="pbtn ghost editonly" id="addSongsBtn">+ Add songs</button>
     </div>
     <div class="list" id="noteSongs"></div>
     <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
-    <label class="field"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
+    <div class="nview viewonly"><div class="vtext" id="viewText"></div></div>
+    <label class="field editonly"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
     <p style="color:var(--muted);font-size:13px" id="noteStatus"></p>
-    <div class="row2"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete song list</button></div>
+    <div class="row2 editonly"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete song list</button></div>
   </div>
 </div>
 
@@ -533,6 +564,31 @@
     <p id="wheelSub">Scroll to choose, then tap Play to hear it.</p>
     <div class="wsel"><div class="wscroll" id="wheelScroll"></div></div>
     <div class="row2"><button class="pbtn ghost" id="wheelReset">Reset</button><button class="pbtn ghost" id="wheelPlay">▶ Play</button><button class="pbtn" id="wheelDone">Done</button></div>
+  </div>
+</div>
+
+<!-- Menu (slides in from the right) -->
+<div class="drawer-bg" id="drawerBg"></div>
+<nav class="drawer" id="drawer" aria-label="Menu">
+  <div class="dhead"><b>Menu</b><button class="icon" id="drawerClose" aria-label="Close menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <button class="ditem" id="dNotes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg>Song Lists</button>
+  <button class="ditem" id="dSlides"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4M8 21h8M7 9h6M7 12h10"/></svg>Saved PowerPoints</button>
+  <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
+  <button class="ditem" id="dSettings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
+</nav>
+
+<!-- Song row "more" menu -->
+<div class="rowmenu" id="rowMenu" role="menu"></div>
+
+<!-- Saved PowerPoints -->
+<div class="panel" id="slidesPanel">
+  <div class="phead">
+    <button class="icon" data-close="slidesPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Saved PowerPoints</h2>
+  </div>
+  <div class="pbody">
+    <div id="slidesList"></div>
+    <p style="color:var(--muted);font-size:13px" id="slidesNote">PowerPoints you build are kept on this device. A copy is also saved in Google Drive › SongPoint Slideshows.</p>
   </div>
 </div>
 
@@ -822,6 +878,7 @@ async function sync(manual = false) {
   if (!CFG.apiKey || CFG.apiKey.startsWith('PASTE')) { setSyncLine('The app is missing its Google API key (config.js).', true); return; }
   if (!navigator.onLine) { setSyncLine(library.synced ? `Offline · last refreshed ${ago(library.synced)}` : 'You\'re offline.', !library.synced); if (manual) toast('No internet connection'); return; }
   syncing = true; $('#syncBtn').classList.add('spin'); setSyncLine('Checking Google Drive…');
+  if (manual) { try { checkUpdate(); checkWebUpdate(); } catch {} }   // a refresh also looks for a new app version
   try {
     const tracks = [], seenColl = [];
     const stack = [{ id: CFG.rootFolder, path: '', collection: null }];
@@ -1042,7 +1099,8 @@ function renderTabs() {
   for (const s of songs) counts[s.collection] = (counts[s.collection] || 0) + 1;
   const favCount = songs.filter(isFav).length;
   if (collection && collection !== '__fav' && !counts[collection]) collection = '';
-  const tabs = [['', 'All', songs.length], ['__fav', '★ Favorites', favCount], ...library.collections.filter(c => counts[c]).map(c => [c, c, counts[c]])];
+  const tabs = [['', 'All', songs.length], ...library.collections.filter(c => counts[c]).map(c => [c, c, counts[c]])];
+  if (collection === '__fav') tabs.unshift(['__fav', '★ Favorites', favCount]);   // shown only while viewing favorites (opened from the menu)
   $('#tabs').innerHTML = tabs.map(([v, label, n]) =>
     `<button class="tab${v === collection ? ' on' : ''}" data-c="${esc(v)}">${esc(label)}<small>${n}</small></button>`).join('');
 }
@@ -1063,7 +1121,7 @@ function render() {
       : `<div class="empty"><b>No songs found</b>Check that the Drive folder has MP3 files and is shared as “Anyone with the link”.</div>`;
   } else if (!results.length) {
     list.innerHTML = collection === '__fav' && !lastQ
-      ? `<div class="empty"><b>No favorites yet</b>Tap the ☆ next to a song to add it here.</div>`
+      ? `<div class="empty"><b>No favorites yet</b>Tap ⋮ next to a song, then “Add to favorites”.</div>`
       : `<div class="empty"><b>No matches${lastQ ? ` for “${esc(lastQ)}”` : ''}</b>${collection ? 'Try the “All” tab, or fewer words.' : 'Try fewer words.'}</div>`;
   } else {
     list.innerHTML = results.slice(0, limit).map(({ s, fuzzy }, i) => {
@@ -1078,7 +1136,7 @@ function render() {
           <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
           <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? (s.sheets.length ? ' · Sheet music only' : ' · Slides only') : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
         </div>
-        <div class="acts"><button class="dl fav${isFav(s) ? ' on' : ''}" data-act="fav" aria-label="${isFav(s) ? 'Remove from favorites' : 'Add to favorites'}">${isFav(s) ? '★' : '☆'}</button>${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N && (s.parts.length || s.sheets.length) ? `<button class="dl${allSaved ? ' done' : ''}${busy ? ' busy' : ''}" data-act="dl" aria-label="${allSaved ? 'Saved' : 'Save offline'}">${allSaved ? ICON_DONE : ICON_DL}</button>` : ''}</div>
+        <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
         ${showParts ? `<div class="parts">${s.parts.map(p =>
           `<button class="pp${(playing ? now.part === p : chosenPart.get(s.key) === p.id) ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
       </div>`;
@@ -1101,6 +1159,7 @@ $('#list').addEventListener('click', e => {
     if (now && now.song === s) { if (now.part !== part) playTrack(s, part, true); }
     else render();
   }
+  else if (act === 'more') { openRowMenu(s, btn); }
   else if (act === 'fav') {
     isFav(s) ? favs.delete(s.key) : favs.add(s.key); store.set('favs', [...favs]);
     renderTabs(); if (collection === '__fav') search(); else render();
@@ -1373,7 +1432,7 @@ $('#themeSeg').addEventListener('click', e => {
 });
 darkQuery.addEventListener('change', () => { if (theme === 'system') applyTheme(); });
 applyTheme();
-$('#menuBtn').onclick = openSheet;
+
 $('#sheetBg').onclick = closeSheet;
 $('#dlPartBtn').onclick = () => {
   if (!navigator.onLine) return toast('Connect to the internet to save songs');
@@ -1427,31 +1486,39 @@ function renderNotes() {
   $('#notesInfo').textContent = `${notes.length} song list${notes.length === 1 ? '' : 's'} on this device. Export them to move to a new phone or computer.`;
 }
 $('#notesList').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) openNote(notes.find(n => n.id === c.dataset.id)); });
-$('#notesBtn').onclick = () => { renderNotes(); openPanel('notesPanel'); };
+
 $('#newNoteBtn').onclick = () => {
   const d = new Date(), day = d.toLocaleDateString(undefined, { weekday: 'long' });
   openNote({ id: uid(), title: `${day} ${d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening'}`, date: today(),
     songs: [], text: '', version: 0, created: Date.now(), updated: Date.now(), leader: userName() }, true);
 };
 
+let noteViewing = false;   // saved lists open read-only; "Edit" switches to editing
+function setNoteView(on) { noteViewing = on; $('#notePanel').classList.toggle('viewing', on); renderNoteSongs(); }
+$('#noteEdit').onclick = () => setNoteView(false);
 function openNote(n, isNew = false) {
   editing = JSON.parse(JSON.stringify(n)); editing.isNew = isNew; editingDirty = isNew;
+  noteViewing = !isNew; $('#notePanel').classList.toggle('viewing', noteViewing);
   $('#noteTitle').value = editing.title; $('#noteDate').value = editing.date; $('#noteText').value = editing.text || '';
   renderNoteSongs(); openPanel('notePanel');
 }
 function renderNoteSongs() {
   const n = editing;
-  $('#noteHead').textContent = n.isNew ? 'New song list' : 'Edit song list';
+  $('#noteHead').textContent = noteViewing ? (n.title || 'Song list') : n.isNew ? 'New song list' : 'Edit song list';
+  if (noteViewing) {
+    $('#viewMeta').textContent = [n.date ? new Date(n.date + 'T12:00').toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }) : '', `${n.songs.length} song${n.songs.length === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+    $('#viewText').textContent = n.text || ''; $('#viewText').style.display = n.text ? '' : 'none';
+  }
   $('#noteSongs').innerHTML = n.songs.length ? n.songs.map((r, i) => {
     const s = songIndex.get(r.key);
-    return `<div class="nsong${s ? '' : ' missing'}" data-i="${i}">
-      <div class="handle" aria-label="Drag to reorder" title="Drag to reorder">≡</div>
+    return `<div class="nsong${s ? '' : ' missing'}${noteViewing ? ' view' : ''}" data-i="${i}">
+      ${noteViewing ? '' : '<div class="handle" aria-label="Drag to reorder" title="Drag to reorder">≡</div>'}
       <div class="pos">${i + 1}</div>
       <div class="info"><div class="title t">${esc(songLabel(r))}${s && s.slides.length ? '<span class="slidechip">slides</span>' : ''}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}</div></div>
       <div class="ctl">
-        ${s && s.parts.length ? `<button data-act="play" aria-label="Play">▶</button>` : ''}
+        ${s ? keyButton(s) : ''}
         ${s && s.sheets.length ? `<button data-act="sheet" class="sm" aria-label="Sheet music">${ICON_MUSIC.replace(/20/g, '18')}</button>` : ''}
-        <button data-act="del" aria-label="Remove">✕</button>
+        ${noteViewing ? '' : '<button data-act="del" aria-label="Remove">✕</button>'}
       </div></div>`;
   }).join('') : `<div class="empty" style="padding:22px"><b>No songs yet</b>Tap “+ Add songs”, then tap + next to each song.</div>`;
   $('#notePlay').disabled = !n.songs.some(r => (songIndex.get(r.key) || {}).parts?.length);
@@ -1472,7 +1539,7 @@ $('#noteSongs').addEventListener('click', e => {
   const row = e.target.closest('.nsong'); if (!row) return;
   const i = +row.dataset.i, act = e.target.closest('[data-act]')?.dataset.act, r = editing.songs[i], s = songIndex.get(r.key);
   if (act === 'del') { editing.songs.splice(i, 1); markDirty(); renderNoteSongs(); }
-  else if (act === 'play' && s) { queue = noteQueue(); playTrack(s, pickPart(s)); }
+  else if (act === 'key' && s) keyTap(s, e.target.closest('[data-act]'));
   else if (act === 'sheet' && s) openViewer(s);
 });
 // Drag and drop: press the ≡ handle and drag the song to a new place.
@@ -1543,12 +1610,18 @@ function saveNote() {
   if (i >= 0) notes[i] = n; else notes.push(n);
   saveNotes();
   logEntry({ event: 'note saved', noteId: n.id, noteTitle: n.title, dateUsed: n.date, version: n.version, comment: n.text, songs: n.songs });
-  editing = JSON.parse(JSON.stringify(n)); editingDirty = false;
+  editing = JSON.parse(JSON.stringify(n)); editingDirty = false; noteViewing = true; $('#notePanel').classList.add('viewing');
   renderNoteSongs(); renderNotes();
   toast('Saved');
 }
 $('#noteSave').onclick = saveNote;
 function leaveNote() {
+  if (editing && !noteViewing && !editing.isNew) {
+    if (editingDirty) {
+      if (confirm('Save your changes to this song list?')) { saveNote(); return; }
+      const orig = notes.find(x => x.id === editing.id); if (orig) { openNote(orig); return; }
+    } else { setNoteView(true); return; }
+  }
   if (editingDirty && editing && (editing.songs.length || !editing.isNew)) {
     if (confirm('Save your changes to this song list?')) saveNote();
   }
@@ -1790,6 +1863,8 @@ $('#usersList').addEventListener('click', async e => {
 // Android back button: close panels / the sheet / clear the search first.
 window.handleBack = () => {
   if ($('#lock').classList.contains('show')) return false;
+  if ($('#rowMenu').classList.contains('show')) { closeRowMenu(); return true; }
+  if ($('#drawer').classList.contains('show')) { closeDrawer(); return true; }
   if ($('#pipeBox').classList.contains('show')) { closePipe(); return true; }
   if (viewing) { closeViewer(); return true; }
   if ($('#wheelBox').classList.contains('show')) { closeWheel(); return true; }
@@ -1803,6 +1878,7 @@ window.handleBack = () => {
   if (picking) { finishPicking(); return true; }
   if ($('#sheet').classList.contains('show')) { closeSheet(); return true; }
   if ($('#q').value) { $('#q').value = ''; search(); return true; }
+  if (collection === '__fav') { collection = ''; store.set('collection', ''); renderTabs(); search(); return true; }
   return false;
 };
 
@@ -2008,7 +2084,9 @@ document.addEventListener('pointerdown', e => {
   held = false;
   holdTimer = setTimeout(() => {
     held = true;
-    const row = b.closest('.song'); if (row) openWheel(results[+row.dataset.i].s);
+    const row = b.closest('.song'), nrow = b.closest('.nsong');
+    if (row) openWheel(results[+row.dataset.i].s);
+    else if (nrow && editing) { const s = songIndex.get(editing.songs[+nrow.dataset.i].key); if (s) openWheel(s); }
   }, 450);
 });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => document.addEventListener(t, () => clearTimeout(holdTimer), true));
@@ -2048,6 +2126,82 @@ $('#wheelDone').onclick = () => {
 $('#wheelReset').onclick = () => { keyOverrides.delete(wheelSong.key); closeWheel(); render(); };
 $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') closeWheel(); });
 
+// ------------------------------------------------------------------ menu (from the right)
+function openDrawer() { $('#dFavCount').textContent = favs.size || ''; $('#drawer').classList.add('show'); $('#drawerBg').classList.add('show'); }
+function closeDrawer() { $('#drawer').classList.remove('show'); $('#drawerBg').classList.remove('show'); }
+$('#menuBtn').onclick = openDrawer;
+$('#drawerBg').onclick = closeDrawer;
+$('#drawerClose').onclick = closeDrawer;
+$('#dNotes').onclick = () => { closeDrawer(); renderNotes(); openPanel('notesPanel'); };
+$('#dSlides').onclick = () => { closeDrawer(); openSlides(); };
+$('#dSettings').onclick = () => { closeDrawer(); openSheet(); };
+$('#dFavs').onclick = () => {
+  closeDrawer(); collection = '__fav'; store.set('collection', collection);
+  renderTabs(); search(); window.scrollTo({ top: 0 });
+};
+
+// ------------------------------------------------------------------ song "more" menu (favorite, save offline)
+let rowMenuSong = null;
+function openRowMenu(s, btn) {
+  rowMenuSong = s;
+  const files = songFiles(s), saved = files.length && files.every(p => downloaded.has(p.id)), busy = files.some(p => downloading.has(p.id));
+  $('#rowMenu').innerHTML =
+    `<button data-m="fav"><span class="ic star">${isFav(s) ? '★' : '☆'}</span>${isFav(s) ? 'Remove from favorites' : 'Add to favorites'}</button>`
+    + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (tap to cancel)' : saved ? 'Remove offline copy' : 'Save for offline'}</button>` : '');
+  const m = $('#rowMenu'); m.classList.add('show');
+  const r = btn.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
+  m.style.top = (r.bottom + h + 8 > window.innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
+}
+function closeRowMenu() { $('#rowMenu').classList.remove('show'); rowMenuSong = null; }
+document.addEventListener('pointerdown', e => { if ($('#rowMenu').classList.contains('show') && !e.target.closest('#rowMenu') && !e.target.closest('[data-act=more]')) closeRowMenu(); }, true);
+window.addEventListener('scroll', closeRowMenu, { passive: true });
+$('#rowMenu').addEventListener('click', e => {
+  const b = e.target.closest('[data-m]'); const s = rowMenuSong; if (!b || !s) return;
+  closeRowMenu();
+  if (b.dataset.m === 'fav') {
+    const on = !isFav(s); on ? favs.add(s.key) : favs.delete(s.key); store.set('favs', [...favs]);
+    toast(on ? 'Added to favorites' : 'Removed from favorites');
+    renderTabs(); if (collection === '__fav') search(); else render();
+  } else if (b.dataset.m === 'dl') toggleDownload(s);
+});
+
+// ------------------------------------------------------------------ saved PowerPoints (kept on this device)
+const slideDB = () => new Promise((res, rej) => {
+  const r = indexedDB.open('songpoint-slides', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('files', { keyPath: 'id' });
+  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+});
+async function slideTx(mode, fn) {
+  const db = await slideDB();
+  return new Promise((res, rej) => { const t = db.transaction('files', mode), st = t.objectStore('files'); const out = fn(st); t.oncomplete = () => res(out && out.result !== undefined ? out.result : out); t.onerror = () => rej(t.error); });
+}
+const PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+async function cacheSlides(name, base64, info = {}) {
+  const rec = Object.assign({ id: uid(), name, data: base64, size: Math.round(base64.length * 0.75), created: Date.now() }, info);
+  try { await slideTx('readwrite', st => st.put(rec)); return rec; } catch { return null; }
+}
+async function listSlides() { try { const r = await slideTx('readonly', st => st.getAll()); return (r || []).sort((a, b) => b.created - a.created); } catch { return []; } }
+async function openSlides() {
+  openPanel('slidesPanel');
+  const list = await listSlides();
+  $('#slidesList').innerHTML = list.length ? list.map(x => `<div class="scard" data-id="${esc(x.id)}">
+      <div class="si"><div class="st">${esc(x.name.replace(/\.pptx$/i, ''))}</div>
+      <div class="ss">${new Date(x.created).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${(x.size / 1048576).toFixed(1)} MB${x.songs ? ` · ${x.songs} song${x.songs === 1 ? '' : 's'}` : ''}</div></div>
+      <button class="pbtn" data-s="open">Open</button><button class="pbtn ghost" data-s="del" aria-label="Delete">✕</button></div>`).join('')
+    : '<div class="empty" style="padding:26px"><b>No PowerPoints yet</b>Open a song list and tap “Build PowerPoint”.</div>';
+}
+function openSlideFile(rec) {
+  if (window.Native && window.Native.shareBase64) return window.Native.shareBase64(rec.name, rec.data, PPTX);
+  const bytes = Uint8Array.from(atob(rec.data), c => c.charCodeAt(0));
+  offerFiles([new File([bytes], rec.name, { type: PPTX })], rec.name.replace(/\.pptx$/i, ''), true);
+}
+$('#slidesList').addEventListener('click', async e => {
+  const b = e.target.closest('[data-s]'); if (!b) return;
+  const id = b.closest('.scard').dataset.id;
+  if (b.dataset.s === 'open') { const rec = await slideTx('readonly', st => st.get(id)); if (rec) openSlideFile(rec); }
+  else if (confirm('Delete this PowerPoint from this device? (The copy in Google Drive stays.)')) { await slideTx('readwrite', st => st.delete(id)); openSlides(); }
+});
 // ------------------------------------------------------------------ pitch pipe tool
 $('#pipeBtnIcon').outerHTML = PIPE_ICON;
 // Two pipes, like the real ones: C to C (middle C up to high C) and F to F (the F below middle C up to the F above it).
@@ -2261,12 +2415,20 @@ function showReady(files, title) {
   $('#readyDl').onclick = () => { $('#readyBox').classList.remove('show'); saveBlobs(files); };
   $('#readyBox').classList.add('show');
 }
-$('#readyClose').onclick = () => $('#readyBox').classList.remove('show');
+$('#readyClose').onclick = () => { $('#readyBox').classList.remove('show'); $('#readyDl').textContent = 'Download'; };
 async function offerFiles(files, title, afterWait = false) {
   if (!isPhone()) return saveBlobs(files);
   if (afterWait || !(navigator.canShare && navigator.canShare({ files }))) return showReady(files, title);
   try { await navigator.share({ files, title: files[0].name }); }
   catch (e) { if (e && e.name !== 'AbortError') showReady(files, title); }
+}
+function showSlidesReady(rec) {
+  $('#readyTitle').textContent = 'Your PowerPoint is ready';
+  $('#readyText').textContent = rec.name;
+  $('#readyShare').style.display = 'none';
+  $('#readyDl').textContent = 'Open';
+  $('#readyDl').onclick = () => { $('#readyBox').classList.remove('show'); $('#readyDl').textContent = 'Download'; openSlideFile(rec); };
+  $('#readyBox').classList.add('show');
 }
 function deliverFile(name, base64, mime) {
   if (window.Native && window.Native.shareBase64) return window.Native.shareBase64(name, base64, mime);
@@ -2287,8 +2449,9 @@ $('#noteSlides').onclick = async () => {
       files: picked.map(x => ({ id: x.s.slides[0].id })), songs: picked.map(x => x.r) });
     busy(false);
     if (!r.ok) return toast(r.error || 'Couldn\'t build the PowerPoint', 5000);
-    deliverFile(r.name, r.data, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
-    toast('PowerPoint ready — also saved to Drive › SongPoint Slideshows', 5000);
+    const rec = await cacheSlides(r.name, r.data, { noteId: n.id, songs: picked.length });
+    if (rec) toast('Saved to this device (Menu › Saved PowerPoints) and to Drive', 4500);
+    showSlidesReady(rec || { name: r.name, data: r.data });
   } catch (e) { busy(false); toast('Couldn\'t reach the server. Try again in a moment.', 5000); }
 };
 
