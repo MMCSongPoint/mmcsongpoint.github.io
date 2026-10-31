@@ -144,6 +144,7 @@
   .vhead .info { flex: 1; }
   .vtabs { padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
   .vtabs:empty { display: none; }
+  #vKey .keyb { margin-right: 2px; }
   .vbody { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; background: #e9e4e6; }
   :root[data-theme="dark"] .vbody { background: #0b0809; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .vbody { background: #0b0809; } }
@@ -445,6 +446,7 @@
   <div class="vhead">
     <button class="icon" id="vClose" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
     <div class="info"><div class="title" id="vTitle"></div><div class="sub" id="vSub"></div></div>
+    <span id="vKey"></span>
     <button class="icon" id="vDownload" aria-label="Download" title="Save to this device"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg></button>
     <button class="icon" id="vPlay" aria-label="Play"></button>
   </div>
@@ -1236,6 +1238,7 @@ function render() {
     list.innerHTML = results.slice(0, limit).map(({ s, fuzzy }, i) => songRow(s, i, words, fuzzy)).join('') + (results.length > limit ? `<div class="empty" style="padding:18px"><button class="chip" id="moreBtn">Show more (${results.length - limit})</button></div>` : '');
   }
   if ($('#songsPanel').classList.contains('show')) renderSongsPanel();
+  if (viewing) renderViewerKey();
   const n = results.length;
   $('#status').textContent = lastQ.trim()
     ? `${n} song${n === 1 ? '' : 's'}${results.some(r => r.fuzzy) ? ' (incl. close matches)' : ''}`
@@ -1412,6 +1415,8 @@ let viewing = null, vSheet = null, zoom = 1;
 const pdfWaiters = {};
 window.onNativePdf = (id, ok, json) => { const cb = pdfWaiters[id]; delete pdfWaiters[id]; if (cb) cb(ok, ok ? JSON.parse(json) : []); };
 function sheetSrc(x) { return (N && N.localUrl(x.id)) || mediaUrl(x.id); }
+function renderViewerKey() { $('#vKey').innerHTML = viewing ? keyButton(viewing) : ''; }
+$('#vKey').addEventListener('click', e => { const b = e.target.closest('.keyb'); if (b && viewing) keyTap(viewing, b); });
 function openViewer(s, keepOpen = false) {
   if (!s.sheets.length) return toast('No sheet music for this song yet');
   viewing = s;
@@ -1419,6 +1424,7 @@ function openViewer(s, keepOpen = false) {
   $('#vSub').textContent = s.collection + (s.musicKey ? ` · Key of ${s.musicKey}` : '') + (s.keyChange ? ` · ${s.keyChange}` : '');
   $('#vPlay').innerHTML = s.parts.length ? (now && s.parts.includes(now.part) && !audio.paused ? BIG_PAUSE : BIG_PLAY).replace(/26/g, '22') : '';
   $('#vPlay').style.visibility = s.parts.length ? '' : 'hidden';
+  renderViewerKey();
   // group pages by label (e.g. "Vocal · G", "Lead · Ab"); numbered hymns are one group
   const groups = [...new Set(s.sheets.map(x => x.label))];
   $('#vTabs').innerHTML = groups.length > 1 ? groups.map((g, i) => `<button class="pp${i ? '' : ' now'}" data-g="${esc(g)}">${esc(g)}</button>`).join('') : '';
@@ -2205,6 +2211,7 @@ document.addEventListener('pointerdown', e => {
     const row = b.closest('.song'), nrow = b.closest('.nsong');
     if (row) openWheel(results[+row.dataset.i].s);
     else if (nrow && editing) { const s = songIndex.get(editing.songs[+nrow.dataset.i].key); if (s) openWheel(s); }
+    else if (b.closest('#vKey') && viewing) openWheel(viewing);
   }, 450);
 });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => document.addEventListener(t, () => clearTimeout(holdTimer), true));
