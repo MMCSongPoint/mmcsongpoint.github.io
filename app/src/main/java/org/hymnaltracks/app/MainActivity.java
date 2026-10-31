@@ -75,17 +75,17 @@ public class MainActivity extends Activity {
             // App-styled pop-ups (no "The page at file:// says" title).
             @Override
             public boolean onJsAlert(WebView view, String url, String message, android.webkit.JsResult result) {
-                new android.app.AlertDialog.Builder(MainActivity.this).setMessage(message)
+                styled(new android.app.AlertDialog.Builder(MainActivity.this, dialogTheme()).setMessage(message)
                     .setPositiveButton(android.R.string.ok, (d, w) -> result.confirm())
-                    .setOnCancelListener(d -> result.confirm()).show();
+                    .setOnCancelListener(d -> result.confirm()).show());
                 return true;
             }
             @Override
             public boolean onJsConfirm(WebView view, String url, String message, android.webkit.JsResult result) {
-                new android.app.AlertDialog.Builder(MainActivity.this).setMessage(message)
+                styled(new android.app.AlertDialog.Builder(MainActivity.this, dialogTheme()).setMessage(message)
                     .setPositiveButton(android.R.string.ok, (d, w) -> result.confirm())
                     .setNegativeButton(android.R.string.cancel, (d, w) -> result.cancel())
-                    .setOnCancelListener(d -> result.cancel()).show();
+                    .setOnCancelListener(d -> result.cancel()).show());
                 return true;
             }
             // Microphone for voice memos in "Report a problem": ask Android first, then let the page record.
@@ -136,6 +136,25 @@ public class MainActivity extends Activity {
         } else {
             web.loadUrl("file:///android_asset/www/index.html");
         }
+    }
+
+    private volatile boolean lightUi = true;   // follows the app's light/dark theme (set from setSystemBars)
+
+    /** Pop-up theme that matches the app: dark dialogs with white text in dark mode. */
+    private int dialogTheme() {
+        return lightUi ? android.R.style.Theme_DeviceDefault_Light_Dialog_Alert : android.R.style.Theme_DeviceDefault_Dialog_Alert;
+    }
+    /** Easy-to-read pop-up: white text and light-pink buttons in dark mode, brand color in light mode. */
+    private void styled(android.app.AlertDialog d) {
+        try {
+            int text = lightUi ? 0xFF1C1A1B : 0xFFFFFFFF, button = lightUi ? 0xFF72173B : 0xFFFFB3D0;
+            android.widget.TextView msg = d.findViewById(android.R.id.message);
+            if (msg != null) { msg.setTextColor(text); msg.setTextSize(17); }
+            for (int which : new int[]{ android.content.DialogInterface.BUTTON_POSITIVE, android.content.DialogInterface.BUTTON_NEGATIVE }) {
+                android.widget.Button b = d.getButton(which);
+                if (b != null) { b.setTextColor(button); b.setTextSize(15); }
+            }
+        } catch (Exception ignored) { }
     }
 
     private static final int MIC_REQUEST = 3;
@@ -488,6 +507,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void setSystemBars(String color, boolean light) {
+            lightUi = light;
             main.post(() -> {
                 try {
                     applyBars(color, light);
