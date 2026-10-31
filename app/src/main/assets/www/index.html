@@ -294,6 +294,10 @@
   .pipeswap span { line-height: 1; }
   body.songspanel .player, body.overpanel .player { z-index: 76; }
   body.overpanel .panel .pbody { padding-bottom: 210px; }
+  body.overviewer .player { z-index: 82; }
+  body.overviewer .player.show ~ .viewer .vbody, body.overviewer .vbody { padding-bottom: 0; }
+  body.overviewer.playing-bar .vbody { padding-bottom: 90px; }
+  body.overviewer.playing-bar .player:not(.mini) ~ .viewer .vbody { padding-bottom: 210px; }
   .player .listonly { display: none; }
   .player.listmode .listonly { display: grid; }
   .player.listmode .ctrls { gap: 4px; }
@@ -1296,7 +1300,7 @@ function playTrack(song, part, keepTime = false) {
   $('#nowSub').textContent = `${part.part} · ${song.collection}`;
   $('#playerParts').innerHTML = song.parts.length > 1 ? song.parts.map(p =>
     `<button class="pp${p === part ? ' now' : ''}" data-id="${esc(p.id)}">${esc(p.part)}</button>`).join('') : '';
-  $('#player').classList.add('show');
+  $('#player').classList.add('show'); document.body.classList.add('playing-bar');
   $('#musicBtn').style.display = song.sheets.length ? '' : 'none';
   if (viewing && viewing !== song && song.sheets.length) openViewer(song, true);
   if (!keepTime) { plays[part.id] = (plays[part.id] || 0) + 1; store.set('plays', plays); }
@@ -1353,6 +1357,13 @@ $('#nextBtn').onclick = () => step(1);
 function updatePlayerMode() {
   $('#player').classList.toggle('listmode', !!playAllQueue && queue === playAllQueue);
   document.body.classList.toggle('overpanel', ['notePanel', 'notesPanel', 'songsPanel'].some(id => $('#' + id).classList.contains('show')));
+  const inViewer = $('#viewer').classList.contains('show');
+  if (inViewer !== document.body.classList.contains('overviewer')) {
+    // Over sheet music the player starts small so the music stays visible; it goes back to how it was afterwards.
+    if (inViewer) { updatePlayerMode.wasMini = $('#player').classList.contains('mini'); $('#player').classList.add('mini'); }
+    else if (updatePlayerMode.wasMini === false) $('#player').classList.remove('mini');
+  }
+  document.body.classList.toggle('overviewer', inViewer);   // player shows over sheet music too
 }
 const nudge = d => { audio.currentTime = Math.max(0, Math.min((audio.duration || 1e9) - 0.05, audio.currentTime + d)); };
 $('#back5Btn').onclick = () => nudge(-5);
@@ -1380,7 +1391,7 @@ function openViewer(s, keepOpen = false) {
   const groups = [...new Set(s.sheets.map(x => x.label))];
   $('#vTabs').innerHTML = groups.length > 1 ? groups.map((g, i) => `<button class="pp${i ? '' : ' now'}" data-g="${esc(g)}">${esc(g)}</button>`).join('') : '';
   showSheetGroup(groups[0]);
-  $('#viewer').classList.add('show');
+  $('#viewer').classList.add('show'); updatePlayerMode();
   if (N && N.keepScreenOn) N.keepScreenOn(true);
 }
 function showSheetGroup(label) {
@@ -1433,7 +1444,7 @@ async function downloadSheet() {
 $('#vDownload').onclick = downloadSheet;
 function closeViewer() {
   viewing = null; vSheet = null;
-  $('#viewer').classList.remove('show');
+  $('#viewer').classList.remove('show'); updatePlayerMode();
   if (N && N.keepScreenOn) N.keepScreenOn(false);
 }
 $('#vClose').onclick = closeViewer;
