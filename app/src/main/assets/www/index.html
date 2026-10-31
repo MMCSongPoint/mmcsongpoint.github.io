@@ -79,7 +79,8 @@
   .bar .label { color: var(--muted); font-size: 13px; flex: none; }
   .chip { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 13.5px; color: var(--muted); white-space: nowrap; }
   .chip.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight: 600; }
-  .meta-bar { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; margin: 2px 2px 8px; gap: 8px; }
+  .meta-bar { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; margin: 10px 2px 10px; gap: 8px; }
+  .meta-bar select { font-size: 13px; padding: 5px 8px; border-radius: 999px; background: transparent; color: var(--muted); }
   select { background: var(--row); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 13.5px; }
 
   .list { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel); }
@@ -664,6 +665,8 @@
   <div class="seg" id="themeSeg">
     <button data-t="system">Match device</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
   </div>
+  <h4>Share</h4>
+  <button class="act" id="copyLinkBtn">Copy web app link</button>
   <h4>About</h4>
   <p id="versionLine" style="margin:0"></p>
   <button class="act" id="checkUpdBtn" style="display:none">Check for updates</button>
@@ -2214,6 +2217,16 @@ $('#wheelDone').onclick = () => {
 $('#wheelReset').onclick = () => { const loaded = now && now.song === wheelSong; keyOverrides.delete(wheelSong.key); closeWheel(); render(); if (loaded) applyShift(); };
 $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') closeWheel(); });
 
+// Settings › Copy web app link
+const WEB_APP_URL = CFG.webUrl || 'https://jadon1676-cpu.github.io/hymnal-tracks/';
+$('#copyLinkBtn').onclick = async () => {
+  try { await navigator.clipboard.writeText(WEB_APP_URL); toast('Link copied: ' + WEB_APP_URL.replace(/^https:\/\//, ''), 3500); }
+  catch {
+    const t = Object.assign(document.createElement('textarea'), { value: WEB_APP_URL }); document.body.appendChild(t); t.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch {} t.remove();
+    toast(ok ? 'Link copied' : WEB_APP_URL, 4000);
+  }
+};
 // ------------------------------------------------------------------ menu (from the right)
 function openDrawer() { $('#dFavCount').textContent = songs.filter(isFav).length || ''; $('#dOffCount').textContent = songs.filter(x => songFiles(x).some(p => downloaded.has(p.id))).length || ''; $('#drawer').classList.add('show'); $('#drawerBg').classList.add('show'); }
 function closeDrawer() { $('#drawer').classList.remove('show'); $('#drawerBg').classList.remove('show'); }
