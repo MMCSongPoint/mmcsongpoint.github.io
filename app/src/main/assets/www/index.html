@@ -908,6 +908,7 @@ function parseChordFile(filename, anyTxt = false) {
   const tagged = /chord-?pro/i.test(stem);
   if (!CHORD_EXT.test(ext) && !(ext === 'txt' && (tagged || anyTxt))) return null;
   stem = stem.replace(/[\s-]*chord-?pro(?:[\s-]+[A-G][#b]?m?)?$/i, '').trim();
+  stem = stem.replace(/\s+-\s*[A-G][#b♯♭]?m?$/, '').trim();   // "Ah Lord God - D" -> "Ah Lord God" (the key comes from inside the file)
   if (!/\s/.test(stem) && /-/.test(stem)) stem = stem.replace(/-+/g, ' ');   // "agnus-dei" -> "agnus dei"
   const p = parseName(stem + '.x');
   return { ext, number: p.number, title: p.title };
