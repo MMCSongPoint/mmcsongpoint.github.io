@@ -1496,7 +1496,11 @@ $('#vClose').onclick = closeViewer;
 $('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (b) showSheetGroup(b.dataset.g); });
 $('#vPlay').onclick = () => {
   if (!viewing || !viewing.parts.length) return;
-  if (now && viewing.parts.includes(now.part)) togglePlay(); else { queue = [viewing]; playTrack(viewing, pickPart(viewing)); }
+  if (now && viewing.parts.includes(now.part)) return togglePlay();
+  // Opened from a song list: play the whole list ("Play all"), starting with the song being viewed.
+  const q = viewerList && editing ? noteQueue() : [];
+  if (q.includes(viewing)) { queue = playAllQueue = q; playTrack(viewing, pickPart(viewing)); }
+  else { queue = [viewing]; playTrack(viewing, pickPart(viewing)); }
 };
 audio.addEventListener('play', () => { if (viewing) openViewerButtons(); });
 audio.addEventListener('pause', () => { if (viewing) openViewerButtons(); });
@@ -1557,6 +1561,8 @@ function viewerStep(d) {
   pane.style.transition = 'opacity .12s, transform .12s'; pane.style.opacity = 0; pane.style.transform = `translateX(${d > 0 ? -40 : 40}px)`;
   setTimeout(() => {
     openViewer(next, true, viewerList); setZoom(1); pane.scrollTo(0, 0);
+    // Playing this song list? Swiping also moves the music to the song now on screen.
+    if (now && playAllQueue && queue === playAllQueue && !audio.paused && next !== now.song && next.parts.length && queue.includes(next)) playTrack(next, pickPart(next));
     pane.style.transition = 'none'; pane.style.transform = `translateX(${d > 0 ? 40 : -40}px)`;
     requestAnimationFrame(() => { pane.style.transition = 'opacity .15s, transform .15s'; pane.style.opacity = 1; pane.style.transform = 'none'; });
   }, 120);
