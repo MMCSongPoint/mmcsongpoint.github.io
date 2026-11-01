@@ -1325,10 +1325,10 @@ function playSong(s) {
   queue = results.map(r => r.s).filter(x => x.parts.length);
   playTrack(s, pickPart(s));
 }
-function playTrack(song, part, keepTime = false) {
+function playTrack(song, part, keepTime = false, autoplay = true) {
   if (now && now.part === part) return togglePlay();
   if (!queue.includes(song)) queue = results.some(r => r.s === song) ? results.map(r => r.s).filter(x => x.parts.length) : [song];
-  const t = keepTime ? audio.currentTime : 0, resume = !keepTime || !audio.paused;
+  const t = keepTime ? audio.currentTime : 0, resume = autoplay && (!keepTime || !audio.paused);
   now = { song, part };
   if (!N || !N.localUrl(part.id)) { if (!navigator.onLine) { toast('You\'re offline and this song isn\'t saved'); } }
   if (shift || shiftSemis(song)) audio.crossOrigin = 'anonymous';
@@ -1573,8 +1573,9 @@ function viewerStep(d) {
   pane.style.transition = 'opacity .12s, transform .12s'; pane.style.opacity = 0; pane.style.transform = `translateX(${d > 0 ? -40 : 40}px)`;
   setTimeout(() => {
     openViewer(next, true, viewerList); setZoom(1); pane.scrollTo(0, 0);
-    // Playing this song list? Swiping also moves the music to the song now on screen.
-    if (now && playAllQueue && queue === playAllQueue && !audio.paused && next !== now.song && next.parts.length && queue.includes(next)) playTrack(next, pickPart(next));
+    // Playing this song list? Swiping also moves the music to the song now on screen
+    // (if the music is paused, the new song is loaded but stays paused).
+    if (now && playAllQueue && queue === playAllQueue && next !== now.song && next.parts.length && queue.includes(next)) playTrack(next, pickPart(next), false, !audio.paused);
     pane.style.transition = 'none'; pane.style.transform = `translateX(${d > 0 ? 40 : -40}px)`;
     requestAnimationFrame(() => { pane.style.transition = 'opacity .15s, transform .15s'; pane.style.opacity = 1; pane.style.transform = 'none'; });
   }, 120);
