@@ -319,6 +319,8 @@
   .rec .rsongs { color: var(--muted); font-size: 12.5px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rec .kind { font-size: 11px; font-weight: 600; border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; margin-left: 6px; color: var(--muted); }
   .rec button { background: none; border: none; color: var(--muted); font-size: 18px; width: 34px; height: 34px; border-radius: 8px; }
+  .choicebtns { display: flex; flex-direction: column; gap: 8px; }
+  .choicebtns .pbtn { width: 100%; padding: 11px; }
   .drawer-bg { position: fixed; inset: 0; background: var(--scrim); z-index: 72; opacity: 0; pointer-events: none; transition: opacity .2s; }
   .drawer-bg.show { opacity: 1; pointer-events: auto; }
   .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(300px, 82vw); background: var(--panel); z-index: 73; transform: translateX(105%); transition: transform .22s ease; box-shadow: -6px 0 24px rgba(0,0,0,.25); padding: calc(10px + env(safe-area-inset-top)) 10px 20px; display: flex; flex-direction: column; gap: 4px; }
@@ -667,6 +669,8 @@
   </div>
 </div>
 
+<div class="busybox" id="choiceBox"><div><b id="choiceTitle"></b><p id="choiceText" style="color:var(--muted);font-size:14px;margin:8px 0 16px;word-break:break-word"></p>
+  <div class="choicebtns" id="choiceBtns"></div></div></div>
 <div class="busybox" id="readyBox"><div><b id="readyTitle">Your file is ready</b><p id="readyText" style="color:var(--muted);font-size:14px;margin:8px 0 16px"></p>
   <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="pbtn" id="readyShare">Share / Save</button><button class="pbtn" id="readyDl">Download</button><button class="pbtn ghost" id="readyClose">Close</button></div></div></div>
 <div class="busybox" id="busyBox"><div><div class="spinner"></div><b id="busyTitle">Working…</b><p id="busyText" style="color:var(--muted);font-size:14px;margin:8px 0 0"></p></div></div>
@@ -1995,6 +1999,7 @@ window.handleBack = () => {
   if ($('#usagePanel').classList.contains('show')) { closePanel('usagePanel'); return true; }
   if ($('#notePanel').classList.contains('show')) { leaveNote(); return true; }
   if ($('#notesPanel').classList.contains('show')) { closePanel('notesPanel'); return true; }
+  if ($('#choiceBox').classList.contains('show')) { if (choose.pending) choose.pending(); return true; }
   if ($('#readyBox').classList.contains('show')) { $('#readyBox').classList.remove('show'); return true; }
   const panel = [...document.querySelectorAll('.panel.show')].pop();   // Library check, Report a problem, …
   if (panel) { if (panel.id === 'songsPanel') document.body.classList.remove('songspanel');
@@ -2740,6 +2745,18 @@ function deliverFile(name, base64, mime) {
   const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
   offerFiles([new File([bytes], name, { type: mime })], 'Your PowerPoint is ready', true);
 }
+// In-app choice box: resolves with the chosen button's value (or 'cancel').
+function choose(title, text, buttons) {
+  return new Promise(res => {
+    $('#choiceTitle').textContent = title; $('#choiceText').textContent = text;
+    $('#choiceBtns').innerHTML = buttons.map((b, i) => `<button class="pbtn${b.primary ? '' : ' ghost'}" data-i="${i}">${esc(b.label)}</button>`).join('');
+    const done = v => { $('#choiceBox').classList.remove('show'); choose.pending = null; res(v); };
+    choose.pending = () => done('cancel');
+    $('#choiceBtns').onclick = e => { const b = e.target.closest('[data-i]'); if (b) done(buttons[+b.dataset.i].value); };
+    $('#choiceBox').onclick = e => { if (e.target.id === 'choiceBox') done('cancel'); };
+    $('#choiceBox').classList.add('show');
+  });
+}
 $('#noteSlides').onclick = async () => {
   const n = editing; if (!n) return;
   if (!navigator.onLine) return toast('Connect to the internet to build a PowerPoint');
@@ -2748,12 +2765,37 @@ $('#noteSlides').onclick = async () => {
   const missing = n.songs.length - picked.length;
   if (missing && !confirm(`${missing} song${missing === 1 ? ' has' : 's have'} no slides and will be left out. Continue?`)) return;
   const title = `${n.date || today()} ${(n.title || 'Songs').trim()}`;
+  // Already made one for this song list on this device?
+  const before = (await listSlides()).filter(x => x.noteId === n.id);
+  if (before.length) {
+    const when = new Date(before[0].created).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const c = await choose('You already made a PowerPoint for this song list',
+      `${before.length === 1 ? 'One was' : before.length + ' were'} made on this device (latest ${when}). Are you sure you want to make another?`,
+      [{ label: 'Yes, make a new one', value: 'go', primary: true }, { label: 'View my PowerPoints', value: 'view' }, { label: 'Cancel', value: 'cancel' }]);
+    if (c === 'view') return openSlides();
+    if (c !== 'go') return;
+  }
+  // Same name already in Google Drive? Replace it, or keep both (numbered).
+  let onExisting = 'number';
+  try {
+    busy(true, 'Checking Google Drive…', '');
+    const x = await api('slidesExists', { title }); busy(false);
+    if (x.ok && x.exists) {
+      const c = await choose('This PowerPoint is already in Google Drive', `“${x.name}” already exists in PowerPoint Presentations. Replace it with this new one?`,
+        [{ label: 'Replace it', value: 'replace', primary: true }, { label: 'Keep both (save as a new copy)', value: 'number' }, { label: 'Cancel', value: 'cancel' }]);
+      if (c === 'cancel') return;
+      onExisting = c;
+    }
+  } catch { busy(false); }
   busy(true, 'Building your PowerPoint…', `${picked.length} song${picked.length === 1 ? '' : 's'}. This usually takes under a minute (longer the first time a song is used).`);
   try {
-    const r = await api('buildSlides', { title, noteId: n.id, noteTitle: n.title, dateUsed: n.date, device: deviceName(),
+    const r = await api('buildSlides', { title, onExisting, noteId: n.id, noteTitle: n.title, dateUsed: n.date, device: deviceName(),
       files: picked.map(x => ({ id: x.s.slides[0].id })), songs: picked.map(x => x.r) });
     busy(false);
     if (!r.ok) return toast(r.error || 'Couldn\'t build the PowerPoint', 5000);
+    if (onExisting === 'replace') {   // the Drive copy was replaced, so drop the old copy kept on this device too
+      for (const old of (await listSlides()).filter(x => x.name === r.name)) { try { await slideTx('readwrite', st => st.delete(old.id)); } catch {} }
+    }
     const rec = await cacheSlides(r.name, r.data, { noteId: n.id, songs: picked.length });
     if (r.shared && r.shared !== 'ok') toast('Saved, but couldn’t reach the PowerPoint Presentations folder (saved to SongPoint Slideshows instead)', 5000);
     else if (rec) toast('Saved to this device (Menu › PowerPoints) and to Drive', 4500);

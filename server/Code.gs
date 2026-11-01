@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 6 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 7 }); }
 
 function doPost(e) {
   var d;
@@ -147,6 +147,7 @@ function handle_(d) {
   if (a === 'log') return log_(me, d);
   if (a === 'usage') return usage_(me, d);
   if (a === 'buildSlides') return buildSlides_(me, d);
+  if (a === 'slidesExists') return slidesExists_(me, d);
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
 
@@ -338,6 +339,16 @@ function converted_(fileId) {
   return id;
 }
 
+function slidesBase_(me, title) {
+  return title + ' (' + String(me.name || me.username).replace(/[\\/:*?"<>|]+/g, ' ').trim() + ')';
+}
+/** Is there already a PowerPoint with this name (title + leader) in the PowerPoint Presentations folder? */
+function slidesExists_(me, d) {
+  var title = String(d.title || 'SongPoint').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 80) || 'SongPoint';
+  var name = slidesBase_(me, title) + '.pptx', dest;
+  try { dest = DriveApp.getFolderById(SHARED_SLIDES_FOLDER); } catch (e) { dest = folder_('SongPoint Slideshows'); }
+  return { ok: true, exists: dest.getFilesByName(name).hasNext(), name: name };
+}
 function buildSlides_(me, d) {
   var files = (d.files || []).filter(function (f) { return f && f.id; });
   if (!files.length) return { ok: false, error: 'None of these songs have slides yet.' };
@@ -354,12 +365,20 @@ function buildSlides_(me, d) {
   var resp = UrlFetchApp.fetch('https://docs.google.com/presentation/d/' + copy.getId() + '/export/pptx',
     { headers: auth_(), muteHttpExceptions: true });
   if (resp.getResponseCode() !== 200) throw new Error('Export failed (' + resp.getResponseCode() + ')');
-  var blob = resp.getBlob().setName(title + '.pptx')
+  // Save to the shared "PowerPoint Presentations" folder as "Title (Leader).pptx"; only if that fails, fall back to
+  // SongPoint Slideshows. A file with the same name is replaced if the user chose that, otherwise numbered (2), (3)...
+  var dest, shared = 'ok';
+  try { dest = DriveApp.getFolderById(SHARED_SLIDES_FOLDER); dest.getName(); }
+  catch (e) { shared = String(e && e.message || e); dest = folder_('SongPoint Slideshows'); }
+  var base = slidesBase_(me, title), name = base + '.pptx';
+  if (d.onExisting === 'replace') {
+    var old = dest.getFilesByName(name); while (old.hasNext()) old.next().setTrashed(true);
+  } else {
+    for (var k = 2; dest.getFilesByName(name).hasNext() && k < 200; k++) name = base + ' (' + k + ').pptx';
+  }
+  var blob = resp.getBlob().setName(name)
     .setContentType('application/vnd.openxmlformats-officedocument.presentationml.presentation');
-  // Save to the shared "PowerPoint Presentations" folder; only if that fails, fall back to SongPoint Slideshows.
-  var saved, shared = 'ok';
-  try { saved = DriveApp.getFolderById(SHARED_SLIDES_FOLDER).createFile(blob); }
-  catch (e) { shared = String(e && e.message || e); saved = folder_('SongPoint Slideshows').createFile(blob); }
+  var saved = dest.createFile(blob);
   copy.setTrashed(true);
   if (!d.noLog) {
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
