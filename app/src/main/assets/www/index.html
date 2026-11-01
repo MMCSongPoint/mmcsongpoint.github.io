@@ -1394,6 +1394,29 @@ function playSong(s) {
   queue = results.map(r => r.s).filter(x => x.parts.length);
   playTrack(s, pickPart(s));
 }
+// Short fades around track changes (no click when one song cuts to the next).
+// Uses the key-change gain when that audio path is active, otherwise the player's volume.
+let switchTimer = null, fadeTimer = null, level = 1;
+function setLevel(v) {
+  clearInterval(fadeTimer); level = v;
+  if (shift && shift.gain) { const g = shift.gain.gain; g.cancelScheduledValues(shift.ctx.currentTime); g.setValueAtTime(v, shift.ctx.currentTime); }
+  else try { audio.volume = v; } catch {}
+}
+function fadeTo(v, ms) {
+  clearInterval(fadeTimer);
+  if (shift && shift.gain) {
+    const g = shift.gain.gain, t0 = shift.ctx.currentTime;
+    g.cancelScheduledValues(t0); g.setValueAtTime(level, t0); g.linearRampToValueAtTime(v, t0 + ms / 1000); level = v; return;
+  }
+  const from = level, start = performance.now();
+  fadeTimer = setInterval(() => {
+    const k = Math.min(1, (performance.now() - start) / ms); level = from + (v - from) * k;
+    try { audio.volume = level; } catch {}
+    if (k >= 1) clearInterval(fadeTimer);
+  }, 8);
+}
+audio.addEventListener('playing', () => { if (level < 1) fadeTo(1, 60); });
+function clearShiftBuffer() { if (shift && shift.reset) shift.reset(); }
 function playTrack(song, part, keepTime = false, autoplay = true) {
   if (now && now.part === part) return togglePlay();
   if (!queue.includes(song)) queue = results.some(r => r.s === song) ? results.map(r => r.s).filter(x => x.parts.length) : [song];
@@ -1403,6 +1426,12 @@ function playTrack(song, part, keepTime = false, autoplay = true) {
   if (shift || shiftSemis(song)) audio.crossOrigin = 'anonymous';
   pendingPlay = !!resume; loadRetries = 0; relayTried = false; clearTimeout(retryTimer);
   audio.playbackRate = +$('#rate').value;
+  // Fade the old track out for a moment before switching, so it isn't cut off with a click.
+  const wasPlaying = !audio.paused && !!audio.getAttribute('src');
+  const load = () => {
+  if (!now || now.part !== part) return;
+  if (wasPlaying) audio.pause();
+  clearShiftBuffer(); setLevel(0);         // the new track fades in once it starts (see 'playing')
   if (driveBlocked() && canRelay() && !(N && N.localUrl(part.id)) && !relayed.has(part.id)) {
     relayTried = true; audio.pause(); audio.removeAttribute('src'); audio.load();
     loadViaServer(part, t, resume).then(ok => { if (!ok && now && now.part === part) { relayTried = false; driveBlockedUntil = 0; audio.src = mediaUrl(part.id); if (resume) audio.play().catch(() => {}); } });
@@ -1412,6 +1441,8 @@ function playTrack(song, part, keepTime = false, autoplay = true) {
     if (resume) audio.play().catch(() => {});
     if (relayed.has(part.id)) prefetchNext();
   }
+  };
+  if (wasPlaying) { fadeTo(0, 40); clearTimeout(switchTimer); switchTimer = setTimeout(load, 45); } else load();
   $('#nowTitle').textContent = (song.number ? song.number + '. ' : '') + song.title;
   verseNo = 1; renderLoop();
   $('#nowSub').textContent = `${part.part} · ${song.collection}` + verseNote();
@@ -2580,7 +2611,7 @@ const SHIFT_WORKLET = `
 class Shift extends AudioWorkletProcessor {
   constructor(o) { super(); this.ratio = (o && o.processorOptions && o.processorOptions.ratio) || 1; this.N = 1 << 16; this.buf = [new Float32Array(this.N), new Float32Array(this.N)];
     this.w = 0; this.p = 0; this.W = Math.round(sampleRate * 0.06);
-    this.port.onmessage = e => { this.ratio = e.data.ratio; }; }
+    this.port.onmessage = e => { if (e.data.reset) { this.buf[0].fill(0); this.buf[1].fill(0); this.p = 0; } else this.ratio = e.data.ratio; }; }
   process(inputs, outputs) {
     const inp = inputs[0], out = outputs[0]; if (!out.length) return true;
     const n = out[0].length, N = this.N, M = N - 1, W = this.W, r = this.ratio;
@@ -2625,12 +2656,13 @@ async function setupShift() {
     if (src) { audio.src = src; if (t) audio.addEventListener('loadedmetadata', () => { audio.currentTime = t; }, { once: true }); if (playing) audio.play().catch(() => {}); }
   }
   const input = ctx.createMediaElementSource(audio);
-  let node, set;
+  let node, set, reset;
   try {
     const url = URL.createObjectURL(new Blob([SHIFT_WORKLET], { type: 'application/javascript' }));
     await ctx.audioWorklet.addModule(url);
     node = new AudioWorkletNode(ctx, 'songpoint-shift', { outputChannelCount: [2] });
     set = r => node.port.postMessage({ ratio: r });
+    reset = () => node.port.postMessage({ reset: true });
   } catch {
     // Older browsers: same shifter on the main thread.
     const N = 1 << 16, M = N - 1, W = Math.round(ctx.sampleRate * 0.06), buf = [new Float32Array(N), new Float32Array(N)];
@@ -2653,9 +2685,12 @@ async function setupShift() {
       w = (w + n) & M;
     };
     set = r => { ratio = r; };
+    reset = () => { buf[0].fill(0); buf[1].fill(0); p = 0; };
   }
-  input.connect(node); node.connect(ctx.destination);
-  shift = { ctx, node, set };
+  const gain = ctx.createGain(); gain.gain.value = level;
+  try { audio.volume = 1; } catch {}
+  input.connect(node); node.connect(gain); gain.connect(ctx.destination);
+  shift = { ctx, node, gain, set, reset };
   return shift;
 }
 // Apply the right shift for the song that's loaded (called when a track starts or its key changes).
