@@ -341,6 +341,13 @@
   .dl.more { width: 32px; color: var(--muted); }
   .scard { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); margin-bottom: 8px; }
   .scard .si { flex: 1; min-width: 0; }
+  .scard { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; position: relative; }
+  #slidesList.selecting .scard .pbtn { visibility: hidden; }
+  #slidesList.selecting .scard { padding-left: 44px; }
+  #slidesList.selecting .scard::before { content: ''; position: absolute; left: 12px; top: 50%; width: 20px; height: 20px; margin-top: -11px; border: 2px solid var(--muted); border-radius: 6px; }
+  .scard.picked { border-color: var(--accent-text); background: var(--row); }
+  #slidesList.selecting .scard.picked::before { background: var(--accent); border-color: var(--accent); }
+  #slidesList.selecting .scard.picked::after { content: '✓'; position: absolute; left: 16px; top: 50%; margin-top: -11px; color: #fff; font-size: 15px; font-weight: 700; }
   .scard .st { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .scard .ss { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
   .scard .pbtn { padding: 7px 11px; font-size: 13px; flex: none; }
@@ -643,7 +650,9 @@
 <div class="panel" id="slidesPanel">
   <div class="phead">
     <button class="icon" data-close="slidesPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>PowerPoints</h2>
+    <h2 id="slidesHead">PowerPoints</h2>
+    <button class="pbtn ghost" id="slidesSelCancel" style="display:none">Cancel</button>
+    <button class="pbtn" id="slidesSelDelete" style="display:none;background:var(--danger)">Delete</button>
   </div>
   <div class="pbody">
     <div id="slidesList"></div>
@@ -2048,6 +2057,7 @@ window.handleBack = () => {
   if ($('#usagePanel').classList.contains('show')) { closePanel('usagePanel'); return true; }
   if ($('#notePanel').classList.contains('show')) { leaveNote(); return true; }
   if ($('#notesPanel').classList.contains('show')) { closePanel('notesPanel'); return true; }
+  if (slidesSel && $('#slidesPanel').classList.contains('show')) { setSlidesSelect(null); return true; }
   if ($('#choiceBox').classList.contains('show')) { if (choose.pending) choose.pending(); return true; }
   if ($('#readyBox').classList.contains('show')) { $('#readyBox').classList.remove('show'); return true; }
   const panel = [...document.querySelectorAll('.panel.show')].pop();   // Library check, Report a problem, …
@@ -2369,8 +2379,18 @@ async function cacheSlides(name, base64, info = {}) {
   try { await slideTx('readwrite', st => st.put(rec)); return rec; } catch { return null; }
 }
 async function listSlides() { try { const r = await slideTx('readonly', st => st.getAll()); return (r || []).sort((a, b) => b.created - a.created); } catch { return []; } }
+let slidesSel = null;   // Set of selected ids while in select mode (press and hold a PowerPoint)
+function setSlidesSelect(set) {
+  slidesSel = set;
+  const on = !!set;
+  $('#slidesSelCancel').style.display = $('#slidesSelDelete').style.display = on ? '' : 'none';
+  $('#slidesHead').textContent = on ? `${set.size} selected` : 'PowerPoints';
+  $('#slidesSelDelete').disabled = on && !set.size;
+  document.querySelectorAll('#slidesList .scard').forEach(c => c.classList.toggle('picked', !!(set && set.has(c.dataset.id))));
+  $('#slidesList').classList.toggle('selecting', on);
+}
 async function openSlides() {
-  openPanel('slidesPanel');
+  openPanel('slidesPanel'); setSlidesSelect(null);
   const list = await listSlides();
   $('#slidesList').innerHTML = list.length ? list.map(x => `<div class="scard" data-id="${esc(x.id)}">
       <div class="si"><div class="st">${esc(x.name.replace(/\.pptx$/i, ''))}</div>
@@ -2383,7 +2403,31 @@ function openSlideFile(rec) {
   const bytes = Uint8Array.from(atob(rec.data), c => c.charCodeAt(0));
   offerFiles([new File([bytes], rec.name, { type: PPTX })], rec.name.replace(/\.pptx$/i, ''), true);
 }
+(() => {   // press and hold a PowerPoint to start selecting
+  let t = null, held = false;
+  $('#slidesList').addEventListener('pointerdown', e => {
+    const c = e.target.closest('.scard'); if (!c || slidesSel) return; held = false;
+    t = setTimeout(() => { held = true; if (navigator.vibrate) navigator.vibrate(15); setSlidesSelect(new Set([c.dataset.id])); }, 500);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave', 'scroll'].forEach(ev => $('#slidesList').addEventListener(ev, () => clearTimeout(t), true));
+  $('#slidesList').addEventListener('click', e => { if (held) { held = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  $('#slidesList').addEventListener('contextmenu', e => { if (e.target.closest('.scard')) e.preventDefault(); });
+})();
+$('#slidesSelCancel').onclick = () => setSlidesSelect(null);
+$('#slidesSelDelete').onclick = async () => {
+  if (!slidesSel || !slidesSel.size) return;
+  const n = slidesSel.size;
+  if (!confirm(`Are you sure you want to delete ${n === 1 ? 'this PowerPoint' : 'these ' + n + ' PowerPoints'}?`)) return;
+  for (const id of slidesSel) { try { await slideTx('readwrite', st => st.delete(id)); } catch {} }
+  toast(`Deleted ${n} PowerPoint${n === 1 ? '' : 's'}`); openSlides();
+};
 $('#slidesList').addEventListener('click', async e => {
+  if (slidesSel) {   // select mode: tapping toggles
+    const c = e.target.closest('.scard'); if (!c) return;
+    slidesSel.has(c.dataset.id) ? slidesSel.delete(c.dataset.id) : slidesSel.add(c.dataset.id);
+    if (!slidesSel.size) return setSlidesSelect(null);
+    return setSlidesSelect(slidesSel);
+  }
   const b = e.target.closest('[data-s]'); if (!b) return;
   const id = b.closest('.scard').dataset.id;
   if (b.dataset.s === 'open') { const rec = await slideTx('readonly', st => st.get(id)); if (rec) openSlideFile(rec); }
@@ -2830,20 +2874,19 @@ $('#noteSlides').onclick = async () => {
       files: picked.map(x => ({ id: x.s.slides[0].id })), songs: picked.map(x => x.r) });
     busy(false);
     if (!r.ok) return toast(r.error || 'Couldn\'t build the PowerPoint', 5000);
-    // Built and saved. If a PowerPoint with the same name was already in Google Drive, this one was saved as
-    // "… (2)"; now ask whether to replace the older one instead.
-    if (r.wanted && r.name !== r.wanted && r.fileId) {
-      const c = await choose('Your PowerPoint is ready', `“${r.wanted}” was already in PowerPoint Presentations, so this one was saved as “${r.name}”. Replace the older one with this new one?`,
+    // Built. If a PowerPoint with this name is already in Google Drive, the new one is waiting off to the side:
+    // ask now whether it should replace the older one or be kept alongside it ("… (2)").
+    if (r.pending && r.fileId) {
+      const c = await choose('Your PowerPoint is ready', `“${r.wanted}” is already in PowerPoint Presentations. Replace it with this new one?`,
         [{ label: 'Replace the older one', value: 'replace', primary: true }, { label: 'Keep both', value: 'keep' }]);
-      if (c === 'replace') {
-        try {
-          busy(true, 'Replacing…', ''); const x = await api('replaceSlides', { fileId: r.fileId, name: r.wanted }); busy(false);
-          if (x.ok) {
-            r.name = r.wanted;
-            for (const old of (await listSlides()).filter(y => y.name === r.wanted)) { try { await slideTx('readwrite', st => st.delete(old.id)); } catch {} }
-          } else toast(x.error || 'Couldn’t replace the older one', 4500);
-        } catch { busy(false); toast('Couldn’t reach the server to replace it', 4500); }
-      }
+      try {
+        busy(true, 'Saving to Google Drive…', '');
+        const x = await api('finalizeSlides', { fileId: r.fileId, name: r.wanted, mode: c === 'replace' ? 'replace' : 'keep' }); busy(false);
+        if (x.ok) {
+          r.name = x.name;
+          if (c === 'replace') for (const old of (await listSlides()).filter(y => y.name === r.wanted)) { try { await slideTx('readwrite', st => st.delete(old.id)); } catch {} }
+        } else toast('Couldn’t save it to Google Drive: ' + (x.error || 'unknown error'), 6000);
+      } catch { busy(false); toast('Couldn’t reach the server to save it to Google Drive', 5000); }
     }
     const rec = await cacheSlides(r.name, r.data, { noteId: n.id, songs: picked.length });
     if (r.shared && r.shared !== 'ok') toast('Saved, but couldn’t reach the PowerPoint Presentations folder (saved to SongPoint Slideshows instead)', 5000);

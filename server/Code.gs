@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 8 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 9 }); }
 
 function doPost(e) {
   var d;
@@ -149,6 +149,7 @@ function handle_(d) {
   if (a === 'buildSlides') return buildSlides_(me, d);
   if (a === 'slidesExists') return slidesExists_(me, d);
   if (a === 'replaceSlides') return replaceSlides_(me, d);
+  if (a === 'finalizeSlides') return finalizeSlides_(me, d);
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
 
@@ -360,6 +361,34 @@ function replaceSlides_(me, d) {
   file.setName(name);
   return { ok: true, name: name, replaced: n };
 }
+/** Moves a parked PowerPoint into the shared folder: 'replace' trashes the older same-named file(s) first,
+    otherwise it's saved alongside as "Name (2).pptx", "(3)"... */
+function finalizeSlides_(me, d) {
+  var file = DriveApp.getFileById(String(d.fileId || '')), want = String(d.name || file.getName());
+  if (!/\.pptx$/i.test(want)) return { ok: false, error: 'Not a PowerPoint.' };
+  var dest; try { dest = DriveApp.getFolderById(SHARED_SLIDES_FOLDER); dest.getName(); } catch (e) { dest = folder_('SongPoint Slideshows'); }
+  var name = want, base = want.replace(/\.pptx$/i, ''), trashed = 0;
+  if (d.mode === 'replace') {
+    var old = dest.getFilesByName(want);
+    while (old.hasNext()) { var f = old.next(); if (f.getId() !== file.getId()) { f.setTrashed(true); trashed++; } }
+  } else {
+    for (var k = 2; dest.getFilesByName(name).hasNext() && k < 200; k++) name = base + ' (' + k + ').pptx';
+  }
+  file.setName(name);
+  file.moveTo(dest);
+  return { ok: true, name: name, replaced: trashed };
+}
+/** Editor test for finalizeSlides_ (makes and cleans up a small dummy file). */
+function testFinalize() {
+  var me = { name: 'Test', username: 'test' }, work = folder_('SongPoint slide cache');
+  var a = DriveApp.getFolderById(SHARED_SLIDES_FOLDER).createFile('zz-songpoint-test.pptx', 'old', 'application/octet-stream');
+  var b = work.createFile('zz-songpoint-test.pptx', 'new', 'application/octet-stream');
+  var r = finalizeSlides_(me, { fileId: b.getId(), name: 'zz-songpoint-test.pptx', mode: 'replace' });
+  var ok = a.isTrashed() && DriveApp.getFileById(b.getId()).getParents().next().getId() === SHARED_SLIDES_FOLDER && r.name === 'zz-songpoint-test.pptx';
+  DriveApp.getFileById(b.getId()).setTrashed(true);
+  if (!ok) throw new Error('finalize test failed: ' + JSON.stringify(r));
+  return 'finalize ok';
+}
 function buildSlides_(me, d) {
   var files = (d.files || []).filter(function (f) { return f && f.id; });
   if (!files.length) return { ok: false, error: 'None of these songs have slides yet.' };
@@ -381,15 +410,13 @@ function buildSlides_(me, d) {
   var dest, shared = 'ok';
   try { dest = DriveApp.getFolderById(SHARED_SLIDES_FOLDER); dest.getName(); }
   catch (e) { shared = String(e && e.message || e); dest = folder_('SongPoint Slideshows'); }
-  var base = slidesBase_(me, title), name = base + '.pptx';
-  if (d.onExisting === 'replace') {
-    var old = dest.getFilesByName(name); while (old.hasNext()) old.next().setTrashed(true);
-  } else {
-    for (var k = 2; dest.getFilesByName(name).hasNext() && k < 200; k++) name = base + ' (' + k + ').pptx';
-  }
+  var base = slidesBase_(me, title), name = base + '.pptx', pending = false;
+  // Same name already there? Don't touch the shared folder yet: park the new file in the working folder and let
+  // the app ask "Replace or keep both?" (finalizeSlides_ then moves it in).
+  if (dest.getFilesByName(name).hasNext()) pending = true;
   var blob = resp.getBlob().setName(name)
     .setContentType('application/vnd.openxmlformats-officedocument.presentationml.presentation');
-  var saved = dest.createFile(blob);
+  var saved = (pending ? work : dest).createFile(blob);
   copy.setTrashed(true);
   if (!d.noLog) {
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
@@ -399,7 +426,7 @@ function buildSlides_(me, d) {
       comment: saved.getName(), songs: d.songs || [] }));
   } finally { lock.releaseLock(); }
   }
-  return { ok: true, name: saved.getName(), wanted: base + '.pptx', fileId: saved.getId(), url: saved.getUrl(), size: blob.getBytes().length, shared: shared,
+  return { ok: true, name: saved.getName(), wanted: base + '.pptx', pending: pending, fileId: saved.getId(), url: saved.getUrl(), size: blob.getBytes().length, shared: shared,
     data: Utilities.base64Encode(blob.getBytes()) };
 }
 
