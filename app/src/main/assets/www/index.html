@@ -16,6 +16,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="config.js"></script>
 <script src="keys.js"></script>
+<script src="verses.js"></script>
 <script src="web.js"></script>
 <style>
   /* Brand color #72173b. --accent fills buttons; --accent-text is for colored text/borders. */
@@ -122,6 +123,8 @@
   .icon.skip { min-width: 46px; height: 46px; color: var(--text); }
   .icon { background: none; border: none; color: var(--muted); min-width: 40px; height: 40px; border-radius: 8px; display: grid; place-items: center; font-size: 14px; font-weight: 600; }
   .icon.on { color: var(--accent-text); }
+  #loopBtn { position: relative; }
+  #loopBtn .lpn { position: absolute; right: 1px; bottom: 3px; font-size: 10px; font-weight: 800; line-height: 1; }
   .big { width: 54px; height: 54px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); border: none; display: grid; place-items: center; }
   .seek { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   input[type=range] { flex: 1; accent-color: var(--accent-text); height: 28px; }
@@ -347,7 +350,8 @@
   #slidesList.selecting .scard::before { content: ''; position: absolute; left: 12px; top: 50%; width: 20px; height: 20px; margin-top: -11px; border: 2px solid var(--muted); border-radius: 6px; }
   .scard.picked { border-color: var(--accent-text); background: var(--row); }
   #slidesList.selecting .scard.picked::before { background: var(--accent); border-color: var(--accent); }
-  #slidesList.selecting .scard.picked::after { content: '✓'; position: absolute; left: 16px; top: 50%; margin-top: -11px; color: #fff; font-size: 15px; font-weight: 700; }
+  #slidesList.selecting .scard.picked::after { content: ''; position: absolute; left: 12px; top: 50%; width: 24px; height: 24px; margin-top: -11px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 12.5l3.6 3.6 7.4-8' fill='none' stroke='white' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 24px 24px no-repeat; }
   .scard .st { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .scard .ss { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
   .scard .pbtn { padding: 7px 11px; font-size: 13px; flex: none; }
@@ -433,7 +437,7 @@
       <button class="icon" id="miniBtn" title="Minimize player" aria-label="Minimize player"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></button>
       <div class="extras">
         <button class="icon sm" id="musicBtn" title="Sheet music" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M10 17.5a1.5 1.5 0 1 1-1.5-1.5H10v-6l4-1"/></svg></button>
-        <button class="icon" id="loopBtn" title="Repeat">⟲</button>
+        <button class="icon" id="loopBtn" title="Repeat: off" aria-label="Repeat: off"><span class="lp">⟲</span><span class="lpn" id="loopN"></span></button>
         <select id="rate" title="Speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="0.85">0.85×</option><option value="1" selected>1×</option><option value="1.15">1.15×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option><option value="2">2×</option></select>
       </div>
     </div>
@@ -872,6 +876,16 @@ const keyList = new Map();
     }
   }
 })();
+// Verse counts from verses.js (by hymn number for SFP, by title for Misc)
+const verseNumbers = new Map(), verseTitles = new Map();
+for (const b of window.SONG_VERSES_BY_NUMBER || []) for (const book of [b.book, ...(b.aka || [])]) for (const n in b.verses) verseNumbers.set(book + '|' + n, b.verses[n]);
+(() => { const v = window.SONG_VERSES; if (v) for (const t in v.songs) for (const x of [t, baseTitle(t)]) { const id = v.book + '|' + normalize(x); if (!verseTitles.has(id)) verseTitles.set(id, v.songs[t]); } })();
+function versesOf(s) {
+  if (!s) return 0;
+  if (s.verses === undefined) s.verses = (s.number && verseNumbers.get(s.collection + '|' + s.number))
+    || verseTitles.get(s.collection + '|' + s.nTitle) || verseTitles.get(s.collection + '|' + normalize(baseTitle(s.title))) || 0;
+  return s.verses;
+}
 // Keys listed by hymn number (Songs of Faith and Praise)
 const keyNumbers = new Map();
 for (const b of window.SONG_KEYS_BY_NUMBER || []) for (const book of [b.book, ...(b.aka || [])]) for (const n in b.keys) keyNumbers.set(book + '|' + n, b.keys[n]);
@@ -1399,7 +1413,8 @@ function playTrack(song, part, keepTime = false, autoplay = true) {
     if (relayed.has(part.id)) prefetchNext();
   }
   $('#nowTitle').textContent = (song.number ? song.number + '. ' : '') + song.title;
-  $('#nowSub').textContent = `${part.part} · ${song.collection}`;
+  verseNo = 1; renderLoop();
+  $('#nowSub').textContent = `${part.part} · ${song.collection}` + verseNote();
   applyShift();
   $('#playerParts').innerHTML = song.parts.length > 1 ? song.parts.map(p =>
     `<button class="pp${p === part ? ' now' : ''}" data-id="${esc(p.id)}">${esc(p.part)}</button>`).join('') : '';
@@ -1440,6 +1455,10 @@ audio.addEventListener('pause', refreshPlaying);
 let playAllQueue = null, pendingPlay = false;   // the queue started by a song list's "Play all"
 audio.addEventListener('ended', () => {
   if (audio.loop) return;
+  if (repeatMode === 'verses' && now && verseNo < versesOf(now.song)) {   // play the track once per verse
+    verseNo++; refreshSub(); audio.currentTime = 0; audio.play().catch(() => {}); return;
+  }
+  if (verseNo > 1) { verseNo = 1; refreshSub(); }
   if (queue === playAllQueue) return step(1);
   audio.currentTime = 0; refreshPlaying();
 });
@@ -1510,7 +1529,23 @@ $('#back5Btn').onclick = () => nudge(-5);
 $('#back1Btn').onclick = () => nudge(-1);
 $('#fwd1Btn').onclick = () => nudge(1);
 $('#fwd5Btn').onclick = () => nudge(5);
-$('#loopBtn').onclick = () => { audio.loop = !audio.loop; $('#loopBtn').classList.toggle('on', audio.loop); toast(audio.loop ? 'Repeat on' : 'Repeat off', 1200); };
+// Repeat has three settings: off → on (forever) → once per verse (×N, only when the song's verse count is known) → off.
+let repeatMode = 'off', verseNo = 1;
+function renderLoop() {
+  const n = now ? versesOf(now.song) : 0, b = $('#loopBtn');
+  b.classList.toggle('on', repeatMode !== 'off');
+  $('#loopN').textContent = repeatMode === 'verses' ? '×' + (n > 1 ? n : 1) : repeatMode === 'on' ? '∞' : '';
+  const label = repeatMode === 'off' ? 'Repeat: off' : repeatMode === 'on' ? 'Repeat: on' : `Repeat: once per verse (${n > 1 ? n : 1}×)`;
+  b.title = label; b.setAttribute('aria-label', label);
+}
+$('#loopBtn').onclick = () => {
+  const n = now ? versesOf(now.song) : 0;
+  repeatMode = repeatMode === 'off' ? 'on' : repeatMode === 'on' && n > 1 ? 'verses' : 'off';
+  audio.loop = repeatMode === 'on';
+  if (repeatMode === 'verses') verseNo = 1;
+  renderLoop(); refreshSub();
+  toast(repeatMode === 'off' ? 'Repeat off' : repeatMode === 'on' ? 'Repeat on' : `Play ${n} times (${n} verses)`, 1400);
+};
 $('#rate').onchange = e => { audio.playbackRate = +e.target.value; };
 $('#toggleBtn').innerHTML = BIG_PLAY;
 $('#musicBtn').onclick = () => { if (now) openViewer(now.song); };
@@ -2637,8 +2672,10 @@ async function applyShift() {
 function updateShiftLabel(semis) {
   if (!now) return;
   const k = songKeyState(now.song);
-  $('#nowSub').textContent = `${now.part.part} · ${now.song.collection}` + (semis ? ` · in ${k.label} (${semis > 0 ? '+' : '−'}${Math.abs(semis)})` : '');
+  $('#nowSub').textContent = `${now.part.part} · ${now.song.collection}` + (semis ? ` · in ${k.label} (${semis > 0 ? '+' : '−'}${Math.abs(semis)})` : '') + verseNote();
 }
+function verseNote() { const n = now ? versesOf(now.song) : 0; return repeatMode === 'verses' && n > 1 ? ` · verse ${verseNo} of ${n}` : ''; }
+function refreshSub() { if (now) updateShiftLabel(shiftSemis(now.song)); }
 // ------------------------------------------------------------------ pitch pipe tool
 $('#pipeBtnIcon').outerHTML = PIPE_ICON;
 // Two pipes, like the real ones: C to C (middle C up to high C) and F to F (the F below middle C up to the F above it).
