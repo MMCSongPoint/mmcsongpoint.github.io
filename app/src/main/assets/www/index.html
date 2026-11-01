@@ -2824,26 +2824,26 @@ $('#noteSlides').onclick = async () => {
     if (c === 'view') return openSlides();
     if (c !== 'go') return;
   }
-  // Same name already in Google Drive? Replace it, or keep both (numbered).
-  let onExisting = 'number';
-  try {
-    busy(true, 'Checking Google Drive…', '');
-    const x = await api('slidesExists', { title }); busy(false);
-    if (x.ok && x.exists) {
-      const c = await choose('This PowerPoint is already in Google Drive', `“${x.name}” already exists in PowerPoint Presentations. Replace it with this new one?`,
-        [{ label: 'Replace it', value: 'replace', primary: true }, { label: 'Keep both (save as a new copy)', value: 'number' }, { label: 'Cancel', value: 'cancel' }]);
-      if (c === 'cancel') return;
-      onExisting = c;
-    }
-  } catch { busy(false); }
   busy(true, 'Building your PowerPoint…', `${picked.length} song${picked.length === 1 ? '' : 's'}. This usually takes under a minute (longer the first time a song is used).`);
   try {
-    const r = await api('buildSlides', { title, onExisting, noteId: n.id, noteTitle: n.title, dateUsed: n.date, device: deviceName(),
+    const r = await api('buildSlides', { title, noteId: n.id, noteTitle: n.title, dateUsed: n.date, device: deviceName(),
       files: picked.map(x => ({ id: x.s.slides[0].id })), songs: picked.map(x => x.r) });
     busy(false);
     if (!r.ok) return toast(r.error || 'Couldn\'t build the PowerPoint', 5000);
-    if (onExisting === 'replace') {   // the Drive copy was replaced, so drop the old copy kept on this device too
-      for (const old of (await listSlides()).filter(x => x.name === r.name)) { try { await slideTx('readwrite', st => st.delete(old.id)); } catch {} }
+    // Built and saved. If a PowerPoint with the same name was already in Google Drive, this one was saved as
+    // "… (2)"; now ask whether to replace the older one instead.
+    if (r.wanted && r.name !== r.wanted && r.fileId) {
+      const c = await choose('Your PowerPoint is ready', `“${r.wanted}” was already in PowerPoint Presentations, so this one was saved as “${r.name}”. Replace the older one with this new one?`,
+        [{ label: 'Replace the older one', value: 'replace', primary: true }, { label: 'Keep both', value: 'keep' }]);
+      if (c === 'replace') {
+        try {
+          busy(true, 'Replacing…', ''); const x = await api('replaceSlides', { fileId: r.fileId, name: r.wanted }); busy(false);
+          if (x.ok) {
+            r.name = r.wanted;
+            for (const old of (await listSlides()).filter(y => y.name === r.wanted)) { try { await slideTx('readwrite', st => st.delete(old.id)); } catch {} }
+          } else toast(x.error || 'Couldn’t replace the older one', 4500);
+        } catch { busy(false); toast('Couldn’t reach the server to replace it', 4500); }
+      }
     }
     const rec = await cacheSlides(r.name, r.data, { noteId: n.id, songs: picked.length });
     if (r.shared && r.shared !== 'ok') toast('Saved, but couldn’t reach the PowerPoint Presentations folder (saved to SongPoint Slideshows instead)', 5000);

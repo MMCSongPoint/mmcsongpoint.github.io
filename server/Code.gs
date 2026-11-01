@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 7 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 8 }); }
 
 function doPost(e) {
   var d;
@@ -148,6 +148,7 @@ function handle_(d) {
   if (a === 'usage') return usage_(me, d);
   if (a === 'buildSlides') return buildSlides_(me, d);
   if (a === 'slidesExists') return slidesExists_(me, d);
+  if (a === 'replaceSlides') return replaceSlides_(me, d);
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
 
@@ -349,6 +350,16 @@ function slidesExists_(me, d) {
   try { dest = DriveApp.getFolderById(SHARED_SLIDES_FOLDER); } catch (e) { dest = folder_('SongPoint Slideshows'); }
   return { ok: true, exists: dest.getFilesByName(name).hasNext(), name: name };
 }
+/** After a build saved "Name (2).pptx": replace the older "Name.pptx" with it (old one goes to Drive's trash). */
+function replaceSlides_(me, d) {
+  var file = DriveApp.getFileById(String(d.fileId || '')), name = String(d.name || '');
+  if (!/\.pptx$/i.test(name) || !/\.pptx$/i.test(file.getName())) return { ok: false, error: 'Not a PowerPoint.' };
+  var parents = file.getParents(); if (!parents.hasNext()) return { ok: false, error: 'File has no folder.' };
+  var folder = parents.next(), old = folder.getFilesByName(name), n = 0;
+  while (old.hasNext()) { var f = old.next(); if (f.getId() !== file.getId()) { f.setTrashed(true); n++; } }
+  file.setName(name);
+  return { ok: true, name: name, replaced: n };
+}
 function buildSlides_(me, d) {
   var files = (d.files || []).filter(function (f) { return f && f.id; });
   if (!files.length) return { ok: false, error: 'None of these songs have slides yet.' };
@@ -388,7 +399,7 @@ function buildSlides_(me, d) {
       comment: saved.getName(), songs: d.songs || [] }));
   } finally { lock.releaseLock(); }
   }
-  return { ok: true, name: saved.getName(), fileId: saved.getId(), url: saved.getUrl(), size: blob.getBytes().length, shared: shared,
+  return { ok: true, name: saved.getName(), wanted: base + '.pptx', fileId: saved.getId(), url: saved.getUrl(), size: blob.getBytes().length, shared: shared,
     data: Utilities.base64Encode(blob.getBytes()) };
 }
 
