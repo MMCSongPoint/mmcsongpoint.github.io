@@ -868,11 +868,11 @@ function parseSheet(filename) {
 // Chord charts (ChordPro / OnSong text): "0570 A Beautiful Life.cho", "As The Deer.chordpro"
 const CHORD_EXT = /^(cho|crd|chopro|chordpro|pro|onsong)$/;
 // SongSelect downloads: "agnus-dei-chordpro-A.txt" (.txt is used only when "chordpro" is in the name)
-function parseChordFile(filename) {
+function parseChordFile(filename, anyTxt = false) {
   const ext = (filename.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
   let stem = filename.slice(0, -(ext.length + 1)).replace(/_/g, ' ').trim();
   const tagged = /chord-?pro/i.test(stem);
-  if (!CHORD_EXT.test(ext) && !(ext === 'txt' && tagged)) return null;
+  if (!CHORD_EXT.test(ext) && !(ext === 'txt' && (tagged || anyTxt))) return null;
   stem = stem.replace(/[\s-]*chord-?pro(?:[\s-]+[A-G][#b]?m?)?$/i, '').trim();
   if (!/\s/.test(stem) && /-/.test(stem)) stem = stem.replace(/-+/g, ' ');   // "agnus-dei" -> "agnus dei"
   const p = parseName(stem + '.x');
@@ -1058,6 +1058,23 @@ async function sync(manual = false) {
         const ia = order.indexOf(normalize(a)), ib = order.indexOf(normalize(b));
         return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib) || a.localeCompare(b);
       });
+    }
+    if (CFG.chordsFolder) {
+      // Chord chart folder: one subfolder per book. "SFP" matches "Songs of Faith and Praise" (initials).
+      setSyncLine('Checking chords…');
+      const squash = t => normalize(t).replace(/\s+/g, '');
+      const initials = t => normalize(t).split(' ').filter(w => w && !SMALL_WORDS.has(w)).map(w => w[0]).join('');
+      const bookFor = name => seenColl.find(c => squash(c) === squash(name) || initials(c) === squash(name)) || name;
+      const stack4 = [{ id: CFG.chordsFolder, collection: null }];
+      while (stack4.length) {
+        const { id, collection } = stack4.shift();
+        for (const f of await driveList(id)) {
+          if (f.mimeType === 'application/vnd.google-apps.folder') { stack4.push({ id: f.id, collection: collection || bookFor(f.name) }); continue; }
+          const c = parseChordFile(f.name, true); if (!c) continue;
+          chords.push({ id: f.id, name: f.name, collection: collection || 'Misc', number: c.number, title: c.title, ext: c.ext, modified: f.modifiedTime || '' });
+        }
+        setSyncLine(`Checking chords… ${chords.length} charts`);
+      }
     }
     const slides = [];
     if (CFG.slidesFolder) {

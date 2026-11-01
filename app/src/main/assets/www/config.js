@@ -14,6 +14,9 @@ window.HYMNAL_CONFIG = {
   sheetsFolder: "1vAVM0v-hyV0aIbRILII6w_U8We2S2Rxh",
 
 
+  // Shared folder with chord charts (ChordPro, incl. SongSelect .txt downloads), in book folders (e.g. SFP, Misc).
+  chordsFolder: "18y4jQG9mkdJePYyjrmTQzgBkO14Y8hQt",
+
   // Shared folder with PowerPoint slides (.ppt / .pptx), in the same book folders.
   slidesFolder: "14piomFAoPOo8nBAOT2qs3majiEtZunLq",
 
