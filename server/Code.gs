@@ -11,7 +11,7 @@ var HEAD = ['Logged at', 'Date used', 'Leader', 'Event', 'Note', 'Note ID', 'Ver
 var UHEAD = ['Username', 'Name', 'Admin', 'Salt', 'Hash', 'Must change password', 'Created', 'Last sign-in',
   'Signed out before', 'Disabled'];
 var ROUNDS = 2000;
-var SHARED_SLIDES_FOLDER = '1A_h83VBsar3VD4j2LQ2js8sbdrBAIGQc';   // every built PowerPoint is also saved here
+var SHARED_SLIDES_FOLDER = '1A_h83VBsar3VD4j2LQ2js8sbdrBAIGQc';   // built PowerPoints are saved here (PowerPoint Presentations)
 
 // ------------------------------------------------------------------ sheets
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 5 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 6 }); }
 
 function doPost(e) {
   var d;
@@ -344,8 +344,8 @@ function buildSlides_(me, d) {
   if (files.length > 40) return { ok: false, error: 'That\'s too many songs for one slideshow (max 40).' };
   var title = String(d.title || 'SongPoint').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 80) || 'SongPoint';
   var ids = files.map(function (f) { return converted_(f.id); });
-  var out = folder_('SongPoint Slideshows');
-  var copy = DriveApp.getFileById(ids[0]).makeCopy(title + ' (building)', out);
+  var work = folder_('SongPoint slide cache');           // temporary working copy (thrown away below)
+  var copy = DriveApp.getFileById(ids[0]).makeCopy(title + ' (building)', work);
   var pres = SlidesApp.openById(copy.getId());
   for (var i = 1; i < ids.length; i++) {
     SlidesApp.openById(ids[i]).getSlides().forEach(function (s) { pres.appendSlide(s); });
@@ -356,11 +356,11 @@ function buildSlides_(me, d) {
   if (resp.getResponseCode() !== 200) throw new Error('Export failed (' + resp.getResponseCode() + ')');
   var blob = resp.getBlob().setName(title + '.pptx')
     .setContentType('application/vnd.openxmlformats-officedocument.presentationml.presentation');
-  var saved = out.createFile(blob);
+  // Save to the shared "PowerPoint Presentations" folder; only if that fails, fall back to SongPoint Slideshows.
+  var saved, shared = 'ok';
+  try { saved = DriveApp.getFolderById(SHARED_SLIDES_FOLDER).createFile(blob); }
+  catch (e) { shared = String(e && e.message || e); saved = folder_('SongPoint Slideshows').createFile(blob); }
   copy.setTrashed(true);
-  var shared = '';                                   // a second copy in the shared PowerPoints folder
-  try { saved.makeCopy(saved.getName(), DriveApp.getFolderById(SHARED_SLIDES_FOLDER)); shared = 'ok'; }
-  catch (e) { shared = String(e && e.message || e); }
   if (!d.noLog) {
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
