@@ -1344,6 +1344,7 @@ function playTrack(song, part, keepTime = false, autoplay = true) {
   audio.src = sourceFor(part);
   audio.playbackRate = +$('#rate').value;
   if (t) audio.addEventListener('loadedmetadata', () => { audio.currentTime = t; }, { once: true });
+  pendingPlay = !!resume; loadRetries = 0; clearTimeout(retryTimer);
   if (resume) audio.play().catch(() => {});
   $('#nowTitle').textContent = (song.number ? song.number + '. ' : '') + song.title;
   $('#nowSub').textContent = `${part.part} · ${song.collection}`;
@@ -1384,14 +1385,35 @@ audio.addEventListener('timeupdate', () => { if (isFinite(audio.duration) && aud
 audio.addEventListener('play', refreshPlaying);
 audio.addEventListener('pause', refreshPlaying);
 // A track stops when it ends. Only "Play all" from a song list moves on to the next song.
-let playAllQueue = null;   // the queue started by a song list's "Play all"
+let playAllQueue = null, pendingPlay = false;   // the queue started by a song list's "Play all"
 audio.addEventListener('ended', () => {
   if (audio.loop) return;
   if (queue === playAllQueue) return step(1);
   audio.currentTime = 0; refreshPlaying();
 });
 audio.addEventListener('loadedmetadata', () => { if (now && isFinite(audio.duration)) now.part.duration = audio.duration; });
-audio.addEventListener('error', () => { if (now) toast(navigator.onLine ? 'Couldn\'t play this track. Try Refresh.' : 'You\'re offline and this song isn\'t saved'); });
+// Google Drive sometimes refuses a download for a moment (busy / rate limited). Quietly retry a couple of times
+// before showing an error; only a real, repeated failure gets the message.
+let loadRetries = 0, retryTimer = null;
+audio.addEventListener('error', () => {
+  if (!now || !audio.getAttribute('src')) return;            // e.g. right after the player was closed
+  if (!navigator.onLine) return toast('You\'re offline and this song isn\'t saved');
+  if (loadRetries < 3) {
+    loadRetries++;
+    const part = now.part, t = audio.currentTime || 0, wantPlay = !audio.paused || audio.autoplay || pendingPlay;
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      if (!now || now.part !== part) return;
+      if (!shift && !shiftSemis(now.song)) audio.removeAttribute('crossorigin');
+      audio.src = sourceFor(part);
+      if (t) audio.addEventListener('loadedmetadata', () => { audio.currentTime = t; }, { once: true });
+      if (wantPlay) audio.play().catch(() => {});
+    }, 700 * loadRetries);
+    return;
+  }
+  toast('Couldn\'t play this track right now. Try again in a moment.', 4000);
+});
+audio.addEventListener('playing', () => { loadRetries = 0; });
 let seeking = false;
 audio.addEventListener('timeupdate', () => {
   $('#cur').textContent = fmt(audio.currentTime) || '0:00';
