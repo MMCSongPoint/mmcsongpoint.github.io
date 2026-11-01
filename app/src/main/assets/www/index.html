@@ -125,6 +125,7 @@
   .big { width: 54px; height: 54px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); border: none; display: grid; place-items: center; }
   .seek { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   input[type=range] { flex: 1; accent-color: var(--accent-text); height: 28px; }
+  .player .pclose { min-width: 30px; width: 30px; height: 30px; margin-left: -6px; flex: none; }
   .player .mini-only { display: none; }
   .player.mini { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
   .player.mini .seek, .player.mini .ctrls, .player.mini .pparts, .player.mini .extras { display: none; }
@@ -419,6 +420,7 @@
 <div class="player" id="player">
   <div class="in">
     <div class="prow">
+      <button class="icon pclose" id="playerClose" aria-label="Close player" title="Close player"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       <div class="info" id="playerInfo"><div class="title" id="nowTitle"></div><div class="sub" id="nowSub"></div></div>
       <button class="big mini-only" id="miniToggle" aria-label="Play or pause"></button>
       <button class="icon" id="miniBtn" title="Minimize player" aria-label="Minimize player"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -1390,6 +1392,16 @@ audio.addEventListener('timeupdate', () => {
 $('#seek').addEventListener('input', () => { seeking = true; });
 $('#seek').addEventListener('change', e => { if (audio.duration) audio.currentTime = e.target.value / 1000 * audio.duration; seeking = false; });
 $('#toggleBtn').onclick = togglePlay;
+// ✕ in the player: stop and hide it
+function closePlayer() {
+  audio.pause(); audio.removeAttribute('src'); try { audio.load(); } catch {}
+  now = null; queue = []; playAllQueue = null;
+  $('#player').classList.remove('show', 'listmode'); document.body.classList.remove('playing-bar');
+  if (N && N.stopPlayback) { try { N.stopPlayback(); } catch {} }
+  if ('mediaSession' in navigator) { try { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } catch {} }
+  updatePlayerMode(); render(); if (viewing) openViewerButtons();
+}
+$('#playerClose').onclick = closePlayer;
 $('#prevBtn').onclick = () => { if (audio.currentTime > 3) audio.currentTime = 0; else step(-1); };
 $('#nextBtn').onclick = () => step(1);
 // Song-list playback ("Play all") gets previous/next buttons; the player also shows over the song list screens.
