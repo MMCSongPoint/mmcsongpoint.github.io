@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 11 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 12 }); }
 
 function doPost(e) {
   var d;
@@ -153,6 +153,9 @@ function handle_(d) {
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
   if (a === 'file') return file_(d);
+  if (a === 'getArrangements') return { ok: true, arrangements: arrangements_() };
+  if (a === 'setArrangement') return setArrangement_(me, d);
+  if (a === 'deleteArrangement') return deleteArrangement_(me, d);
 
   if (!me.admin) return { ok: false, error: 'Only admins can do that.' };
   if (a === 'listUsers') return { ok: true, users: users_().map(publicUser_) };
@@ -580,4 +583,43 @@ function file_(d) {
   if (!chordFile && !/^(audio\/|image\/|application\/pdf$)/.test(mime)) return { ok: false, error: 'Not a song or sheet music file.' };
   if (f.getSize() > 30 * 1024 * 1024) return { ok: false, error: 'File is too large.' };
   return { ok: true, mime: mime, name: f.getName(), data: Utilities.base64Encode(f.getBlob().getBytes()) };
+}
+
+// ------------------------------------------------------------------ chord chart arrangements
+// One shared section order (and key) per chord chart. The chart file itself is never changed.
+var ARR = 'Arrangements', AHEAD = ['Chart ID', 'Song key', 'Title', 'Book', 'Order', 'Key', 'Updated by', 'Updated'];
+function arrangements_() {
+  var sh = tab_(ARR, AHEAD), n = sh.getLastRow() - 1;
+  if (n < 1) return [];
+  return sh.getRange(2, 1, n, AHEAD.length).getValues().filter(function (r) { return r[0]; }).map(function (r) {
+    var order = []; try { order = JSON.parse(r[4] || '[]'); } catch (e) {}
+    return { chartId: String(r[0]), songKey: String(r[1]), order: order, key: String(r[5] || ''), by: String(r[6] || ''),
+      at: r[7] instanceof Date ? r[7].toISOString() : String(r[7] || '') };
+  });
+}
+function setArrangement_(me, d) {
+  var id = String(d.chartId || ''); if (!id) return { ok: false, error: 'No chart given.' };
+  var order = (d.order || []).slice(0, 60).map(function (x) { return { i: Number(x.i) || 0, label: String(x.label || '').slice(0, 60) }; });
+  if (!order.length) return { ok: false, error: 'Choose at least one section.' };
+  var row = [id, String(d.songKey || ''), String(d.title || '').slice(0, 120), String(d.book || '').slice(0, 60), JSON.stringify(order),
+    String(d.key || '').slice(0, 8), me.name || me.username, new Date()];
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(ARR, AHEAD), n = sh.getLastRow() - 1;
+    var ids = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [];
+    var i = ids.indexOf(id);
+    if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
+  } finally { lock.releaseLock(); }
+  return { ok: true, arrangements: arrangements_() };
+}
+function deleteArrangement_(me, d) {
+  var id = String(d.chartId || '');
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(ARR, AHEAD), n = sh.getLastRow() - 1;
+    var ids = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [];
+    var i = ids.indexOf(id);
+    if (i >= 0) sh.deleteRow(i + 2);
+  } finally { lock.releaseLock(); }
+  return { ok: true, arrangements: arrangements_() };
 }
