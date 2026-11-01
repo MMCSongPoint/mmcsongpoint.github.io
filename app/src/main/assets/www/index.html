@@ -867,10 +867,15 @@ function parseSheet(filename) {
 }
 // Chord charts (ChordPro / OnSong text): "0570 A Beautiful Life.cho", "As The Deer.chordpro"
 const CHORD_EXT = /^(cho|crd|chopro|chordpro|pro|onsong)$/;
+// SongSelect downloads: "agnus-dei-chordpro-A.txt" (.txt is used only when "chordpro" is in the name)
 function parseChordFile(filename) {
   const ext = (filename.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
-  if (!CHORD_EXT.test(ext)) return null;
-  const p = parseName(filename.slice(0, -(ext.length + 1)).replace(/_/g, ' ').trim() + '.x');
+  let stem = filename.slice(0, -(ext.length + 1)).replace(/_/g, ' ').trim();
+  const tagged = /chord-?pro/i.test(stem);
+  if (!CHORD_EXT.test(ext) && !(ext === 'txt' && tagged)) return null;
+  stem = stem.replace(/[\s-]*chord-?pro(?:[\s-]+[A-G][#b]?m?)?$/i, '').trim();
+  if (!/\s/.test(stem) && /-/.test(stem)) stem = stem.replace(/-+/g, ' ');   // "agnus-dei" -> "agnus dei"
+  const p = parseName(stem + '.x');
   return { ext, number: p.number, title: p.title };
 }
 // Slide files: "0243 Our God Reigns-SFP.ppt", "As The Deer.pptx"
@@ -1659,7 +1664,11 @@ function parseChordPro(text) {
       if (name === 'title' || name === 't') meta.title = val;
       else if (name === 'subtitle' || name === 'st') meta.subtitle = val;
       else if (['artist', 'key', 'capo', 'tempo', 'time', 'copyright', 'ccli', 'composer', 'lyricist'].includes(name)) meta[name] = val;
-      else if (['comment', 'c', 'comment_italic', 'ci', 'comment_box', 'cb', 'highlight'].includes(name)) { if (!cur) block('plain'); cur.lines.push({ kind: 'comment', text: val }); }
+      else if (['comment', 'c', 'comment_italic', 'ci', 'comment_box', 'cb', 'highlight'].includes(name)) {
+        const sec = !mode && val.match(SECTION_RE);   // SongSelect: {comment: Verse} / {comment: Chorus}
+        if (sec) { block(/chorus|refrain/i.test(sec[1]) ? 'chorus' : /bridge/i.test(sec[1]) ? 'bridge' : 'verse', val.replace(/:$/, '')); continue; }
+        if (!cur) block('plain'); cur.lines.push({ kind: 'comment', text: val });
+      }
       else if (/^(start_of_|so)(chorus|c)$/.test(name) || name === 'soc') { block('chorus', val || 'Chorus'); mode = 'chorus'; }
       else if (/^(start_of_|so)(verse|v)$/.test(name) || name === 'sov') { block('verse', val); mode = 'verse'; }
       else if (/^(start_of_|so)(bridge|b)$/.test(name) || name === 'sob') { block('bridge', val || 'Bridge'); mode = 'bridge'; }
@@ -1670,6 +1679,7 @@ function parseChordPro(text) {
       continue;
     }
     if (/^\s*#/.test(line)) continue;
+    if (/^\s*(CCLI (Song|License) #|©|For use solely with the SongSelect)/i.test(line)) continue;   // shown once at the bottom
     // OnSong-style header lines ("Key: G", first line = title)
     const md = !blocks.length && line.match(/^(title|artist|key|capo|tempo|time|copyright|ccli)\s*:\s*(.+)$/i);
     if (md) { meta[md[1].toLowerCase()] = md[2].trim(); continue; }
@@ -1756,7 +1766,7 @@ async function showChords(x) {
 function drawChords() {
   if (!viewing || !chordChart || !$('#viewer').classList.contains('chordmode')) return;
   const s = viewing, ch = chordChart, k = chordKeyState(s, ch), m = ch.meta;
-  const info = [k.label ? `Key of ${k.label}` : '', k.written ? `written in ${k.written}` : '', m.capo && m.capo !== '0' ? `Capo ${m.capo}` : '', m.tempo ? `${m.tempo} bpm` : '', m.time || ''].filter(Boolean).join(' · ');
+  const info = [k.label ? `Key of ${k.label}` : '', k.written ? `written in ${k.written}` : '', m.capo && m.capo !== '0' ? `Capo ${m.capo}` : '', m.tempo ? (/bpm/i.test(m.tempo) ? m.tempo : `${m.tempo} bpm`) : '', m.time || ''].filter(Boolean).join(' · ');
   $('#vPages').innerHTML = `<div class="chart${chordsOnly ? ' chordsonly' : ''}" style="font-size:${chordSize}px">
     <div class="cbar">
       <div class="cgrp"><button data-c="down" aria-label="Key down">−</button><span class="ckey">${esc(k.label || 'Key')}</span><button data-c="up" aria-label="Key up">+</button>${keyOverrides.has(s.key) || chordOffset.get(s.key) ? '<button data-c="reset" aria-label="Back to the original key" title="Back to the original key">↺</button>' : ''}</div>
@@ -1767,7 +1777,7 @@ function drawChords() {
     ${m.subtitle || m.artist ? `<div class="cmeta">${esc([m.subtitle, m.artist].filter(Boolean).join(' · '))}</div>` : ''}
     ${info ? `<div class="cmeta">${esc(info)}</div>` : ''}
     ${renderChordChart(ch, k.semis, k.table)}
-    ${m.copyright || m.ccli ? `<div class="cmeta cfoot">${esc([m.copyright, m.ccli ? 'CCLI ' + m.ccli : ''].filter(Boolean).join(' · '))}</div>` : ''}
+    ${m.copyright || m.ccli ? `<div class="cmeta cfoot">${esc([m.copyright ? (/^©/.test(m.copyright) ? '' : '© ') + m.copyright : '', m.ccli ? 'CCLI Song # ' + m.ccli : ''].filter(Boolean).join(' · '))}</div>` : ''}
   </div>`;
 }
 function chordStep(d) {
