@@ -1326,7 +1326,53 @@ let downloadFailedShown = false;
 let queue = [], now = null;   // now = { song, part }
 function sourceFor(part) {
   const local = N ? N.localUrl(part.id) : '';
-  return local || mediaUrl(part.id);
+  return local || relayed.get(part.id) || mediaUrl(part.id);
+}
+// Google sometimes blocks direct Drive downloads from a busy network for a while ("automated queries").
+// Then fetch files through the SongPoint server instead (it runs on Google's side, so it isn't blocked)
+// and keep using that route for a while so later songs don't fail first.
+const relayed = new Map();          // file id -> blob: URL
+const relaying = new Map();         // file id -> pending promise
+let driveBlockedUntil = 0;
+const driveBlocked = () => Date.now() < driveBlockedUntil;
+function canRelay() { return !!(CFG.logUrl && auth.token && navigator.onLine); }
+function relayFile(id) {
+  if (relayed.has(id)) return Promise.resolve(relayed.get(id));
+  if (relaying.has(id)) return relaying.get(id);
+  const p = (async () => {
+    const r = await api('file', { id });
+    if (!r.ok) throw new Error(r.error || 'Couldn\'t load');
+    const blob = await (await fetch(`data:${r.mime};base64,${r.data}`)).blob();
+    const url = URL.createObjectURL(blob);
+    relayed.set(id, url);
+    for (const [k, u] of relayed) {                // keep memory in check: hold about 15 files
+      if (relayed.size <= 15) break;
+      if (now && now.part.id === k) continue;
+      URL.revokeObjectURL(u); relayed.delete(k);
+    }
+    return url;
+  })().finally(() => relaying.delete(id));
+  relaying.set(id, p);
+  return p;
+}
+// Load the current track through the server. Resolves true when it's playing from there.
+async function loadViaServer(part, t, wantPlay) {
+  driveBlockedUntil = Date.now() + 30 * 60 * 1000;
+  try {
+    const url = await relayFile(part.id);
+    if (!now || now.part !== part) return true;
+    audio.src = url;
+    if (t) audio.addEventListener('loadedmetadata', () => { audio.currentTime = t; }, { once: true });
+    if (wantPlay) audio.play().catch(() => {});
+    prefetchNext();
+    return true;
+  } catch { return false; }
+}
+// While Drive is blocked, fetch the next song in the queue ahead of time so Play all doesn't pause between songs.
+function prefetchNext() {
+  if (!driveBlocked() || !now || !canRelay()) return;
+  const i = queue.indexOf(now.song), next = i >= 0 ? queue[i + 1] : null;
+  if (next && next.parts.length) { const p = pickPart(next); if (!(N && N.localUrl(p.id))) relayFile(p.id).catch(() => {}); }
 }
 function playSong(s) {
   if (!s.parts.length) return openViewer(s);
@@ -1341,11 +1387,17 @@ function playTrack(song, part, keepTime = false, autoplay = true) {
   now = { song, part };
   if (!N || !N.localUrl(part.id)) { if (!navigator.onLine) { toast('You\'re offline and this song isn\'t saved'); } }
   if (shift || shiftSemis(song)) audio.crossOrigin = 'anonymous';
-  audio.src = sourceFor(part);
+  pendingPlay = !!resume; loadRetries = 0; relayTried = false; clearTimeout(retryTimer);
   audio.playbackRate = +$('#rate').value;
-  if (t) audio.addEventListener('loadedmetadata', () => { audio.currentTime = t; }, { once: true });
-  pendingPlay = !!resume; loadRetries = 0; clearTimeout(retryTimer);
-  if (resume) audio.play().catch(() => {});
+  if (driveBlocked() && canRelay() && !(N && N.localUrl(part.id)) && !relayed.has(part.id)) {
+    relayTried = true; audio.pause(); audio.removeAttribute('src'); audio.load();
+    loadViaServer(part, t, resume).then(ok => { if (!ok && now && now.part === part) { relayTried = false; driveBlockedUntil = 0; audio.src = mediaUrl(part.id); if (resume) audio.play().catch(() => {}); } });
+  } else {
+    audio.src = sourceFor(part);
+    if (t) audio.addEventListener('loadedmetadata', () => { audio.currentTime = t; }, { once: true });
+    if (resume) audio.play().catch(() => {});
+    if (relayed.has(part.id)) prefetchNext();
+  }
   $('#nowTitle').textContent = (song.number ? song.number + '. ' : '') + song.title;
   $('#nowSub').textContent = `${part.part} · ${song.collection}`;
   applyShift();
@@ -1394,10 +1446,16 @@ audio.addEventListener('ended', () => {
 audio.addEventListener('loadedmetadata', () => { if (now && isFinite(audio.duration)) now.part.duration = audio.duration; });
 // Google Drive sometimes refuses a download for a moment (busy / rate limited). Quietly retry a couple of times
 // before showing an error; only a real, repeated failure gets the message.
-let loadRetries = 0, retryTimer = null;
+let loadRetries = 0, retryTimer = null, relayTried = false;
 audio.addEventListener('error', () => {
   if (!now || !audio.getAttribute('src')) return;            // e.g. right after the player was closed
   if (!navigator.onLine) return toast('You\'re offline and this song isn\'t saved');
+  if (!relayTried && canRelay() && audio.src.startsWith(CFG.driveApi)) {
+    relayTried = true;
+    const part = now.part, t = audio.currentTime || 0, wantPlay = !audio.paused || audio.autoplay || pendingPlay;
+    loadViaServer(part, t, wantPlay).then(ok => { if (!ok && now && now.part === part) { driveBlockedUntil = 0; audio.src = mediaUrl(part.id); if (wantPlay) audio.play().catch(() => {}); } });
+    return;
+  }
   if (loadRetries < 3) {
     loadRetries++;
     const part = now.part, t = audio.currentTime || 0, wantPlay = !audio.paused || audio.autoplay || pendingPlay;
@@ -1503,8 +1561,13 @@ function showSheetGroup(label) {
         holder.innerHTML = `<div class="vmsg"><a href="https://drive.google.com/file/d/${encodeURIComponent(x.id)}/view" target="_blank" rel="noopener">Open “${esc(x.name)}”</a></div>`;
       }
     } else {
-      const img = new Image(); img.alt = ''; img.src = sheetSrc(x);
-      img.onerror = () => { img.replaceWith(Object.assign(document.createElement('div'), { className: 'vmsg', textContent: navigator.onLine ? 'Couldn\'t load this page.' : 'You\'re offline and this page isn\'t saved.' })); };
+      const img = new Image(); img.alt = ''; img.src = relayed.get(x.id) || sheetSrc(x);
+      img.onerror = async () => {
+        if (!img.dataset.relay && canRelay() && !(N && N.localUrl(x.id))) {
+          img.dataset.relay = 1; driveBlockedUntil = Date.now() + 30 * 60 * 1000;
+          try { img.src = await relayFile(x.id); return; } catch {}
+        }
+        img.replaceWith(Object.assign(document.createElement('div'), { className: 'vmsg', textContent: navigator.onLine ? 'Couldn\'t load this page.' : 'You\'re offline and this page isn\'t saved.' })); };
       box.appendChild(img);
     }
   }

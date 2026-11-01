@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 9 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 10 }); }
 
 function doPost(e) {
   var d;
@@ -152,6 +152,7 @@ function handle_(d) {
   if (a === 'finalizeSlides') return finalizeSlides_(me, d);
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
+  if (a === 'file') return file_(d);
 
   if (!me.admin) return { ok: false, error: 'Only admins can do that.' };
   if (a === 'listUsers') return { ok: true, users: users_().map(publicUser_) };
@@ -567,4 +568,15 @@ function checkSharedFolder() {
   t.setTrashed(true);
   Logger.log('Can save to: ' + f.getName());
   return f.getName();
+}
+
+// ------------------------------------------------------------------ file relay
+// Google sometimes blocks the app's direct Drive downloads from a busy network ("automated queries").
+// The app then asks the server for the song (or sheet music image) instead. Only library media is served.
+function file_(d) {
+  var f = DriveApp.getFileById(String(d.id || ''));
+  var mime = f.getMimeType();
+  if (!/^(audio\/|image\/|application\/pdf$)/.test(mime)) return { ok: false, error: 'Not a song or sheet music file.' };
+  if (f.getSize() > 30 * 1024 * 1024) return { ok: false, error: 'File is too large.' };
+  return { ok: true, mime: mime, name: f.getName(), data: Utilities.base64Encode(f.getBlob().getBytes()) };
 }
