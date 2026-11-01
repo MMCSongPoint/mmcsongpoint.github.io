@@ -155,6 +155,34 @@
   .pages { width: 100%; margin: 0 auto; }
   .pages img { display: block; width: 100%; height: auto; background: #fff; margin: 0 auto 8px; }
   .vmsg { padding: 60px 20px; text-align: center; color: var(--muted); }
+  .viewer.chordmode .vbody { background: var(--bg); }
+  .viewer.chordmode .zoom, .viewer.chordmode #vDownload { display: none; }
+  .viewer.chordmode .pages { width: 100% !important; }
+  .chart { padding: 10px 16px 120px; color: var(--text); line-height: 1.25; max-width: 900px; margin: 0 auto; }
+  .cbar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 0 10px; background: var(--bg); font-size: 15px; }
+  .cbar button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; min-width: 36px; height: 36px; font-size: 15px; font-weight: 700; padding: 0 8px; }
+  .cbar .cgrp { display: flex; align-items: center; gap: 0; border-radius: 8px; }
+  .cbar .cgrp button { border-radius: 0; margin-left: -1px; } .cbar .cgrp button:first-child { border-radius: 8px 0 0 8px; margin-left: 0; } .cbar .cgrp button:last-child { border-radius: 0 8px 8px 0; }
+  .cbar .ckey { min-width: 48px; height: 36px; display: grid; place-items: center; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-weight: 800; color: var(--accent-text); margin-left: -1px; }
+  .cbar .ctog.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .ctitle { font-size: 1.25em; font-weight: 800; margin: 4px 0 2px; }
+  .cmeta { color: var(--muted); font-size: .8em; margin: 2px 0; }
+  .cfoot { margin-top: 18px; }
+  .cblock { margin: 14px 0; }
+  .cblock.chorus { border-left: 3px solid var(--accent-text); padding-left: 12px; }
+  .cblock.bridge { border-left: 3px dashed var(--muted); padding-left: 12px; }
+  .clabel { font-size: .72em; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
+  .cl { margin: 0 0 .25em; }
+  .cs { display: inline-flex; flex-direction: column; vertical-align: bottom; white-space: pre; }
+  .cc { font-weight: 800; color: var(--accent-text); min-height: 1.2em; padding-right: .35em; }
+  .cs.nc .cc { padding-right: 0; }
+  .cl.plain .ct { white-space: pre-wrap; }
+  .cl.conly .cs { margin-right: .6em; }
+  .ccom { font-style: italic; color: var(--muted); margin: .2em 0 .4em; }
+  .cblank { height: .7em; }
+  .ctab { font-size: .8em; margin: 0; overflow-x: auto; }
+  .chordsonly .ct, .chordsonly .cl.plain, .chordsonly .cs.nc { display: none; }
+  .chordsonly .cs { margin-right: .7em; }
   .zoom { position: absolute; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 8px; }
   .zoom button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 22px; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
   /* password screen */
@@ -521,7 +549,7 @@
       <b>Songs</b><button class="pbtn ghost editonly" id="addSongsBtn">+ Add songs</button>
     </div>
     <div class="list" id="noteSongs"></div>
-    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
+    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <div class="nview viewonly"><div class="vtext" id="viewText"></div></div>
     <label class="field editonly"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
@@ -837,6 +865,14 @@ function parseSheet(filename) {
   const label = kind ? `${kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase()} · ${key}` : 'Sheet music';
   return { ext, number: p.number, title: p.title, label, page: 0, key };
 }
+// Chord charts (ChordPro / OnSong text): "0570 A Beautiful Life.cho", "As The Deer.chordpro"
+const CHORD_EXT = /^(cho|crd|chopro|chordpro|pro|onsong)$/;
+function parseChordFile(filename) {
+  const ext = (filename.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
+  if (!CHORD_EXT.test(ext)) return null;
+  const p = parseName(filename.slice(0, -(ext.length + 1)).replace(/_/g, ' ').trim() + '.x');
+  return { ext, number: p.number, title: p.title };
+}
 // Slide files: "0243 Our God Reigns-SFP.ppt", "As The Deer.pptx"
 function parseSlide(filename) {
   const ext = (filename.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
@@ -891,7 +927,7 @@ const keyNumbers = new Map();
 for (const b of window.SONG_KEYS_BY_NUMBER || []) for (const book of [b.book, ...(b.aka || [])]) for (const n in b.keys) keyNumbers.set(book + '|' + n, b.keys[n]);
 function buildIndex() {
   songIndex = new Map();
-  const newSong = (key, x) => ({ key, number: x.number, collection: x.collection, subfolder: x.subfolder || '', parts: [], sheets: [], slides: [], modified: '' });
+  const newSong = (key, x) => ({ key, number: x.number, collection: x.collection, subfolder: x.subfolder || '', parts: [], sheets: [], chords: [], slides: [], modified: '' });
   for (const t of library.tracks) {
     const key = t.collection + '|' + (t.number ? '#' + t.number : normalize(t.title));
     let s = songIndex.get(key);
@@ -915,6 +951,7 @@ function buildIndex() {
     }
   };
   attach(library.sheets || [], 'sheets');
+  attach(library.chords || [], 'chords');
   attach(library.slides || [], 'slides');
   for (const s of songIndex.values()) {
     s.parts.sort((a, b) => partRank(a.part) - partRank(b.part) || a.part.localeCompare(b.part));
@@ -922,7 +959,7 @@ function buildIndex() {
     s.sheets.sort((a, b) => kindRank(a.label) - kindRank(b.label) || a.label.localeCompare(b.label) || a.page - b.page || a.name.localeCompare(b.name));
     const main = s.parts.filter(p => partRank(p.part) <= 1);
     s.title = s.parts.length ? (main.length ? main : s.parts).map(p => p.title).sort((a, b) => a.length - b.length)[0]
-      : (s.sheets.find(x => x.title) || s.slides.find(x => x.title) || {}).title || `Hymn ${s.number}`;
+      : (s.sheets.find(x => x.title) || s.chords.find(x => x.title) || s.slides.find(x => x.title) || {}).title || `Hymn ${s.number}`;
     s.slides.sort((a, b) => (a.ext === 'pptx' ? 0 : 1) - (b.ext === 'pptx' ? 0 : 1));
     s.nTitle = normalize(s.title);
     const byNum = s.number && keyNumbers.get(s.collection + '|' + s.number);
@@ -992,7 +1029,7 @@ async function sync(manual = false) {
       const ia = order.indexOf(normalize(a)), ib = order.indexOf(normalize(b));
       return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib) || a.localeCompare(b);
     });
-    const sheets = [];
+    const sheets = [], chords = [];
     if (CFG.sheetsFolder) {
       setSyncLine('Checking sheet music…');
       const stack2 = [{ id: CFG.sheetsFolder, collection: null }];
@@ -1000,13 +1037,15 @@ async function sync(manual = false) {
         const { id, collection } = stack2.shift();
         for (const f of await driveList(id)) {
           if (f.mimeType === 'application/vnd.google-apps.folder') { stack2.push({ id: f.id, collection: collection || f.name }); continue; }
+          const c = parseChordFile(f.name);
+          if (c) { chords.push({ id: f.id, name: f.name, collection: collection || 'Other', number: c.number, title: c.title, ext: c.ext, modified: f.modifiedTime || '' }); continue; }
           const p = parseSheet(f.name); if (!p) continue;
           sheets.push({ id: f.id, name: f.name, collection: collection || 'Other', number: p.number, title: p.title,
             label: p.label, ext: p.ext, page: p.page, key: p.key || '', size: +f.size || 0, modified: f.modifiedTime || '' });
         }
         setSyncLine(`Checking sheet music… ${sheets.length} pages`);
       }
-      for (const sh of sheets) {   // "Zion's Praises" (sheets) == "Zions Praises" (audio)
+      for (const sh of [...sheets, ...chords]) {   // "Zion's Praises" (sheets) == "Zions Praises" (audio)
         const same = seenColl.find(c => normalize(c) === normalize(sh.collection));
         if (same) sh.collection = same; else if (!seenColl.includes(sh.collection)) seenColl.push(sh.collection);
       }
@@ -1030,13 +1069,13 @@ async function sync(manual = false) {
         setSyncLine(`Checking slides… ${slides.length} files`);
       }
     }
-    const before = library.tracks.length + (library.sheets || []).length + (library.slides || []).length;
-    library = { tracks, sheets, slides, collections: seenColl, synced: Date.now() };
+    const before = library.tracks.length + (library.sheets || []).length + (library.slides || []).length + (library.chords || []).length;
+    library = { tracks, sheets, chords, slides, collections: seenColl, synced: Date.now() };
     store.set('library', library);
     buildIndex(); renderTabs(); search();
     setSyncLine(`${summary()} · last refreshed just now`);
     if ($('#checkPanel').classList.contains('show')) renderCheck();
-    if (manual) toast(tracks.length + sheets.length + slides.length === before ? 'Up to date' : `Library updated: ${summary()}`);
+    if (manual) toast(tracks.length + sheets.length + slides.length + chords.length === before ? 'Up to date' : `Library updated: ${summary()}`);
   } catch (e) {
     setSyncLine(navigator.onLine ? `Couldn't update: ${e.message}` : 'You\'re offline.', true);
     if (manual) toast(e.message || 'Update failed', 4500);
@@ -1244,11 +1283,11 @@ function songRow(s, i, words = [], fuzzy = false, inPanel = false) {
   return `<div class="song${i === sel && !inPanel ? ' sel' : ''}${playing ? ' playing' : ''}" data-i="${i}">
     ${audioLess ? '<span></span>'
       : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
-    <div class="info"${audioLess && s.sheets.length ? ' data-act="sheet"' : ''}>
+    <div class="info"${audioLess && hasMusic(s) ? ' data-act="sheet"' : ''}>
       <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
-      <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? (s.sheets.length ? ' · Sheet music only' : ' · Slides only') : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
+      <div class="sub">${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? (s.sheets.length ? ' · Sheet music only' : s.chords.length ? ' · Chords only' : ' · Slides only') : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}</div>
     </div>
-    <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${s.sheets.length ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
+    <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${hasMusic(s) ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
     ${showParts ? `<div class="parts">${s.parts.map(p =>
       `<button class="pp${(playing ? now.part === p : chosenPart.get(s.key) === p.id) ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
   </div>`;
@@ -1301,7 +1340,7 @@ function rowAction(s, btn, act, list = null) {
     if (list && !(now && s.parts.includes(now.part))) { queue = list.filter(x => x.parts.length); playTrack(s, pickPart(s)); }
     else playSong(s);
   }
-  else if (!act && list && !s.parts.length && s.sheets.length) openViewer(s);
+  else if (!act && list && !s.parts.length && hasMusic(s)) openViewer(s);
 }
 
 // ------------------------------------------------------------------ offline downloads (Android only)
@@ -1450,8 +1489,8 @@ function playTrack(song, part, keepTime = false, autoplay = true) {
   $('#playerParts').innerHTML = song.parts.length > 1 ? song.parts.map(p =>
     `<button class="pp${p === part ? ' now' : ''}" data-id="${esc(p.id)}">${esc(p.part)}</button>`).join('') : '';
   $('#player').classList.add('show'); document.body.classList.add('playing-bar');
-  $('#musicBtn').style.display = song.sheets.length ? '' : 'none';
-  if (viewing && viewing !== song && song.sheets.length) openViewer(song, true);
+  $('#musicBtn').style.display = hasMusic(song) ? '' : 'none';
+  if (viewing && viewing !== song && hasMusic(song)) openViewer(song, true);
   if (!keepTime) { plays[part.id] = (plays[part.id] || 0) + 1; store.set('plays', plays); }
   render();
 }
@@ -1581,6 +1620,181 @@ $('#rate').onchange = e => { audio.playbackRate = +e.target.value; };
 $('#toggleBtn').innerHTML = BIG_PLAY;
 $('#musicBtn').onclick = () => { if (now) openViewer(now.song); };
 
+// ------------------------------------------------------------------ chord charts (ChordPro)
+const CH_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const CH_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const CH_MIXED = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const MAJOR_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const MINOR_NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'];
+const NOTE_PCS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+function notePc(n) { let p = NOTE_PCS[n[0].toUpperCase()]; for (const c of n.slice(1)) p += /[#♯]/.test(c) ? 1 : -1; return (p + 12) % 12; }
+function parseKeyName(k) { const m = String(k || '').trim().match(/^([A-Ga-g][#b♯♭]?)\s*(m(?!aj)|min|minor)?/); return m ? { pc: notePc(m[1]), minor: !!m[2] } : null; }
+// Which spelling a key uses: sharps (G D A E B F#), flats (F Bb Eb Ab Db Gb), C / Am: the usual mix.
+function spellingFor(name) {
+  const k = parseKeyName(name); if (!k) return CH_MIXED;
+  const root = name.trim().match(/^[A-Ga-g][#b♯♭]?/)[0];
+  if (/[b♭]/.test(root)) return CH_FLAT;
+  if (/[#♯]/.test(root)) return CH_SHARP;
+  const r = root.toUpperCase();
+  if (k.minor) return 'DGCF'.includes(r) ? CH_FLAT : r === 'A' ? CH_MIXED : CH_SHARP;
+  return r === 'F' ? CH_FLAT : r === 'C' ? CH_MIXED : CH_SHARP;
+}
+function transposeChord(c, semis, table) {
+  if (!semis) return c;
+  return c.replace(/^(\(?)([A-G][#b♯♭]?)([^/()]*)(?:\/([A-G][#b♯♭]?))?(\)?)$/, (m, o, r, q, b, cl) =>
+    o + table[(notePc(r) + semis) % 12] + q + (b ? '/' + table[(notePc(b) + semis) % 12] : '') + cl);
+}
+const SECTION_RE = /^(verse|chorus|refrain|bridge|intro|outro|tag|pre-?chorus|ending|interlude|instrumental|coda|vamp)(\s*\d*)\s*:?\s*$/i;
+// ChordPro (and OnSong-style) text -> { meta, blocks: [{ type, label, lines }] }
+function parseChordPro(text) {
+  const meta = {}, blocks = []; let cur = null, mode = null;
+  const block = (type, label) => { cur = { type, label: label || '', lines: [] }; blocks.push(cur); };
+  const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+  let first = true;
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, '');
+    const d = line.trim().match(/^\{\s*([a-z_-]+)(?:\s*[:\s]\s*(.*?))?\s*\}$/i);
+    if (d) {
+      const name = d[1].toLowerCase().replace(/-/g, '_'), val = (d[2] || '').trim();
+      if (name === 'title' || name === 't') meta.title = val;
+      else if (name === 'subtitle' || name === 'st') meta.subtitle = val;
+      else if (['artist', 'key', 'capo', 'tempo', 'time', 'copyright', 'ccli', 'composer', 'lyricist'].includes(name)) meta[name] = val;
+      else if (['comment', 'c', 'comment_italic', 'ci', 'comment_box', 'cb', 'highlight'].includes(name)) { if (!cur) block('plain'); cur.lines.push({ kind: 'comment', text: val }); }
+      else if (/^(start_of_|so)(chorus|c)$/.test(name) || name === 'soc') { block('chorus', val || 'Chorus'); mode = 'chorus'; }
+      else if (/^(start_of_|so)(verse|v)$/.test(name) || name === 'sov') { block('verse', val); mode = 'verse'; }
+      else if (/^(start_of_|so)(bridge|b)$/.test(name) || name === 'sob') { block('bridge', val || 'Bridge'); mode = 'bridge'; }
+      else if (/^(start_of_|so)(tab|t)$/.test(name) || name === 'sot') { block('tab', val); mode = 'tab'; }
+      else if (/^(start_of_|so)/.test(name)) { block('verse', val); mode = 'verse'; }
+      else if (/^(end_of_|eo)/.test(name)) { mode = null; cur = null; }
+      else if (name === 'chorus') { block('ref', ''); cur.lines.push({ kind: 'comment', text: val || 'Chorus' }); cur = null; }
+      continue;
+    }
+    if (/^\s*#/.test(line)) continue;
+    // OnSong-style header lines ("Key: G", first line = title)
+    const md = !blocks.length && line.match(/^(title|artist|key|capo|tempo|time|copyright|ccli)\s*:\s*(.+)$/i);
+    if (md) { meta[md[1].toLowerCase()] = md[2].trim(); continue; }
+    if (first && !line.trim()) continue;
+    if (first && !meta.title && !/\[/.test(line) && !SECTION_RE.test(line.trim()) && blocks.length === 0 && lines.some(l => /\[[^\]]+\]/.test(l))) { meta.title = line.trim(); first = false; continue; }
+    first = false;
+    const sec = !mode && line.trim().match(SECTION_RE);
+    if (sec) { block(/chorus|refrain/i.test(sec[1]) ? 'chorus' : /bridge/i.test(sec[1]) ? 'bridge' : 'verse', line.trim().replace(/:$/, '')); continue; }
+    if (!line.trim()) { if (!mode) cur = null; else if (cur) cur.lines.push({ kind: 'blank' }); continue; }
+    if (!cur) block(mode || 'verse');
+    if (mode === 'tab') { cur.lines.push({ kind: 'tab', text: raw }); continue; }
+    const segs = []; let re = /\[([^\]]*)\]/g, last = 0, chord = '', m;
+    while ((m = re.exec(line))) { if (m.index > last || chord) segs.push([chord, line.slice(last, m.index)]); chord = m[1]; last = re.lastIndex; }
+    segs.push([chord, line.slice(last)]);
+    cur.lines.push({ kind: 'lyric', segs: segs.filter(x => x[0] || x[1]) });
+  }
+  return { meta, blocks };
+}
+function renderChordChart(chart, semis, table) {
+  const tc = c => esc(transposeChord(c, semis, table));
+  return chart.blocks.map(b => {
+    const body = b.lines.map(l => {
+      if (l.kind === 'blank') return '<div class="cblank"></div>';
+      if (l.kind === 'comment') return `<div class="ccom">${esc(l.text)}</div>`;
+      if (l.kind === 'tab') return `<pre class="ctab">${esc(l.text)}</pre>`;
+      const hasChord = l.segs.some(x => x[0]);
+      if (!hasChord) return `<div class="cl plain"><span class="ct">${esc(l.segs.map(x => x[1]).join(''))}</span></div>`;
+      const onlyChords = !l.segs.some(x => x[1].trim());
+      // keep each chord with the word it starts on; the rest of the words wrap normally
+      return `<div class="cl${onlyChords ? ' conly' : ''}">` + l.segs.map(([c, t]) => {
+        const words = t.match(/\S*\s*/g).filter(Boolean); if (!words.length) words.push('');
+        return words.map((w, i) => i === 0 && c
+          ? `<span class="cs"><span class="cc">${tc(c)}</span><span class="ct">${esc(w) || '&nbsp;'}</span></span>`
+          : `<span class="cs nc"><span class="cc"></span><span class="ct">${esc(w)}</span></span>`).join('');
+      }).join('') + '</div>';
+    }).join('');
+    return `<section class="cblock ${b.type}">${b.label ? `<div class="clabel">${esc(b.label)}</div>` : ''}${body}</section>`;
+  }).join('');
+}
+const chordText = new Map();
+async function loadChordText(x) {
+  const k = 'cho:' + x.id + ':' + (x.modified || '');
+  if (chordText.has(k)) return chordText.get(k);
+  try { const t = localStorage.getItem(k); if (t != null) { chordText.set(k, t); return t; } } catch {}
+  let text;
+  try {
+    if (driveBlocked() && canRelay()) throw new Error('blocked');
+    const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw new Error(r.status);
+    text = await r.text();
+  } catch (e) {
+    if (!canRelay()) throw e;
+    driveBlockedUntil = Math.max(driveBlockedUntil, Date.now() + 30 * 60 * 1000);
+    text = await (await fetch(await relayFile(x.id))).text();
+  }
+  chordText.set(k, text);
+  try { localStorage.setItem(k, text); } catch {}
+  return text;
+}
+let chordSize = store.get('chordSize', 18), chordsOnly = false, chordFile = null, chordChart = null;
+const chordOffset = new Map();   // songs with no known key: plain up/down steps (this session)
+// The key the chart is shown in: the song's chosen key (key button), else its book key, else the chart's own key.
+function chordKeyState(s, chart) {
+  const written = parseKeyName(chart.meta.key) || parseKeyName(s.musicKey);
+  if (!written) { const off = chordOffset.get(s.key) || 0; return { semis: (off % 12 + 12) % 12, table: off < 0 ? CH_FLAT : CH_SHARP, label: off ? `${off > 0 ? '+' : ''}${off}` : '', written: '' }; }
+  const minor = written.minor;
+  let target = written.pc, name;
+  const k = songKeyState(s);
+  if (k.i >= 0 && (keyOverrides.has(s.key) || s.musicKey)) { target = k.p % 12; name = k.label.replace('♭', 'b').replace('♯', '#'); }
+  if (!name || parseKeyName(name).pc !== target) name = (minor ? MINOR_NAMES : MAJOR_NAMES)[target] + (minor ? 'm' : '');
+  const table = spellingFor(name), semis = (target - written.pc + 12) % 12;
+  const wName = chart.meta.key || s.musicKey;
+  return { semis, table, label: name.replace('b', '♭').replace('#', '♯'), written: semis ? wName : '' };
+}
+async function showChords(x) {
+  chordFile = x;
+  const box = $('#vPages'); box.innerHTML = '<div class="vmsg">Opening chords…</div>';
+  try {
+    const text = await loadChordText(x);
+    if (chordFile !== x) return;
+    chordChart = parseChordPro(text);
+    drawChords();
+  } catch { if (chordFile === x) box.innerHTML = `<div class="vmsg">Couldn't open the chords.${navigator.onLine ? '' : ' You\'re offline.'}</div>`; }
+}
+function drawChords() {
+  if (!viewing || !chordChart || !$('#viewer').classList.contains('chordmode')) return;
+  const s = viewing, ch = chordChart, k = chordKeyState(s, ch), m = ch.meta;
+  const info = [k.label ? `Key of ${k.label}` : '', k.written ? `written in ${k.written}` : '', m.capo && m.capo !== '0' ? `Capo ${m.capo}` : '', m.tempo ? `${m.tempo} bpm` : '', m.time || ''].filter(Boolean).join(' · ');
+  $('#vPages').innerHTML = `<div class="chart${chordsOnly ? ' chordsonly' : ''}" style="font-size:${chordSize}px">
+    <div class="cbar">
+      <div class="cgrp"><button data-c="down" aria-label="Key down">−</button><span class="ckey">${esc(k.label || 'Key')}</span><button data-c="up" aria-label="Key up">+</button>${keyOverrides.has(s.key) || chordOffset.get(s.key) ? '<button data-c="reset" aria-label="Back to the original key" title="Back to the original key">↺</button>' : ''}</div>
+      <div class="cgrp"><button data-c="small" aria-label="Smaller text">A−</button><button data-c="big" aria-label="Larger text">A+</button></div>
+      <button class="ctog${chordsOnly ? '' : ' on'}" data-c="only" aria-label="Show lyrics" title="${chordsOnly ? 'Show the words' : 'Hide the words (chords only)'}">Lyrics</button>
+    </div>
+    ${m.title && normalize(m.title) !== normalize(s.title) ? `<div class="ctitle">${esc(m.title)}</div>` : ''}
+    ${m.subtitle || m.artist ? `<div class="cmeta">${esc([m.subtitle, m.artist].filter(Boolean).join(' · '))}</div>` : ''}
+    ${info ? `<div class="cmeta">${esc(info)}</div>` : ''}
+    ${renderChordChart(ch, k.semis, k.table)}
+    ${m.copyright || m.ccli ? `<div class="cmeta cfoot">${esc([m.copyright, m.ccli ? 'CCLI ' + m.ccli : ''].filter(Boolean).join(' · '))}</div>` : ''}
+  </div>`;
+}
+function chordStep(d) {
+  const s = viewing; if (!s || !chordChart) return;
+  const written = parseKeyName(chordChart.meta.key) || parseKeyName(s.musicKey);
+  if (!written) { chordOffset.set(s.key, (chordOffset.get(s.key) || 0) + d); drawChords(); return; }
+  // Same setting as the key button: the starting note, the recording's key and the chords all follow it.
+  const k = songKeyState(s);
+  const cur = keyOverrides.has(s.key) || s.musicKey ? k.p : (written.pc % 12);
+  let np = cur + d; if (np > 12) np -= 12; if (np < 0) np += 12;
+  const base = s.musicKey && keyIndex(s.musicKey) >= 0 ? pitchOf(keyIndex(s.musicKey)) : written.pc;
+  if (np % 12 === base % 12) keyOverrides.delete(s.key); else keyOverrides.set(s.key, np);
+  afterKeyChange(s);
+}
+function afterKeyChange(s) {
+  render(); renderViewerKey(); drawChords();
+  if (now && now.song === s) applyShift();
+}
+$('#vPages').addEventListener('click', e => {
+  const b = e.target.closest('.cbar [data-c]'); if (!b) return;
+  const c = b.dataset.c;
+  if (c === 'up') chordStep(1); else if (c === 'down') chordStep(-1);
+  else if (c === 'reset') { keyOverrides.delete(viewing.key); chordOffset.delete(viewing.key); afterKeyChange(viewing); }
+  else if (c === 'small' || c === 'big') { chordSize = Math.max(12, Math.min(34, chordSize + (c === 'big' ? 2 : -2))); store.set('chordSize', chordSize); drawChords(); }
+  else if (c === 'only') { chordsOnly = !chordsOnly; drawChords(); }
+});
+
 // ------------------------------------------------------------------ sheet music viewer
 let viewing = null, vSheet = null, zoom = 1;
 let viewerList = null;   // songs (with sheet music) of the song list the viewer was opened from: swipe between them
@@ -1589,8 +1803,11 @@ window.onNativePdf = (id, ok, json) => { const cb = pdfWaiters[id]; delete pdfWa
 function sheetSrc(x) { return (N && N.localUrl(x.id)) || mediaUrl(x.id); }
 function renderViewerKey() { $('#vKey').innerHTML = viewing ? keyButton(viewing) : ''; }
 $('#vKey').addEventListener('click', e => { const b = e.target.closest('.keyb'); if (b && viewing) keyTap(viewing, b); });
-function openViewer(s, keepOpen = false, list = null) {
-  if (!s.sheets.length) return toast('No sheet music for this song yet');
+const hasMusic = s => !!(s && (s.sheets.length || (s.chords && s.chords.length)));
+let viewerMode = 'sheet';   // 'chords' once the chords tab is picked (stays while swiping through a list)
+function openViewer(s, keepOpen = false, list = null, mode = null) {
+  if (!hasMusic(s)) return toast('No sheet music for this song yet');
+  if (mode) viewerMode = mode;
   if (list) viewerList = list; else if (!(keepOpen && viewerList && viewerList.includes(s))) viewerList = null;
   viewing = s;
   $('#vTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
@@ -1601,15 +1818,20 @@ function openViewer(s, keepOpen = false, list = null) {
   renderViewerKey();
   // group pages by label (e.g. "Vocal · G", "Lead · Ab"); numbered hymns are one group
   const groups = [...new Set(s.sheets.map(x => x.label))];
+  s.chords.forEach((x, i) => groups.push(i ? `Chords ${i + 1}` : 'Chords'));
   $('#vTabs').innerHTML = groups.length > 1 ? groups.map((g, i) => `<button class="pp${i ? '' : ' now'}" data-g="${esc(g)}">${esc(g)}</button>`).join('') : '';
-  showSheetGroup(groups[0]);
+  const wantChords = (viewerMode === 'chords' || !s.sheets.length) && s.chords.length;
+  showSheetGroup(wantChords ? 'Chords' : groups[0]);
   $('#viewer').classList.add('show'); updatePlayerMode();
   if (N && N.keepScreenOn) N.keepScreenOn(true);
 }
 function showSheetGroup(label) {
-  const pages = viewing.sheets.filter(x => x.label === label);
   vSheet = label; setZoom(1);
   document.querySelectorAll('#vTabs .pp').forEach(b => b.classList.toggle('now', b.dataset.g === label));
+  const isChords = /^Chords( \d+)?$/.test(label) && viewing.chords.length;
+  $('#viewer').classList.toggle('chordmode', !!isChords);
+  if (isChords) return showChords(viewing.chords[(+(label.split(' ')[1]) || 1) - 1]);
+  const pages = viewing.sheets.filter(x => x.label === label);
   const box = $('#vPages'); box.innerHTML = '';
   $('#vBody').scrollTo(0, 0);
   for (const x of pages) {
@@ -1665,7 +1887,7 @@ function closeViewer() {
   if (N && N.keepScreenOn) N.keepScreenOn(false);
 }
 $('#vClose').onclick = closeViewer;
-$('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (b) showSheetGroup(b.dataset.g); });
+$('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (!b) return; viewerMode = /^Chords/.test(b.dataset.g) ? 'chords' : 'sheet'; showSheetGroup(b.dataset.g); });
 $('#vPlay').onclick = () => {
   if (!viewing || !viewing.parts.length) return;
   if (now && viewing.parts.includes(now.part)) return togglePlay();
@@ -1852,11 +2074,12 @@ function renderNoteSongs() {
       <div class="info"><div class="title t">${esc(songLabel(r))}${s && s.slides.length ? '<span class="slidechip">slides</span>' : ''}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}</div></div>
       <div class="ctl">
         ${s ? keyButton(s) : ''}
-        ${s && s.sheets.length ? `<button data-act="sheet" class="sm" aria-label="Sheet music">${ICON_MUSIC.replace(/20/g, '18')}</button>` : ''}
+        ${s && hasMusic(s) ? `<button data-act="sheet" class="sm" aria-label="Sheet music">${ICON_MUSIC.replace(/20/g, '18')}</button>` : ''}
         ${noteViewing ? '' : '<button data-act="del" aria-label="Remove">✕</button>'}
       </div></div>`;
   }).join('') : `<div class="empty" style="padding:22px"><b>No songs yet</b>Tap “+ Add songs”, then tap + next to each song.</div>`;
   $('#notePlay').disabled = !n.songs.some(r => (songIndex.get(r.key) || {}).parts?.length);
+  $('#noteChords').style.display = n.songs.some(r => (songIndex.get(r.key) || {}).chords?.length) ? '' : 'none';
   $('#noteDelete').style.display = n.isNew ? 'none' : '';
   $('#noteStatus').textContent = n.isNew ? '' : `Last saved${n.leader ? ' by ' + n.leader : ''} ${n.updated ? new Date(n.updated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}.`;
   const withSlides = n.songs.filter(r => (songIndex.get(r.key) || {}).slides?.length).length;
@@ -1875,7 +2098,7 @@ $('#noteSongs').addEventListener('click', e => {
   const i = +row.dataset.i, act = e.target.closest('[data-act]')?.dataset.act, r = editing.songs[i], s = songIndex.get(r.key);
   if (act === 'del') { editing.songs.splice(i, 1); markDirty(); renderNoteSongs(); }
   else if (act === 'key' && s) keyTap(s, e.target.closest('[data-act]'));
-  else if (act === 'sheet' && s) openViewer(s, false, editing.songs.map(x => songIndex.get(x.key)).filter(x => x && x.sheets.length));
+  else if (act === 'sheet' && s) openViewer(s, false, editing.songs.map(x => songIndex.get(x.key)).filter(x => x && hasMusic(x)));
 });
 // Drag and drop: press the ≡ handle and drag the song to a new place.
 (() => {
@@ -1933,6 +2156,11 @@ $('#noteSongs').addEventListener('click', e => {
   list.addEventListener('pointercancel', end);
 })();
 const noteQueue = () => editing.songs.map(r => songIndex.get(r.key)).filter(s => s && s.parts.length);
+// Chords for the whole list: opens the first song with a chart; swipe for the next song.
+$('#noteChords').onclick = () => {
+  const list = editing.songs.map(x => songIndex.get(x.key)).filter(x => x && hasMusic(x));
+  const first = list.find(x => x.chords.length); if (first) openViewer(first, false, list, 'chords');
+};
 $('#notePlay').onclick = () => { const q = noteQueue(); if (!q.length) return; queue = playAllQueue = q; playTrack(q[0], pickPart(q[0])); };
 
 function saveNote() {
@@ -2462,9 +2690,9 @@ $('#wheelDone').onclick = () => {
   const base = wheelSong.musicKey && keyIndex(wheelSong.musicKey) >= 0 ? pitchOf(keyIndex(wheelSong.musicKey)) : -1;
   if (wheelIdx === base) keyOverrides.delete(wheelSong.key); else keyOverrides.set(wheelSong.key, wheelIdx);
   const loaded = now && now.song === wheelSong;
-  closeWheel(); render(); if (loaded) applyShift();
+  closeWheel(); render(); if (loaded) applyShift(); renderViewerKey(); drawChords();
 };
-$('#wheelReset').onclick = () => { const loaded = now && now.song === wheelSong; keyOverrides.delete(wheelSong.key); closeWheel(); render(); if (loaded) applyShift(); };
+$('#wheelReset').onclick = () => { const loaded = now && now.song === wheelSong; keyOverrides.delete(wheelSong.key); closeWheel(); render(); if (loaded) applyShift(); renderViewerKey(); drawChords(); };
 $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') closeWheel(); });
 
 // Settings › Copy web app link
