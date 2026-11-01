@@ -2755,7 +2755,8 @@ $('#noteSlides').onclick = async () => {
     busy(false);
     if (!r.ok) return toast(r.error || 'Couldn\'t build the PowerPoint', 5000);
     const rec = await cacheSlides(r.name, r.data, { noteId: n.id, songs: picked.length });
-    if (rec) toast('Saved to this device (Menu › PowerPoints) and to Drive', 4500);
+    if (r.shared && r.shared !== 'ok') toast('Saved, but couldn’t copy it to the shared PowerPoints folder', 5000);
+    else if (rec) toast('Saved to this device (Menu › PowerPoints) and to Drive', 4500);
     showSlidesReady(rec || { name: r.name, data: r.data });
   } catch (e) { busy(false); toast('Couldn\'t reach the server. Try again in a moment.', 5000); }
 };

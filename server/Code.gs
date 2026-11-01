@@ -11,6 +11,7 @@ var HEAD = ['Logged at', 'Date used', 'Leader', 'Event', 'Note', 'Note ID', 'Ver
 var UHEAD = ['Username', 'Name', 'Admin', 'Salt', 'Hash', 'Must change password', 'Created', 'Last sign-in',
   'Signed out before', 'Disabled'];
 var ROUNDS = 2000;
+var SHARED_SLIDES_FOLDER = '1A_h83VBsar3VD4j2LQ2js8sbdrBAIGQc';   // every built PowerPoint is also saved here
 
 // ------------------------------------------------------------------ sheets
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
@@ -120,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 4 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 5 }); }
 
 function doPost(e) {
   var d;
@@ -357,6 +358,9 @@ function buildSlides_(me, d) {
     .setContentType('application/vnd.openxmlformats-officedocument.presentationml.presentation');
   var saved = out.createFile(blob);
   copy.setTrashed(true);
+  var shared = '';                                   // a second copy in the shared PowerPoints folder
+  try { saved.makeCopy(saved.getName(), DriveApp.getFolderById(SHARED_SLIDES_FOLDER)); shared = 'ok'; }
+  catch (e) { shared = String(e && e.message || e); }
   if (!d.noLog) {
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
@@ -365,7 +369,7 @@ function buildSlides_(me, d) {
       comment: saved.getName(), songs: d.songs || [] }));
   } finally { lock.releaseLock(); }
   }
-  return { ok: true, name: saved.getName(), fileId: saved.getId(), url: saved.getUrl(), size: blob.getBytes().length,
+  return { ok: true, name: saved.getName(), fileId: saved.getId(), url: saved.getUrl(), size: blob.getBytes().length, shared: shared,
     data: Utilities.base64Encode(blob.getBytes()) };
 }
 
@@ -498,4 +502,12 @@ function deleteLog_(me, d) {
     n = gone.length;
   } finally { lock.releaseLock(); }
   return { ok: true, deleted: n };
+}
+
+/** Editor check: can the server save into the shared PowerPoints folder? */
+function checkSharedFolder() {
+  var f = DriveApp.getFolderById(SHARED_SLIDES_FOLDER), t = f.createFile('songpoint-access-check.txt', 'ok');
+  t.setTrashed(true);
+  Logger.log('Can save to: ' + f.getName());
+  return f.getName();
 }
