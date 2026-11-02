@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 15 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 16 }); }
 
 function doPost(e) {
   var d;
@@ -153,6 +153,11 @@ function handle_(d) {
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
   if (a === 'file') return file_(d);
+  if (a === 'listsGet') return listsGet_(me);
+  if (a === 'listSave') return listSave_(me, d);
+  if (a === 'listDelete') return listDelete_(me, d);
+  if (a === 'listShare') return listShare_(me, d);
+  if (a === 'listsImport') return listsImport_(me, d);
   if (a === 'perfHost') return perfHost_(me);
   if (a === 'perfJoin') return perfJoin_(d);
   if (a === 'perfSend') return perfSend_(d);
@@ -677,3 +682,82 @@ function perfState_(d) {
   return { ok: true, state: v ? JSON.parse(v) : null };
 }
 function perfEnd_(d) { var code = String(d.code || ''); pc_().removeAll(['ps:' + code, 'pst:' + code]); return { ok: true }; }
+
+// ------------------------------------------------------------------ song lists (stored here; private unless shared)
+// Each list belongs to the person who made it. Shared lists can be seen by everyone; the owner and admins can change
+// them. Deleted lists are kept as a marked row so every device knows to drop its copy.
+var LISTS = 'SongLists', LHEAD = ['ID', 'Owner', 'Owner name', 'Title', 'Date used', 'Shared', 'Updated', 'Deleted', 'Data'];
+function listRows_() {
+  var sh = tab_(LISTS, LHEAD), n = sh.getLastRow() - 1;
+  if (n < 1) return [];
+  return sh.getRange(2, 1, n, LHEAD.length).getValues().map(function (r, i) {
+    return { row: i + 2, id: String(r[0]), owner: String(r[1]), ownerName: String(r[2]), shared: r[5] === true || r[5] === 'TRUE',
+      updated: Number(r[6]) || 0, deleted: r[7] === true || r[7] === 'TRUE', data: String(r[8] || '') };
+  }).filter(function (x) { return x.id; });
+}
+function listOut_(x) {
+  var n = {}; try { n = JSON.parse(x.data || '{}'); } catch (e) {}
+  n.id = x.id; n.owner = x.owner; n.ownerName = x.ownerName; n.shared = x.shared; n.updated = x.updated;
+  return n;
+}
+function listCanEdit_(me, x) { return x.owner === me.username || (me.admin && x.shared); }
+function listsGet_(me) {
+  var lists = [], deleted = [];
+  listRows_().forEach(function (x) {
+    if (x.deleted) deleted.push(x.id);
+    else if (x.owner === me.username || x.shared) lists.push(listOut_(x));
+  });
+  return { ok: true, lists: lists, deleted: deleted };
+}
+function listClean_(n) {
+  return { title: String(n.title || 'Untitled').slice(0, 80), date: String(n.date || '').slice(0, 10), text: String(n.text || '').slice(0, 4000),
+    version: Number(n.version) || 1, created: Number(n.created) || Date.now(), leader: String(n.leader || '').slice(0, 40),
+    songs: (n.songs || []).slice(0, 200).map(function (r) { return { key: String(r.key || ''), book: String(r.book || ''), number: String(r.number || ''), title: String(r.title || '') }; }) };
+}
+// Writes one list. Returns the stored row, or { error }.
+function listWrite_(me, n, rows, onlyIfNewer) {
+  var id = String(n.id || ''); if (!id) return { error: 'No list given.' };
+  var x = rows.filter(function (r) { return r.id === id; })[0];
+  if (x && x.deleted) return { error: 'This song list was deleted.' };
+  if (x && !listCanEdit_(me, x)) return { error: 'Only the person who made this list (or an admin) can change it.' };
+  if (x && onlyIfNewer && (Number(n.updated) || 0) <= x.updated) return { row: x };
+  var c = listClean_(n), now = Date.now();
+  var row = [id, x ? x.owner : me.username, x ? x.ownerName : (me.name || me.username), c.title, c.date, x ? x.shared : !!n.shared, now, false, JSON.stringify(c)];
+  var sh = tab_(LISTS, LHEAD);
+  if (x) sh.getRange(x.row, 1, 1, row.length).setValues([row]);
+  else { sh.appendRow(row); x = { row: sh.getLastRow() }; rows.push(x); }
+  x.id = id; x.owner = row[1]; x.ownerName = row[2]; x.shared = row[5]; x.updated = now; x.deleted = false; x.data = row[8];
+  return { row: x };
+}
+function listSave_(me, d) {
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try { var r = listWrite_(me, d.list || {}, listRows_(), false); if (r.error) return { ok: false, error: r.error }; return { ok: true, list: listOut_(r.row) }; }
+  finally { lock.releaseLock(); }
+}
+function listsImport_(me, d) {
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try { var rows = listRows_(); (d.lists || []).slice(0, 300).forEach(function (n) { listWrite_(me, n, rows, true); }); }
+  finally { lock.releaseLock(); }
+  return listsGet_(me);
+}
+function listShare_(me, d) {
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var x = listRows_().filter(function (r) { return r.id === String(d.id || '') && !r.deleted; })[0];
+    if (!x) return { ok: false, error: 'No such song list.' };
+    if (x.owner !== me.username && !me.admin) return { ok: false, error: 'Only the person who made this list can share it.' };
+    var sh = tab_(LISTS, LHEAD); sh.getRange(x.row, 6, 1, 2).setValues([[!!d.shared, Date.now()]]);
+    x.shared = !!d.shared; x.updated = Date.now();
+    return { ok: true, list: listOut_(x) };
+  } finally { lock.releaseLock(); }
+}
+function listDelete_(me, d) {
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var x = listRows_().filter(function (r) { return r.id === String(d.id || ''); })[0];
+    if (!x || x.deleted) return { ok: true };
+    if (!listCanEdit_(me, x)) return { ok: false, error: 'Only the person who made this list (or an admin) can delete it.' };
+    tab_(LISTS, LHEAD).getRange(x.row, 7, 1, 2).setValues([[Date.now(), true]]);
+    return { ok: true };
+  } finally { lock.releaseLock(); }
+}

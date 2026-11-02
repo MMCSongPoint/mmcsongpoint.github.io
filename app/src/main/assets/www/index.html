@@ -187,6 +187,11 @@
   .showpw { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--muted); margin: 10px 0 2px; cursor: pointer; }
   .lock .showpw input { width: 18px; height: 18px; padding: 0; margin: 0; accent-color: var(--accent); }
   .pwrow { display: flex; gap: 6px; align-items: stretch; } .field .pwrow input { flex: 1; width: auto; min-width: 0; } .pwrow .pbtn { padding: 0 14px; font-size: 18px; margin: 0; }
+  .lbadge { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 99px; font-size: 11px; font-weight: 700; vertical-align: 2px; background: var(--mark); color: var(--accent-text); }
+  .lbadge.off { background: rgba(95, 207, 150, .18); color: var(--ok); }
+  .lbadge.wait { background: rgba(255, 170, 60, .2); color: #e0a040; }
+  .lhead { margin: 18px 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .listacts .pbtn.on { border-color: var(--ok); color: var(--ok); }
   .perfbar { display: none; align-items: center; gap: 8px; padding: 6px 10px; background: var(--accent); color: #fff; font-size: 13px; }
   .perfbar.show { display: flex; }
   .perfbar .ptxt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -613,6 +618,7 @@
     <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <div class="nview viewonly"><div class="vtext" id="viewText"></div></div>
+    <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Share with everyone</button><button class="pbtn ghost" id="noteOffline">Keep offline</button><button class="pbtn ghost" id="noteCopy">Make a copy</button></div>
     <label class="field editonly"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
     <p style="color:var(--muted);font-size:13px" id="noteStatus"></p>
     <div class="row2 editonly"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete song list</button></div>
@@ -2612,8 +2618,15 @@ $('#clearDlBtn').onclick = () => {
   renderTabs(); search(); updateSheet(); toast('Saved songs removed');
 };
 
-// ------------------------------------------------------------------ notes (song lists, kept on this device)
+// ------------------------------------------------------------------ song lists (stored on the server)
+// Lists live on the SongPoint server: private to the person who made them unless shared. Lists marked
+// "Keep offline" (and changes not uploaded yet) are also stored on this device.
 let notes = store.get('notes', []);
+let offlineIds = new Set(store.get('offlineLists', notes.map(n => n.id)));   // lists from before the server: kept offline
+let pendingIds = new Set(store.get('pendingLists', []));
+const meUser = () => (store.get('auth', {}).user || {});
+const isMine = n => !n.owner || n.owner === meUser().username;
+const canEditList = n => isMine(n) || (!!meUser().admin && n.shared);
 let editing = null, editingDirty = false, picking = null;
 const userName = () => (store.get('auth', {}).user || {}).name || '';
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -2627,7 +2640,48 @@ function longDate(iso) {
   const d = new Date(/T/.test(iso) ? iso : iso + 'T12:00:00');
   return isNaN(d) ? iso : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
-const saveNotes = () => store.set('notes', notes);
+function saveNotes() {
+  store.set('notes', notes.filter(n => offlineIds.has(n.id) || pendingIds.has(n.id)));
+  store.set('offlineLists', [...offlineIds]); store.set('pendingLists', [...pendingIds]);
+}
+let listsLoading = null;
+async function loadLists() {
+  if (!navigator.onLine || !auth.token || (auth.user || {}).mustChange) return;
+  if (listsLoading) return listsLoading;
+  listsLoading = (async () => {
+    try {
+      // first time on the server: upload this device's song lists under the signed-in person's name
+      const legacy = notes.filter(n => !n.owner);
+      if (legacy.length) {
+        const r = await api('listsImport', { lists: legacy });
+        if (r.ok) { legacy.forEach(n => { offlineIds.add(n.id); pendingIds.delete(n.id); }); notes = notes.filter(n => n.owner); }
+      }
+      await flushLists();
+      const r = await api('listsGet'); if (!r.ok) return;
+      const gone = new Set(r.deleted || []);
+      const waiting = notes.filter(n => pendingIds.has(n.id) && !gone.has(n.id));
+      r.lists.forEach(n => { n.srv = 1; });
+      notes = r.lists.filter(n => !pendingIds.has(n.id)).concat(waiting.map(w => Object.assign(w, { srv: w.srv || (r.lists.some(x => x.id === w.id) ? 1 : 0) })));
+      gone.forEach(id => offlineIds.delete(id));
+      saveNotes(); renderNotes();
+      if (editing && noteViewing) { const n = notes.find(x => x.id === editing.id); if (n) { editing = JSON.parse(JSON.stringify(n)); renderNoteSongs(); } }
+    } catch {} finally { listsLoading = null; }
+  })();
+  return listsLoading;
+}
+// Send saved changes that haven't reached the server yet.
+async function flushLists() {
+  for (const id of [...pendingIds]) {
+    const n = notes.find(x => x.id === id); if (!n) { pendingIds.delete(id); continue; }
+    try {
+      const r = await api('listSave', { list: n });
+      if (r.ok) { Object.assign(n, r.list, { srv: 1 }); pendingIds.delete(id); }
+      else if (r.error) { pendingIds.delete(id); toast(r.error, 4500); }
+    } catch { break; }
+  }
+  saveNotes();
+}
+window.addEventListener('online', () => { if (auth.token) loadLists(); });
 const songRef = s => ({ key: s.key, book: s.collection, number: s.number || '', title: s.title });
 const songLabel = r => `${r.number ? r.number + '. ' : ''}${r.title}`;
 
@@ -2636,15 +2690,18 @@ function closePanel(id) { $('#' + id).classList.remove('show'); if (typeof updat
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closePanel(b.dataset.close));
 
 function renderNotes() {
-  const list = [...notes].sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.updated - a.updated);
-  $('#notesList').innerHTML = list.length ? list.map(n => {
-    return `<div class="card" data-id="${esc(n.id)}">
-      <div class="t">${esc(n.title || 'Untitled')}</div>
-      <div class="m">${esc(longDate(n.date))} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}${n.leader ? ' · ' + esc(n.leader) : ''}</div>
+  const sort = l => [...l].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.updated || 0) - (a.updated || 0));
+  const card = n => `<div class="card" data-id="${esc(n.id)}">
+      <div class="t">${esc(n.title || 'Untitled')}${n.shared ? '<span class="lbadge">Shared</span>' : ''}${offlineIds.has(n.id) ? '<span class="lbadge off" title="Kept on this device for offline use">Offline</span>' : ''}${pendingIds.has(n.id) ? '<span class="lbadge wait" title="Will upload when you\'re online">Not uploaded</span>' : ''}</div>
+      <div class="m">${esc(longDate(n.date))} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}${!isMine(n) && n.ownerName ? ' · by ' + esc(n.ownerName) : n.leader ? ' · ' + esc(n.leader) : ''}</div>
       ${n.songs.length ? `<div class="songsline">${esc(n.songs.map(songLabel).join(' · '))}</div>` : ''}
     </div>`;
-  }).join('') : `<div class="empty"><b>No song lists yet</b>Tap “+ New” to start one for your next time leading.</div>`;
-  $('#notesInfo').textContent = `${notes.length} song list${notes.length === 1 ? '' : 's'} on this device. Export them to move to a new phone or computer.`;
+  const mine = sort(notes.filter(isMine)), others = sort(notes.filter(n => !isMine(n) && n.shared));
+  $('#notesList').innerHTML = (mine.length ? mine.map(card).join('') : `<div class="empty"><b>No song lists yet</b>Tap “+ New” to start one for your next time leading.</div>`)
+    + (others.length ? `<h4 class="lhead">Shared by others</h4>${others.map(card).join('')}` : '');
+  $('#notesInfo').textContent = navigator.onLine
+    ? 'Song lists are saved to the SongPoint server, so they follow you to any device you sign in on. Lists marked Offline are also kept on this device.'
+    : 'You\'re offline: showing the song lists kept on this device.';
 }
 $('#notesList').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) openNote(notes.find(n => n.id === c.dataset.id)); });
 
@@ -2683,8 +2740,14 @@ function renderNoteSongs() {
   }).join('') : `<div class="empty" style="padding:22px"><b>No songs yet</b>Tap “+ Add songs”, then tap + next to each song.</div>`;
   $('#notePlay').disabled = !n.songs.some(r => (songIndex.get(r.key) || {}).parts?.length);
   $('#noteChords').style.display = n.songs.some(r => (songIndex.get(r.key) || {}).chords?.length) ? '' : 'none';
-  $('#noteDelete').style.display = n.isNew ? 'none' : '';
-  $('#noteStatus').textContent = n.isNew ? '' : `Last saved${n.leader ? ' by ' + n.leader : ''} ${n.updated ? new Date(n.updated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}.`;
+  $('#noteDelete').style.display = n.isNew || !canEditList(n) ? 'none' : '';
+  $('#noteEdit').style.display = canEditList(n) ? '' : 'none';
+  $('#noteShare').style.display = !n.isNew && (isMine(n) || meUser().admin) ? '' : 'none';
+  $('#noteShare').textContent = n.shared ? 'Stop sharing' : 'Share with everyone';
+  $('#noteOffline').textContent = offlineIds.has(n.id) ? '✓ Kept offline' : 'Keep offline';
+  $('#noteOffline').classList.toggle('on', offlineIds.has(n.id));
+  $('#noteCopy').style.display = n.isNew ? 'none' : '';
+  $('#noteStatus').textContent = n.isNew ? '' : `${!isMine(n) && n.ownerName ? `Made by ${n.ownerName}. ` : ''}${n.shared ? 'Shared with everyone. ' : 'Only you can see it. '}Last saved${n.leader ? ' by ' + n.leader : ''} ${n.updated ? new Date(n.updated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}.`;
   const withSlides = n.songs.filter(r => (songIndex.get(r.key) || {}).slides?.length).length;
   $('#noteSlides').disabled = !withSlides;
   $('#slidesInfo').textContent = !n.songs.length ? '' : withSlides === n.songs.length ? `All ${withSlides} songs have slides.`
@@ -2771,14 +2834,16 @@ function saveNote() {
   n.title = ($('#noteTitle').value || '').trim() || 'Untitled';
   n.date = $('#noteDate').value || today(); n.text = $('#noteText').value;
   n.version = (n.version || 0) + 1; n.updated = Date.now(); n.leader = userName();
+  if (!n.owner) { n.owner = meUser().username; n.ownerName = meUser().name; }
   delete n.isNew;
   const i = notes.findIndex(x => x.id === n.id);
   if (i >= 0) notes[i] = n; else notes.push(n);
-  saveNotes();
+  pendingIds.add(n.id); saveNotes();
+  if (navigator.onLine) flushLists().then(() => { renderNotes(); if (editing && editing.id === n.id && noteViewing) { const m = notes.find(x => x.id === n.id); if (m) { editing = JSON.parse(JSON.stringify(m)); renderNoteSongs(); } } });
   logEntry({ event: 'note saved', noteId: n.id, noteTitle: n.title, dateUsed: n.date, version: n.version, comment: n.text, songs: n.songs });
   editing = JSON.parse(JSON.stringify(n)); editingDirty = false; noteViewing = true; $('#notePanel').classList.add('viewing');
   renderNoteSongs(); renderNotes();
-  toast('Saved');
+  toast(navigator.onLine ? 'Saved' : 'Saved on this device. It will upload when you\'re back online.', 3000);
 }
 $('#noteSave').onclick = saveNote;
 function leaveNote() {
@@ -2794,10 +2859,40 @@ function leaveNote() {
   editing = null; editingDirty = false; closePanel('notePanel'); renderNotes();
 }
 $('#noteBack').onclick = leaveNote;
-$('#noteDelete').onclick = () => {
-  if (!confirm(`Delete the song list “${editing.title}” from this device? (Past log entries stay in the usage log.)`)) return;
-  notes = notes.filter(n => n.id !== editing.id); saveNotes();
+$('#noteDelete').onclick = async () => {
+  const id = editing.id, onServer = !!(notes.find(x => x.id === id) || {}).srv;
+  if (!confirm(`Delete the song list “${editing.title}”${editing.shared ? ' for everyone' : ''}? (Past log entries stay in the usage log.)`)) return;
+  if (onServer) {
+    if (!navigator.onLine) return toast('Connect to the internet to delete this song list');
+    try { const r = await api('listDelete', { id }); if (!r.ok) return toast(r.error || 'Couldn\'t delete it', 4000); }
+    catch { return toast('Connect to the internet to delete this song list'); }
+  }
+  notes = notes.filter(n => n.id !== id); offlineIds.delete(id); pendingIds.delete(id); saveNotes();
   editing = null; editingDirty = false; closePanel('notePanel'); renderNotes(); toast('Song list deleted');
+};
+// Share / keep offline / copy (shown while viewing a list)
+$('#noteShare').onclick = async () => {
+  const n = editing; if (!n) return;
+  if (!navigator.onLine) return toast('Connect to the internet to change sharing');
+  if (pendingIds.has(n.id)) await flushLists();
+  try {
+    const r = await api('listShare', { id: n.id, shared: !n.shared });
+    if (!r.ok) return toast(r.error || 'Couldn\'t change sharing', 4000);
+    const m = notes.find(x => x.id === n.id); if (m) Object.assign(m, r.list);
+    editing = JSON.parse(JSON.stringify(m || r.list)); saveNotes(); renderNoteSongs(); renderNotes();
+    toast(r.list.shared ? 'Shared: everyone can now see this song list' : 'Only you can see this song list now');
+  } catch { toast('Connect to the internet to change sharing'); }
+};
+$('#noteOffline').onclick = () => {
+  const id = editing.id;
+  if (offlineIds.has(id)) offlineIds.delete(id); else offlineIds.add(id);
+  saveNotes(); renderNoteSongs(); renderNotes();
+  toast(offlineIds.has(id) ? 'Kept on this device for offline use' : 'Removed from this device (still saved online)');
+};
+$('#noteCopy').onclick = () => {
+  const n = editing; if (!n) return;
+  openNote({ id: uid(), title: `${n.title} (copy)`, date: today(), songs: JSON.parse(JSON.stringify(n.songs)), text: n.text || '',
+    version: 0, created: Date.now(), updated: Date.now(), leader: userName() }, true);
 };
 
 // "Add songs": pick from the main list, then come back
@@ -2842,9 +2937,11 @@ $('#importFile').onchange = async e => {
     for (const n of incoming) {
       if (!n || !n.id || !Array.isArray(n.songs)) continue;
       const i = notes.findIndex(x => x.id === n.id);
-      if (i < 0) { notes.push(n); added++; } else if ((n.updated || 0) > (notes[i].updated || 0)) { notes[i] = n; updated++; }
+      const mine = Object.assign({}, n); delete mine.owner; delete mine.ownerName; delete mine.shared;
+      if (i < 0) { notes.push(mine); added++; } else if (canEditList(notes[i]) && (n.updated || 0) > (notes[i].updated || 0)) { notes[i] = Object.assign(notes[i], mine); updated++; } else continue;
+      pendingIds.add(n.id);
     }
-    saveNotes(); renderNotes();
+    saveNotes(); renderNotes(); flushLists().then(renderNotes);
     toast(`Imported ${added} new song list${added === 1 ? '' : 's'}${updated ? `, updated ${updated}` : ''}`);
   } catch { toast('That file isn\'t a SongPoint song lists export'); }
 };
@@ -2966,7 +3063,7 @@ function signOut(expired = false) {
   auth = {}; saveAuth(); renderWelcome(); closeSheet();
   showLock('signin', expired ? 'Please sign in again.' : '');
 }
-$('#signOutBtn').onclick = () => { if (confirm('Sign out of this device? Your song lists stay on it.')) signOut(); };
+$('#signOutBtn').onclick = () => { if (confirm('Sign out of this device? Your song lists stay saved on the server.')) signOut(); };
 $('#changePwBtn').onclick = () => { closeSheet(); showLock('change'); };
 
 // Users (admins only)
@@ -3327,7 +3424,7 @@ function closeDrawer() { $('#drawer').classList.remove('show'); $('#drawerBg').c
 $('#menuBtn').onclick = openDrawer;
 $('#drawerBg').onclick = closeDrawer;
 $('#drawerClose').onclick = closeDrawer;
-$('#dNotes').onclick = () => { closeDrawer(); renderNotes(); openPanel('notesPanel'); };
+$('#dNotes').onclick = () => { closeDrawer(); renderNotes(); openPanel('notesPanel'); loadLists(); };
 $('#dSlides').onclick = () => { closeDrawer(); openSlides(); };
 $('#dSettings').onclick = () => { closeDrawer(); openSheet(); };
 $('#dFavs').onclick = () => { closeDrawer(); openSongsPanel('fav'); };
@@ -3905,6 +4002,7 @@ function startApp(fresh = false) {
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
     if (navigator.onLine && auth.token) loadArrangements(true);
+    if (navigator.onLine && auth.token) loadLists();
     if (navigator.onLine && auth.token) api('me').then(r => { if (r.ok) { auth.user = r.user; saveAuth(); renderWelcome(); } }).catch(() => {});
   }
 }
