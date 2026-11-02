@@ -1920,6 +1920,15 @@ function chordKeyState(s, chart) {
 // ---- shared section order ("arrangement") per chord chart, saved on the server for everyone
 let arrangements = new Map(store.get('arrangements', []).map(a => [a.chartId, a]));
 let arrLoadedAt = 0, chordView = 'arranged';
+// A chart's arrangement; if the chord file was replaced or moved (new file ID), the song's arrangement still applies.
+function arrFor(f) {
+  if (!f) return null;
+  const a = arrangements.get(f.id); if (a) return a;
+  const song = viewing && viewing.chords.includes(f) ? viewing : songs.find(s => s.chords && s.chords.includes(f));
+  if (!song) return null;
+  let best = null; for (const x of arrangements.values()) if (x.songKey === song.key && (!best || (x.at || '') > (best.at || ''))) best = x;
+  return best;
+}
 function applyArrangements(list) { arrangements = new Map(list.map(a => [a.chartId, a])); store.set('arrangements', list); }
 async function loadArrangements(force = false) {
   if (!navigator.onLine || !auth.token || (!force && Date.now() - arrLoadedAt < 60000)) return;
@@ -1970,7 +1979,7 @@ async function showChords(x) {
     const text = await loadChordText(x);
     if (chordFile !== x) return;
     chordChart = parseChordPro(text);
-    const arr = arrangements.get(x.id);
+    const arr = arrFor(x);
     if (arr && chordView === 'arranged' && !(perf && perf.role === 'guest' && perf.following && !(perf.last && perf.last.presenter))) applyArrKey(viewing, arr);
     drawChords();
     loadArrangements();
@@ -1979,7 +1988,7 @@ async function showChords(x) {
 function drawChords() {
   if (!viewing || !chordChart || !$('#viewer').classList.contains('chordmode')) return;
   const s = viewing, k = chordKeyState(s, chordChart), m = chordChart.meta;
-  const arr = chordFile && arrangements.get(chordFile.id), useArr = !!arr && chordView === 'arranged';
+  const arr = chordFile && arrFor(chordFile), useArr = !!arr && chordView === 'arranged';
   const ch = useArr ? arrangedChart(chordChart, arr) : chordChart;
   const keyMoved = useArr && arr.key && plainKey(k.label) !== arr.key;
   const info = [k.label ? `Key of ${k.label}` : '', k.written ? `written in ${k.written}` : '', m.capo && m.capo !== '0' ? `Capo ${m.capo}` : '', m.tempo ? (/bpm/i.test(m.tempo) ? m.tempo : `${m.tempo} bpm`) : '', m.time || ''].filter(Boolean).join(' · ');
@@ -2031,19 +2040,19 @@ $('#vPages').addEventListener('click', e => {
   else if (c === 'reset') { keyOverrides.delete(viewing.key); chordOffset.delete(viewing.key); afterKeyChange(viewing); }
   else if (c === 'small' || c === 'big') { chordSize = Math.max(12, Math.min(34, chordSize + (c === 'big' ? 2 : -2))); store.set('chordSize', chordSize); drawChords(); }
   else if (c === 'only') { chordsOnly = !chordsOnly; drawChords(); }
-  else if (c === 'arranged' || c === 'original') { chordView = c; if (c === 'arranged') applyArrKey(viewing, arrangements.get(chordFile.id)); drawChords(); }
+  else if (c === 'arranged' || c === 'original') { chordView = c; if (c === 'arranged') applyArrKey(viewing, arrFor(chordFile)); drawChords(); }
   else if (c === 'arrange') openArrange();
   else if (c === 'note') {   // phones: tap opens the whole note, tap again closes it. Wide screens show it all: tap edits.
     if (window.matchMedia('(min-width: 700px)').matches) return openArrange();
     noteOpen = !noteOpen; b.classList.toggle('open', noteOpen);
   }
-  else if (c === 'savekey') saveArrangement(arrangements.get(chordFile.id).order, true);
+  else if (c === 'savekey') saveArrangement(arrFor(chordFile).order, true);
 });
 // ---- section order editor
 let arrDraft = null, noteOpen = false;
 function openArrange() {
   if (!viewing || !chordChart || !chordFile) return;
-  const secs = chartSections(chordChart), arr = arrangements.get(chordFile.id);
+  const secs = chartSections(chordChart), arr = arrFor(chordFile);
   if (!secs.length) return toast('This chart has no sections to arrange');
   arrDraft = { secs, order: (arr ? resolveOrder(chordChart, arr.order) : secs).map(x => ({ i: x.i, label: x.label })) };
   $('#arrNote').value = arr ? arr.note || '' : '';
@@ -2076,7 +2085,7 @@ $('#arrBox').addEventListener('click', e => {
 $('#arrCancel').onclick = closeArrange;
 $('#arrSave').onclick = () => { if (!arrDraft.order.length) return toast('Add at least one section'); saveArrangement(arrDraft.order); };
 async function saveArrangement(order, keyOnly = false) {
-  const old = arrangements.get(chordFile.id), note = keyOnly ? (old && old.note) || '' : $('#arrNote').value.trim();
+  const old = arrFor(chordFile), note = keyOnly ? (old && old.note) || '' : $('#arrNote').value.trim();
   if (!navigator.onLine) return toast('Connect to the internet to save');
   const s = viewing, x = chordFile, k = chordKeyState(s, chordChart);
   const btn = $('#arrSave'); btn.disabled = true;
