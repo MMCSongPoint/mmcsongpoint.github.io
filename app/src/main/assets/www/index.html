@@ -193,6 +193,9 @@
   .perfbar .pcode { font-size: 15px; letter-spacing: .08em; }
   .perfbar button { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 8px; height: 30px; padding: 0 10px; font-weight: 700; font-size: 13px; }
   .perfbar button.on { background: #fff; color: var(--accent); }
+  .perfbar button { display: inline-flex; align-items: center; gap: 6px; }
+  .pdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
+  .pdot.ok { background: #3ddc84; } .pdot.bad { background: #ff4d4d; }
   #vPerform.on { color: var(--accent-text); }
   .perfcode { width: 100%; box-sizing: border-box; font-size: 34px; letter-spacing: .4em; text-align: center; padding: 10px 0 10px .4em; margin: 4px 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-weight: 800; }
   .perfpill { position: fixed; z-index: 70; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: none; background: var(--accent); color: #fff; border: none; border-radius: 99px; padding: 7px 14px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
@@ -2063,6 +2066,7 @@ async function perfPollLoop(me) {
         const r = await api('perfState', { code: me.code });
         if (perf !== me) return;
         if (r.ended) return perfLeave('The leader ended the session');
+        if (r.ok) me.relayOk = Date.now();
         if (r.state) perfApply(r.state);
       }
       const due = me.role === 'host' || !me.connected || Date.now() - (me.lastPoll || 0) > 15000;
@@ -2233,7 +2237,7 @@ function perfShow(st) {
 }
 // Followers glide to the leader's place instead of jumping: small moves ease in, big ones are capped at a
 // readable speed so a quick flick by the leader doesn't throw everyone off. A new song opens right at the spot.
-const PERF_MAX_SPEED = 900;     // pixels per second, at most
+const PERF_MAX_SPEED = 800;     // pixels per second, at most
 const PERF_EASE = 0.16;         // seconds: how quickly small adjustments settle
 let perfGlideRAF = 0, perfGlideTarget = null;
 function perfGlide(target, instant) {
@@ -2302,7 +2306,9 @@ function renderPerfBar() {
   } else {
     const how = perf.connected ? '' : perf.relay ? ' · through the server' : ' · connecting…';
     text = `<b>Following ${esc(perf.hostName)}</b> · ${esc(perf.code)}${how}`;
-    btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow leader</button>') + '<button data-p="leave">Leave</button>';
+    btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow leader</button>')
+      + `<button data-p="reconnect" title="${perfOnline() ? 'Connected' : 'Not connected'}"><i class="pdot ${perfOnline() ? 'ok' : 'bad'}"></i>Reconnect</button>`
+      + '<button data-p="leave">Leave</button>';
   }
   bar.innerHTML = `<span class="ptxt">${text}</span>${btns}`;
   bar.classList.add('show');
@@ -2314,7 +2320,21 @@ $('#perfBar').addEventListener('click', async e => {
   if (b.dataset.p === 'end') { const c = await choose('End the session?', 'Everyone following will stop following.', [{ label: 'End', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]); if (c === 'go') perfStop(); }
   else if (b.dataset.p === 'leave') perfLeave();
   else if (b.dataset.p === 'follow') perfFollow();
+  else if (b.dataset.p === 'reconnect') perfReconnect();
 });
+// Connected = a direct link is open, or the server route answered in the last few seconds.
+function perfOnline() { return !!perf && (perf.connected || (perf.relay && Date.now() - (perf.relayOk || 0) < 6000)); }
+// Start the connection over (and pick the leader's place back up).
+function perfReconnect() {
+  const me = perf; if (!me || me.role !== 'guest') return;
+  try { me.pc && me.pc.close(); } catch {}
+  me.pc = null; me.dc = null; me.connected = false; me.relay = !window.RTCPeerConnection; me.relayOk = 0;
+  me.following = true; me.sig = null; me.seq = -1;
+  toast('Reconnecting…', 1500); renderPerfBar();
+  if (window.RTCPeerConnection) perfConnect(me);
+  else api('perfSend', { code: me.code, to: me.hostPeer, msg: { type: 'relay', from: me.peer, name: userName() } }).catch(() => {});
+}
+setInterval(() => { if (perf && perf.role === 'guest') renderPerfBar(); }, 2000);   // keep the dot up to date
 $('#perfPill').onclick = () => {
   if (!perf) return;
   if (perf.role === 'guest') { perfFollow(); if (!viewing) toast('Waiting for the leader to open a song…'); }
