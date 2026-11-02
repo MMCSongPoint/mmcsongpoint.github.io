@@ -233,6 +233,14 @@
   .perfbar button { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 8px; height: 30px; padding: 0 10px; font-weight: 700; font-size: 13px; }
   .perfbar button.on { background: #fff; color: var(--accent); }
   .perfbar button { display: inline-flex; align-items: center; gap: 6px; }
+  @media (max-width: 640px) { .perfbar { flex-wrap: wrap; } .perfbar .ptxt { flex-basis: 100%; } }
+  .slidepip { display: none; position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 60; width: min(42vw, 360px);
+    aspect-ratio: 4 / 3; background: #000; border-radius: 10px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.45); cursor: zoom-in;
+    place-items: center; border: 2px solid rgba(255,255,255,.18); transition: width .2s; }
+  .slidepip.show { display: grid; }
+  .slidepip.big { width: min(92vw, 900px); cursor: zoom-out; }
+  .slidepip img { width: 100%; height: 100%; object-fit: contain; }
+  .slidepip .spmsg { color: #bbb; font-size: 13px; padding: 10px; text-align: center; }
   .pdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
   .pdot.ok { background: #3ddc84; } .pdot.bad { background: #ff4d4d; }
   #vPerform.on { color: var(--accent-text); }
@@ -595,6 +603,7 @@
     <button class="icon" id="vPlay" aria-label="Play"></button>
   </div>
   <div class="perfbar" id="perfBar"></div>
+  <div class="slidepip" id="slidePip" title="Tap to make it bigger or smaller"><img alt="Current slide"><div class="spmsg"></div></div>
   <div class="vtabs scroller" id="vTabs"></div>
   <div class="vbody" id="vBody"><div class="pages" id="vPages"></div></div>
   <div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div>
@@ -2230,7 +2239,7 @@ function perfState() {
   if (pr) {   // presenting: musicians follow the song (and the words on the projector); their key and scrolling stay their own
     const s = pr.songs[pr.si];
     return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
-      view: 'arranged', slideNo: pr.slide, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || ''),
+      view: 'arranged', slideNo: pr.slide, slideIdx: pr.deck && pr.deck.order ? pr.deck.order[pr.slide] : pr.slide, blank: pr.blank ? 1 : 0, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || ''),
       slideSection: pr.blank ? '' : ((pr.deck && pr.deck.sections && pr.deck.sections[pr.slide]) || '') });
   }
   if (!viewing) { st.closed = 1; return st; }
@@ -2326,6 +2335,7 @@ function perfApply(st) {
 }
 function perfShow(st) {
   if (!st || st.closed) return;
+  perfSlideView(st);
   const s = songIndex.get(st.song);
   if (!s) { if (perf.missing !== st.song) { perf.missing = st.song; toast('The leader\'s song isn\'t in your library yet. Pull down to refresh.', 4000); } return; }
   const sig = [st.song, st.group, st.view, st.keyP, st.off].join('|');
@@ -2413,6 +2423,7 @@ function renderPerfBar() {
   const bar = $('#perfBar'), pill = $('#perfPill');
   $('#vPerform').classList.toggle('on', !!perf);
   $('#viewer').classList.toggle('following', !!perf && perf.role === 'guest' && perf.following);
+  if (!perf || perf.role !== 'guest') $('#slidePip').classList.remove('show');
   if (!perf) { bar.innerHTML = ''; bar.classList.remove('show'); pill.classList.remove('show'); return; }
   let text, btns;
   if (perf.role === 'host') {
@@ -2424,7 +2435,8 @@ function renderPerfBar() {
     const how = perf.connected ? (perfOnline() ? '' : ' · lost the leader') : perf.relay ? (perfOnline() ? ' · through the server' : ' · lost the leader') : ' · connecting…';
     text = `<b>Following ${esc(perf.hostName)}</b> · ${esc(perf.code)}${how}`;
     btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow leader</button>')
-      + (perf.last && perf.last.presenter ? `<button class="${followSlides ? 'on' : ''}" data-p="slides" title="Scroll my chords to the words on the screen">Slides${followSlides ? ' ✓' : ''}</button>` : '')
+      + (perf.last && perf.last.presenter ? `<button class="${followSlides ? 'on' : ''}" data-p="slides" title="Scroll my chords to the words on the screen">Sync w/ Slides${followSlides ? ' ✓' : ''}</button>`
+        + `<button class="${viewSlides ? 'on' : ''}" data-p="view" title="Show the slide that's on the screen">View Slides${viewSlides ? ' ✓' : ''}</button>` : '')
       + `<button data-p="reconnect" title="${perfOnline() ? 'Connected' : 'Not connected'}"><i class="pdot ${perfOnline() ? 'ok' : 'bad'}"></i>Reconnect</button>`
       + '<button data-p="leave">Leave</button>';
   }
@@ -2439,6 +2451,7 @@ $('#perfBar').addEventListener('click', async e => {
   else if (b.dataset.p === 'leave') perfLeave();
   else if (b.dataset.p === 'follow') perfFollow();
   else if (b.dataset.p === 'reconnect') perfReconnect();
+  else if (b.dataset.p === 'view') { viewSlides = !viewSlides; store.set('viewSlides', viewSlides); renderPerfBar(); perfSlideView(perf && perf.last); }
   else if (b.dataset.p === 'slides') { followSlides = !followSlides; store.set('followSlides', followSlides); renderPerfBar(); if (followSlides && perf && perf.last) { perf.slideLine = -1; perf.slideBlock = -1; perfFollowSlide(perf.last); } toast(followSlides ? 'Your chords follow the slides' : 'You scroll your own chords', 1800); }
 });
 // Connected = a direct link is open, or the server route answered in the last few seconds.
@@ -2525,9 +2538,10 @@ function slideSection(note, text) {
   return '';
 }
 // One song's slides: the server sends a PDF (and each slide's words); each page is drawn once as a full-HD picture.
+const deckCache = new Map();   // slide decks by file id (the presenter's, and a musician's "View Slides")
 function prDeck(s) {
   const f = prFile(s); if (!f) return Promise.resolve(null);
-  if (pr.decks.has(f.id)) return pr.decks.get(f.id);
+  if (deckCache.has(f.id)) return deckCache.get(f.id);
   const p = (async () => {
     const r = await api('slideDeck', { id: f.id });
     if (!r.ok) throw new Error(r.error || 'Couldn\'t open the slides');
@@ -2543,8 +2557,8 @@ function prDeck(s) {
     const texts = r.texts || [], notes = r.notes || [];
     return { imgs, texts, sections: imgs.map((_, i) => slideSection(notes[i], texts[i])) };
   })();
-  pr.decks.set(f.id, p);
-  p.catch(() => pr && pr.decks.delete(f.id));
+  deckCache.set(f.id, p);
+  p.catch(() => deckCache.delete(f.id));
   return p;
 }
 async function presentList(list) {
@@ -2552,7 +2566,7 @@ async function presentList(list) {
   if (!navigator.onLine) return toast('Connect to the internet to present');
   const songsIn = list.filter(Boolean);
   if (!songsIn.length) return;
-  pr = { songs: songsIn, si: 0, slide: 0, decks: new Map(), blank: false, deck: null };
+  pr = { songs: songsIn, si: 0, slide: 0, blank: false, deck: null };
   $('#presenter').classList.add('show');
   if (N && N.keepScreenOn) N.keepScreenOn(true);
   prShowSong(0, 0);
@@ -2653,7 +2667,7 @@ function prRender() {
   let nextImg = deck && deck.imgs[pr.slide + 1], nextMsg = '';
   if (!nextImg) {
     const ns = pr.songs[pr.si + 1];
-    if (ns) { const f = prFile(ns), d2 = f && pr.decks.get(f.id); nextMsg = `Next song: ${ns.title}`; if (d2 && d2.then) d2.then(v => { if (pr && pr.songs[pr.si + 1] === ns && !(pr.deck && pr.deck.imgs[pr.slide + 1])) { $('#prNextImg').src = (v && v.imgs[0]) || ''; $('#prNextImg').style.display = v && v.imgs[0] ? '' : 'none'; } }).catch(() => {}); }
+    if (ns) { const f = prFile(ns), d2 = f && deckCache.get(f.id); nextMsg = `Next song: ${ns.title}`; if (d2 && d2.then) d2.then(v => { if (pr && pr.songs[pr.si + 1] === ns && !(pr.deck && pr.deck.imgs[pr.slide + 1])) { $('#prNextImg').src = (v && v.imgs[0]) || ''; $('#prNextImg').style.display = v && v.imgs[0] ? '' : 'none'; } }).catch(() => {}); }
     else nextMsg = 'End of the song list';
   }
   $('#prNextImg').src = nextImg || ''; $('#prNextImg').style.display = nextImg ? '' : 'none';
@@ -2742,6 +2756,26 @@ $('#notePresent').onclick = () => presentList(editing.songs.map(r => songIndex.g
 
 // ---- musicians: follow the slides in the chord chart (match the slide's words to a line of the chart)
 let followSlides = store.get('followSlides', true);
+// ---- musicians: "View Slides" shows the slide that's on the projector in a small window (tap: bigger / smaller)
+let viewSlides = store.get('viewSlides', false), pipKey = '';
+function perfSlideView(st) {
+  const box = $('#slidePip');
+  const on = viewSlides && perf && perf.role === 'guest' && st && st.presenter && $('#viewer').classList.contains('show');
+  box.classList.toggle('show', !!on);
+  if (!on) { pipKey = ''; return; }
+  const s = songIndex.get(st.song), msg = t => { box.querySelector('img').style.display = 'none'; const m = box.querySelector('.spmsg'); m.textContent = t; m.style.display = ''; };
+  const key = [st.song, st.slideIdx, st.blank].join('|'); if (key === pipKey) return; pipKey = key;
+  if (st.blank) return msg('Screen is blank');
+  if (!s || !prFile(s)) return msg(s ? `No slides for “${s.title}”` : '');
+  if (!deckCache.has(prFile(s).id)) msg('Getting the slides…');
+  prDeck(s).then(d => {
+    if (pipKey !== key) return;
+    const src = d && d.imgs[st.slideIdx ?? st.slideNo ?? 0];
+    if (!src) return msg('');
+    const img = box.querySelector('img'); img.src = src; img.style.display = ''; box.querySelector('.spmsg').style.display = 'none';
+  }).catch(() => { if (pipKey === key) msg('Couldn\'t open the slides'); });
+}
+$('#slidePip').onclick = () => $('#slidePip').classList.toggle('big');
 const slideWords = t => normalize(String(t || '').replace(/\s*-\s*/g, '')).split(' ').filter(w => w.length > 1);
 // "Verse 1" on a slide = the chart's "Verse 1" section; "Chorus" = "Chorus" (or "Refrain").
 const secKey = t => normalize(String(t || '')).replace(/\brefrain\b/, 'chorus').replace(/\s+/g, '');
@@ -2876,7 +2910,7 @@ async function downloadSheet() {
 }
 $('#vDownload').onclick = downloadSheet;
 function closeViewer() {
-  viewing = null; vSheet = null; viewerList = null;
+  viewing = null; vSheet = null; viewerList = null; $('#slidePip').classList.remove('show'); pipKey = '';
   $('#viewer').classList.remove('show'); updatePlayerMode();
   if (perf) { renderPerfBar(); if (perf.role === 'host') perfSync(); }
   if (N && N.keepScreenOn) N.keepScreenOn(false);
