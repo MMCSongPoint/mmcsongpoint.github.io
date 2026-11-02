@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 12 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 13 }); }
 
 function doPost(e) {
   var d;
@@ -587,14 +587,14 @@ function file_(d) {
 
 // ------------------------------------------------------------------ chord chart arrangements
 // One shared section order (and key) per chord chart. The chart file itself is never changed.
-var ARR = 'Arrangements', AHEAD = ['Chart ID', 'Song key', 'Title', 'Book', 'Order', 'Key', 'Updated by', 'Updated'];
+var ARR = 'Arrangements', AHEAD = ['Chart ID', 'Song key', 'Title', 'Book', 'Order', 'Key', 'Updated by', 'Updated', 'Note'];
 function arrangements_() {
   var sh = tab_(ARR, AHEAD), n = sh.getLastRow() - 1;
   if (n < 1) return [];
   return sh.getRange(2, 1, n, AHEAD.length).getValues().filter(function (r) { return r[0]; }).map(function (r) {
     var order = []; try { order = JSON.parse(r[4] || '[]'); } catch (e) {}
     return { chartId: String(r[0]), songKey: String(r[1]), order: order, key: String(r[5] || ''), by: String(r[6] || ''),
-      at: r[7] instanceof Date ? r[7].toISOString() : String(r[7] || '') };
+      at: r[7] instanceof Date ? r[7].toISOString() : String(r[7] || ''), note: String(r[8] || '') };
   });
 }
 function setArrangement_(me, d) {
@@ -602,7 +602,7 @@ function setArrangement_(me, d) {
   var order = (d.order || []).slice(0, 60).map(function (x) { return { i: Number(x.i) || 0, label: String(x.label || '').slice(0, 60) }; });
   if (!order.length) return { ok: false, error: 'Choose at least one section.' };
   var row = [id, String(d.songKey || ''), String(d.title || '').slice(0, 120), String(d.book || '').slice(0, 60), JSON.stringify(order),
-    String(d.key || '').slice(0, 8), me.name || me.username, new Date()];
+    String(d.key || '').slice(0, 8), me.name || me.username, new Date(), String(d.note || '').slice(0, 1000)];
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     var sh = tab_(ARR, AHEAD), n = sh.getLastRow() - 1;

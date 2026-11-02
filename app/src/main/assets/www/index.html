@@ -185,6 +185,15 @@
   .cview button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; height: 32px; padding: 0 10px; font-weight: 700; font-size: 14px; }
   .cview .seg button { border-radius: 0; } .cview .seg button:first-child { border-radius: 8px 0 0 8px; } .cview .seg button:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
   .cview button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .arrnote { width: 100%; box-sizing: border-box; min-height: 64px; resize: vertical; margin-bottom: 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 14px; }
+  /* little notepad: spiral-bound yellow paper with ruled lines and a red margin */
+  .cnote { display: block; width: min(100%, 360px); text-align: left; position: relative; margin: 2px 0 12px; padding: 18px 14px 10px 30px; border: none; border-radius: 4px 4px 6px 6px;
+    background: #fff6b8 repeating-linear-gradient(transparent 0 21px, rgba(70, 110, 190, .28) 21px 22px); background-position: 0 14px;
+    color: #3b3220; font-size: 15px; line-height: 22px; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,.25); white-space: pre-wrap; }
+  .cnote::before { content: ''; position: absolute; left: 22px; top: 0; bottom: 0; width: 1.5px; background: rgba(214, 70, 70, .55); }
+  .cnote::after { content: ''; position: absolute; left: 10px; right: 10px; top: 4px; height: 8px;
+    background: radial-gradient(circle at 5px 4px, #6b5f4a 2.4px, transparent 2.8px) 0 0 / 16px 8px repeat-x; opacity: .7; }
+  .cnote-txt { display: block; }
   .arrbox { width: min(380px, 92vw); max-height: 86vh; overflow-y: auto; }
   .arrlist { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
   .arow { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-top: 1px solid var(--line); }
@@ -683,6 +692,8 @@
     <div class="arrlist" id="arrList"></div>
     <div class="arrlbl">Add a section</div>
     <div class="arradd" id="arrAdd"></div>
+    <div class="arrlbl">Note (optional)</div>
+    <textarea id="arrNote" class="arrnote" maxlength="1000" placeholder="e.g. Capo 2 for guitar · Last chorus a cappella · Tag the ending twice"></textarea>
     <div class="arrkeyrow"><span>Key</span><div class="cgrp"><button data-k="down" aria-label="Key down">−</button><b id="arrKey"></b><button data-k="up" aria-label="Key up">+</button></div></div>
     <p class="arrby" id="arrBy"></p>
     <div class="row2"><button class="pbtn ghost" id="arrRemove">Use original</button><button class="pbtn ghost" id="arrCancel">Cancel</button><button class="pbtn" id="arrSave">Save</button></div>
@@ -1883,6 +1894,7 @@ function drawChords() {
       <button data-c="arrange">${arr ? 'Edit order' : 'Section order'}</button>
       ${keyMoved ? '<button class="ctog on" data-c="savekey">Save key</button>' : ''}
     </div>
+    ${useArr && arr.note ? `<button class="cnote" data-c="arrange" aria-label="Note (tap to edit)"><span class="cnote-txt">${esc(arr.note)}</span></button>` : ''}
     ${useArr ? `<div class="cmeta">${esc(resolveOrder(chordChart, arr.order).map(x => x.label).join(' → '))}${arr.by ? ` · set by ${esc(arr.by)}${arr.at ? ' ' + esc(shortDate(arr.at)) : ''}` : ''}</div>` : ''}
     ${m.title && normalize(m.title) !== normalize(s.title) ? `<div class="ctitle">${esc(m.title)}</div>` : ''}
     ${m.subtitle || m.artist ? `<div class="cmeta">${esc([m.subtitle, m.artist].filter(Boolean).join(' · '))}</div>` : ''}
@@ -1925,6 +1937,7 @@ function openArrange() {
   const secs = chartSections(chordChart), arr = arrangements.get(chordFile.id);
   if (!secs.length) return toast('This chart has no sections to arrange');
   arrDraft = { secs, order: (arr ? resolveOrder(chordChart, arr.order) : secs).map(x => ({ i: x.i, label: x.label })) };
+  $('#arrNote').value = arr ? arr.note || '' : '';
   $('#arrTitle').textContent = `Section order · ${viewing.title}`;
   $('#arrBy').textContent = arr && arr.by ? `Last saved by ${arr.by}${arr.at ? ' on ' + shortDate(arr.at) : ''}.` : '';
   $('#arrRemove').style.display = arr ? '' : 'none';
@@ -1954,11 +1967,12 @@ $('#arrBox').addEventListener('click', e => {
 $('#arrCancel').onclick = closeArrange;
 $('#arrSave').onclick = () => { if (!arrDraft.order.length) return toast('Add at least one section'); saveArrangement(arrDraft.order); };
 async function saveArrangement(order, keyOnly = false) {
+  const old = arrangements.get(chordFile.id), note = keyOnly ? (old && old.note) || '' : $('#arrNote').value.trim();
   if (!navigator.onLine) return toast('Connect to the internet to save');
   const s = viewing, x = chordFile, k = chordKeyState(s, chordChart);
   const btn = $('#arrSave'); btn.disabled = true;
   try {
-    const r = await api('setArrangement', { chartId: x.id, songKey: s.key, title: s.title, book: s.collection, order, key: plainKey(k.label) });
+    const r = await api('setArrangement', { chartId: x.id, songKey: s.key, title: s.title, book: s.collection, order, key: plainKey(k.label), note });
     if (!r.ok) throw new Error(r.error || 'Couldn\'t save');
     applyArrangements(r.arrangements); arrLoadedAt = Date.now();
     chordView = 'arranged'; closeArrange(); drawChords();
