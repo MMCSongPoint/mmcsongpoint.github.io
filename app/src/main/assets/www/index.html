@@ -2648,16 +2648,45 @@ $('#prOrder').onclick = () => {
   if (pr) prShowSong(pr.si, 0);
 };
 $('#prBlank').onclick = () => { if (!pr) return; pr.blank = !pr.blank; prRender(); };
-$('#prProj').onclick = () => {
-  const w = window.open('projector.html', 'songpoint-projector', 'popup,width=960,height=540');
+// The projector window opens on the other screen (the projector), filling it. Chrome/Edge ask once to "manage
+// windows on all your displays". Browsers only allow full screen right after a click or key press, so the projector
+// goes full screen with the press of "Open projector window" when it can, otherwise with your next key or click in
+// the presenter (Next, a clicker, a foot pedal…).
+let prWin = null, prFull = false;
+async function prOtherScreen(ask) {
+  try {
+    if (!('getScreenDetails' in window)) return null;
+    if (!ask) { const q = await navigator.permissions.query({ name: 'window-management' }); if (q.state !== 'granted') return null; }
+    const sd = await window.getScreenDetails();
+    return sd.screens.find(x => x !== sd.currentScreen && !x.isPrimary) || sd.screens.find(x => x !== sd.currentScreen) || null;
+  } catch { return null; }
+}
+const prPlace = x => x ? `,left=${x.availLeft},top=${x.availTop},width=${x.availWidth},height=${x.availHeight}` : ',width=960,height=540';
+$('#prProj').onclick = async () => {
+  const known = await prOtherScreen(false);   // already allowed: no prompt, so the click still counts
+  prFull = false;
+  const w = window.open('projector.html', 'songpoint-projector', 'popup,fullscreen' + prPlace(known));
   if (!w) return toast('Allow pop-ups for this site, then try again', 4000);
+  prWin = w;
+  if (!known) {   // first time: ask, then move the window over to the projector
+    const x = await prOtherScreen(true);
+    if (x) try { w.moveTo(x.availLeft, x.availTop); w.resizeTo(x.availWidth, x.availHeight); } catch {}
+  }
   setTimeout(prSend, 600);
 };
+// any key or click in the presenter while the projector isn't full screen yet: hand it the go-ahead
+function prNudgeFull() {
+  if (!pr || prFull || !prWin || prWin.closed) return;
+  try { prWin.postMessage({ t: 'full' }, { targetOrigin: location.origin, delegate: 'fullscreen' }); } catch {}
+}
+document.addEventListener('keydown', prNudgeFull, true);
+document.addEventListener('pointerdown', e => { if (!(e.target.closest && e.target.closest('#prProj'))) prNudgeFull(); }, true);
 $('#prSongs').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) prShowSong(+b.dataset.i, 0); });
 $('#prThumbs').addEventListener('click', e => { const im = e.target.closest('[data-i]'); if (im && pr) { pr.slide = +im.dataset.i; pr.blank = false; prRender(); } });
 if (prChannel) prChannel.onmessage = e => {
   const m = e.data || {};
   if (m.t === 'hello') prSend();
+  else if (m.t === 'fs') prFull = !!m.on;
   else if (m.t === 'key' && pr) prKey(m.key);
 };
 function prKey(key) {

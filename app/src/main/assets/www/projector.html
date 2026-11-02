@@ -12,20 +12,14 @@
   #slide.on { opacity: 1; }
   #title { position: fixed; inset: 0; display: none; place-items: center; text-align: center; color: #fff; font: 700 6vw/1.2 system-ui, sans-serif; padding: 5vw; }
   #title.on { display: grid; }
-  #hint { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #fff; font: 16px/1.5 system-ui, sans-serif; text-align: center;
-    background: rgba(114, 23, 59, .92); padding: 22px 26px; border-radius: 16px; max-width: 80vw; }
-  #hint b { font-size: 20px; display: block; margin-bottom: 6px; }
-  #hint button { margin-top: 14px; font: 700 16px system-ui, sans-serif; padding: 10px 18px; border-radius: 10px; border: none; background: #fff; color: #72173b; cursor: pointer; }
-  #hint.off { display: none; }
 </style>
 </head>
 <body class="ui">
 <img id="slide" alt="">
 <div id="title"></div>
-<div id="hint"><b>SongPoint projector</b>Move this window to the projector screen, then go full screen.<br>Slides are controlled from the Presenter window.<br><button id="full">Full screen</button></div>
 <script>
 // Shows whatever the Presenter window (same app, same computer) sends over a BroadcastChannel.
-const ch = new BroadcastChannel('songpoint-projector'), img = document.getElementById('slide'), title = document.getElementById('title'), hint = document.getElementById('hint');
+const ch = new BroadcastChannel('songpoint-projector'), img = document.getElementById('slide'), title = document.getElementById('title');
 ch.onmessage = e => {
   const m = e.data || {};
   if (m.t === 'slide') { title.classList.remove('on'); if (img.src !== m.img) img.src = m.img; img.classList.add('on'); }
@@ -34,20 +28,13 @@ ch.onmessage = e => {
   else if (m.t === 'close') window.close();
 };
 ch.postMessage({ t: 'hello' });
-// Full screen, on the other (non-primary) screen when the browser can tell which one that is.
-async function goFull() {
-  try {
-    if ('getScreenDetails' in window) {
-      const sd = await window.getScreenDetails();
-      const other = sd.screens.find(s => s !== sd.currentScreen && !s.isPrimary) || sd.screens.find(s => !s.isPrimary);
-      if (other) { await document.documentElement.requestFullscreen({ screen: other }); return; }
-    }
-  } catch (e) {}
-  try { await document.documentElement.requestFullscreen(); } catch (e) {}
-}
-document.getElementById('full').onclick = e => { e.stopPropagation(); goFull(); };
+// Full screen. The presenter opens this window on the projector screen and passes on the go-ahead (a click or key
+// press there), or it goes full screen straight away where the browser allows it. Double-click or F works here too.
+async function goFull() { if (!document.fullscreenElement) try { await document.documentElement.requestFullscreen(); } catch (e) {} }
+window.addEventListener('message', e => { if (e.origin === location.origin && (e.data || {}).t === 'full') goFull(); });
+goFull();
 document.addEventListener('dblclick', goFull);
-document.addEventListener('fullscreenchange', () => { const fs = !!document.fullscreenElement; hint.classList.toggle('off', fs); document.body.classList.toggle('ui', !fs); });
+document.addEventListener('fullscreenchange', () => { const fs = !!document.fullscreenElement; document.body.classList.toggle('ui', !fs); ch.postMessage({ t: 'fs', on: fs }); });
 document.addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F') goFull(); else ch.postMessage({ t: 'key', key: e.key }); });   // a clicker pressed here still works
 </script>
 </body>
