@@ -186,14 +186,23 @@
   .cview .seg button { border-radius: 0; } .cview .seg button:first-child { border-radius: 8px 0 0 8px; } .cview .seg button:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
   .cview button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
   .arrnote { width: 100%; box-sizing: border-box; min-height: 64px; resize: vertical; margin-bottom: 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 14px; }
-  /* little notepad: spiral-bound yellow paper with ruled lines and a red margin */
-  .cnote { display: block; width: min(100%, 360px); text-align: left; position: relative; margin: 2px 0 12px; padding: 18px 14px 10px 30px; border: none; border-radius: 4px 4px 6px 6px;
-    background: #fff6b8 repeating-linear-gradient(transparent 0 21px, rgba(70, 110, 190, .28) 21px 22px); background-position: 0 14px;
-    color: #3b3220; font-size: 15px; line-height: 22px; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,.25); white-space: pre-wrap; }
-  .cnote::before { content: ''; position: absolute; left: 22px; top: 0; bottom: 0; width: 1.5px; background: rgba(214, 70, 70, .55); }
-  .cnote::after { content: ''; position: absolute; left: 10px; right: 10px; top: 4px; height: 8px;
-    background: radial-gradient(circle at 5px 4px, #6b5f4a 2.4px, transparent 2.8px) 0 0 / 16px 8px repeat-x; opacity: .7; }
-  .cnote-txt { display: block; }
+  /* sticky note (like OnSong): top right of the chart */
+  .cbody { position: relative; }
+  .cnote { float: right; width: 44%; max-width: 230px; min-height: 76px; margin: 2px 0 10px 12px; padding: 10px 12px 14px; border: none; border-radius: 1px;
+    background: #f2f19c; color: #2c2a17; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere;
+    font-family: "Marker Felt", "Bradley Hand", "Segoe Print", "Chalkboard SE", "Comic Sans MS", cursive; font-size: 15px; line-height: 1.3; font-weight: 400;
+    box-shadow: 0 1px 1px rgba(0,0,0,.15), 0 6px 14px rgba(0,0,0,.35); transform: rotate(.8deg); }
+  .cnote .cnote-txt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+  .cnote.open .cnote-txt { display: block; }
+  .cnote:not(.open)::after { content: '⌄'; position: absolute; right: 6px; bottom: 0; font-size: 14px; opacity: .45; }
+  .cclear { clear: right; }
+  @media (min-width: 700px) {
+    .cbody.hasnote { padding-right: 260px; min-height: 200px; }
+    .cnote { position: absolute; top: 4px; right: 4px; float: none; width: 230px; max-width: none; min-height: 170px; margin: 0; font-size: 17px; padding: 14px 16px 18px; }
+    .cnote .cnote-txt { display: block; }
+    .cnote::after { display: none; }
+    .cclear { clear: none; }
+  }
   .arrbox { width: min(380px, 92vw); max-height: 86vh; overflow-y: auto; }
   .arrlist { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
   .arow { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-top: 1px solid var(--line); }
@@ -1864,7 +1873,7 @@ function applyArrKey(s, arr) {
 }
 const plainKey = l => String(l || '').replace('♭', 'b').replace('♯', '#');
 async function showChords(x) {
-  chordFile = x;
+  chordFile = x; noteOpen = false;
   const box = $('#vPages'); box.innerHTML = '<div class="vmsg">Opening chords…</div>';
   try {
     const text = await loadChordText(x);
@@ -1894,13 +1903,16 @@ function drawChords() {
       <button data-c="arrange">${arr ? 'Edit order' : 'Section order'}</button>
       ${keyMoved ? '<button class="ctog on" data-c="savekey">Save key</button>' : ''}
     </div>
-    ${useArr && arr.note ? `<button class="cnote" data-c="arrange" aria-label="Note (tap to edit)"><span class="cnote-txt">${esc(arr.note)}</span></button>` : ''}
+    <div class="cbody${useArr && arr.note ? ' hasnote' : ''}">
+    ${useArr && arr.note ? `<button class="cnote${noteOpen ? ' open' : ''}" data-c="note" aria-label="Note"><span class="cnote-txt">${esc(arr.note)}</span></button>` : ''}
     ${useArr ? `<div class="cmeta">${esc(resolveOrder(chordChart, arr.order).map(x => x.label).join(' → '))}${arr.by ? ` · set by ${esc(arr.by)}${arr.at ? ' ' + esc(shortDate(arr.at)) : ''}` : ''}</div>` : ''}
     ${m.title && normalize(m.title) !== normalize(s.title) ? `<div class="ctitle">${esc(m.title)}</div>` : ''}
     ${m.subtitle || m.artist ? `<div class="cmeta">${esc([m.subtitle, m.artist].filter(Boolean).join(' · '))}</div>` : ''}
     ${info ? `<div class="cmeta">${esc(info)}</div>` : ''}
+    <div class="cclear"></div>
     ${renderChordChart(ch, k.semis, k.table)}
     ${m.copyright || m.ccli ? `<div class="cmeta cfoot">${esc([m.copyright ? (/^©/.test(m.copyright) ? '' : '© ') + m.copyright : '', m.ccli ? 'CCLI Song # ' + m.ccli : ''].filter(Boolean).join(' · '))}</div>` : ''}
+    </div>
   </div>`;
 }
 function chordStep(d) {
@@ -1928,10 +1940,14 @@ $('#vPages').addEventListener('click', e => {
   else if (c === 'only') { chordsOnly = !chordsOnly; drawChords(); }
   else if (c === 'arranged' || c === 'original') { chordView = c; if (c === 'arranged') applyArrKey(viewing, arrangements.get(chordFile.id)); drawChords(); }
   else if (c === 'arrange') openArrange();
+  else if (c === 'note') {   // phones: tap opens the whole note, tap again closes it. Wide screens show it all: tap edits.
+    if (window.matchMedia('(min-width: 700px)').matches) return openArrange();
+    noteOpen = !noteOpen; b.classList.toggle('open', noteOpen);
+  }
   else if (c === 'savekey') saveArrangement(arrangements.get(chordFile.id).order, true);
 });
 // ---- section order editor
-let arrDraft = null;
+let arrDraft = null, noteOpen = false;
 function openArrange() {
   if (!viewing || !chordChart || !chordFile) return;
   const secs = chartSections(chordChart), arr = arrangements.get(chordFile.id);
