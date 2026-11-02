@@ -2333,7 +2333,7 @@ function perfApply(st) {
 }
 function perfShow(st) {
   if (!st || st.closed) return;
-  perfSlideView(st);
+  perfSlideView(st); setTimeout(() => { if (perf && perf.last === st) perfSlideView(st); }, 0);
   const s = songIndex.get(st.song);
   if (!s) { if (perf.missing !== st.song) { perf.missing = st.song; toast('The leader\'s song isn\'t in your library yet. Pull down to refresh.', 4000); } return; }
   const sig = [st.song, st.group, st.view, st.keyP, st.off].join('|');
@@ -2850,6 +2850,7 @@ function openViewer(s, keepOpen = false, list = null, mode = null) {
   const wantChords = (viewerMode === 'chords' || !s.sheets.length) && s.chords.length;
   showSheetGroup(wantChords ? 'Chords' : groups[0]);
   $('#viewer').classList.add('show'); updatePlayerMode();
+  if (perf && perf.role === 'guest' && viewSlides) { pipKey = ''; perfSlideView(perf.last); }   // back in the viewer: slides again
   if (N && N.keepScreenOn) N.keepScreenOn(true);
 }
 function showSheetGroup(label) {
