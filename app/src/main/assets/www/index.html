@@ -830,6 +830,11 @@
   <div class="seg" id="themeSeg">
     <button data-t="system">Match device</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
   </div>
+  <h4>Foot pedal</h4>
+  <div class="seg" id="pedalSeg">
+    <button data-m="smart">Scroll, then next song</button><button data-m="split">Separate song buttons</button>
+  </div>
+  <p class="m pedalhelp" id="pedalHelp"></p>
   <h4>Share</h4>
   <button class="act" id="copyLinkBtn">Copy web app link</button>
   <h4>About</h4>
@@ -2552,6 +2557,36 @@ function applyTheme() {
   const dark = theme === 'dark' || (theme === 'system' && darkQuery.matches);
   if (N && N.setSystemBars) N.setSystemBars(dark ? '#141013' : '#f7f2f4', !dark);
 }
+// ---- Bluetooth foot pedals (page turners) work as keyboards: pair one in the device's Bluetooth settings.
+// "Scroll, then next song": the right/forward pedal scrolls down; at the end of the song it goes to the next one.
+// The left/back pedal does the opposite. "Separate song buttons" (4-button pedals): up/down scroll, left/right change songs.
+let pedalMode = store.get('pedalMode', 'smart');
+const PEDAL_FWD = ['ArrowDown', 'PageDown', ' ', 'Enter', 'ArrowRight'], PEDAL_BACK = ['ArrowUp', 'PageUp', 'ArrowLeft'];
+function renderPedal() {
+  document.querySelectorAll('#pedalSeg button').forEach(b => b.classList.toggle('on', b.dataset.m === pedalMode));
+  $('#pedalHelp').textContent = pedalMode === 'smart'
+    ? 'Pair the pedal in your device\'s Bluetooth settings. In a song: right pedal scrolls down, and at the end goes to the next song. Left pedal scrolls up, and at the top goes back a song.'
+    : 'Pair the pedal in your device\'s Bluetooth settings. Up/down (or Page Up/Page Down) scroll; left/right go to the previous/next song in the list.';
+}
+$('#pedalSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; pedalMode = b.dataset.m; store.set('pedalMode', pedalMode); renderPedal(); });
+renderPedal();
+document.addEventListener('keydown', e => {
+  if (!viewing || !$('#viewer').classList.contains('show') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+  if (document.querySelector('.wheelbox.show, .sheet.show, #choiceBox.show')) return;
+  const fwd = PEDAL_FWD.includes(e.key), back = PEDAL_BACK.includes(e.key);
+  if (!fwd && !back) return;
+  e.preventDefault();
+  const body = $('#vBody'), max = body.scrollHeight - body.clientHeight, page = Math.round(body.clientHeight * 0.75);
+  if (pedalMode === 'split' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) return viewerStep(e.key === 'ArrowRight' ? 1 : -1);
+  if (fwd) {
+    if (body.scrollTop >= max - 4) { if (pedalMode === 'smart') viewerStep(1); return; }
+    body.scrollBy({ top: page, behavior: 'smooth' });
+  } else {
+    if (body.scrollTop <= 4) { if (pedalMode === 'smart') viewerStep(-1); return; }
+    body.scrollBy({ top: -page, behavior: 'smooth' });
+  }
+});
 $('#themeSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   theme = b.dataset.t; store.set('theme', theme); applyTheme();
