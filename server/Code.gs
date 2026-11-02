@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 16 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 17 }); }
 
 function doPost(e) {
   var d;
@@ -153,6 +153,7 @@ function handle_(d) {
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
   if (a === 'file') return file_(d);
+  if (a === 'slideDeck') return slideDeck_(d);
   if (a === 'listsGet') return listsGet_(me);
   if (a === 'listSave') return listSave_(me, d);
   if (a === 'listDelete') return listDelete_(me, d);
@@ -760,4 +761,30 @@ function listDelete_(me, d) {
     tab_(LISTS, LHEAD).getRange(x.row, 7, 1, 2).setValues([[Date.now(), true]]);
     return { ok: true };
   } finally { lock.releaseLock(); }
+}
+
+// ------------------------------------------------------------------ presenter: one song's slides as a PDF + slide text
+// Uses the converted Google Slides copy (converted_). The PDF is kept in "SongPoint slide cache" so each song is
+// exported once (again only when the PowerPoint changes). The text of each slide lets musicians' chord charts
+// follow along.
+function slideDeck_(d) {
+  var src = DriveApp.getFileById(String(d.id || '')), isSlides = src.getMimeType() === 'application/vnd.google-apps.presentation';
+  if (!isSlides && !/\.pptx?$/i.test(src.getName())) return { ok: false, error: 'Not a PowerPoint.' };
+  var conv = isSlides ? src.getId() : converted_(src.getId()), convFile = DriveApp.getFileById(conv);
+  var folder = folder_('SongPoint slide cache'), name = conv + '.pdf', pdf = null, it = folder.getFilesByName(name);
+  while (it.hasNext()) { var f = it.next(); if (!pdf && f.getDateCreated().getTime() >= convFile.getLastUpdated().getTime()) pdf = f; else f.setTrashed(true); }
+  if (!pdf) pdf = folder.createFile(convFile.getAs('application/pdf').setName(name));
+  var cacheKey = 'deckText:' + conv + ':' + convFile.getLastUpdated().getTime(), c = CacheService.getScriptCache(), texts = c.get(cacheKey);
+  if (texts) texts = JSON.parse(texts);
+  else {
+    texts = SlidesApp.openById(conv).getSlides().map(function (sl) {
+      var out = [];
+      sl.getPageElements().forEach(function (el) {
+        try { if (el.getPageElementType() === SlidesApp.PageElementType.SHAPE) { var t = el.asShape().getText().asString().trim(); if (t) out.push(t); } } catch (e) {}
+      });
+      return out.join('\n');
+    });
+    try { c.put(cacheKey, JSON.stringify(texts), 21600); } catch (e) {}
+  }
+  return { ok: true, texts: texts, pdf: Utilities.base64Encode(pdf.getBlob().getBytes()) };
 }

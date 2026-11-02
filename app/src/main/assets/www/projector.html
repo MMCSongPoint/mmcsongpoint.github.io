@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>SongPoint · Projector</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  body.ui { cursor: default; }
+  #slide { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity .25s; }
+  #slide.on { opacity: 1; }
+  #title { position: fixed; inset: 0; display: none; place-items: center; text-align: center; color: #fff; font: 700 6vw/1.2 system-ui, sans-serif; padding: 5vw; }
+  #title.on { display: grid; }
+  #hint { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #fff; font: 16px/1.5 system-ui, sans-serif; text-align: center;
+    background: rgba(114, 23, 59, .92); padding: 22px 26px; border-radius: 16px; max-width: 80vw; }
+  #hint b { font-size: 20px; display: block; margin-bottom: 6px; }
+  #hint button { margin-top: 14px; font: 700 16px system-ui, sans-serif; padding: 10px 18px; border-radius: 10px; border: none; background: #fff; color: #72173b; cursor: pointer; }
+  #hint.off { display: none; }
+</style>
+</head>
+<body class="ui">
+<img id="slide" alt="">
+<div id="title"></div>
+<div id="hint"><b>SongPoint projector</b>Move this window to the projector screen, then go full screen.<br>Slides are controlled from the Presenter window.<br><button id="full">Full screen</button></div>
+<script>
+// Shows whatever the Presenter window (same app, same computer) sends over a BroadcastChannel.
+const ch = new BroadcastChannel('songpoint-projector'), img = document.getElementById('slide'), title = document.getElementById('title'), hint = document.getElementById('hint');
+ch.onmessage = e => {
+  const m = e.data || {};
+  if (m.t === 'slide') { title.classList.remove('on'); if (img.src !== m.img) img.src = m.img; img.classList.add('on'); }
+  else if (m.t === 'title') { img.classList.remove('on'); title.textContent = m.text || ''; title.classList.add('on'); }
+  else if (m.t === 'blank') { img.classList.remove('on'); title.classList.remove('on'); }
+  else if (m.t === 'close') window.close();
+};
+ch.postMessage({ t: 'hello' });
+// Full screen, on the other (non-primary) screen when the browser can tell which one that is.
+async function goFull() {
+  try {
+    if ('getScreenDetails' in window) {
+      const sd = await window.getScreenDetails();
+      const other = sd.screens.find(s => s !== sd.currentScreen && !s.isPrimary) || sd.screens.find(s => !s.isPrimary);
+      if (other) { await document.documentElement.requestFullscreen({ screen: other }); return; }
+    }
+  } catch (e) {}
+  try { await document.documentElement.requestFullscreen(); } catch (e) {}
+}
+document.getElementById('full').onclick = e => { e.stopPropagation(); goFull(); };
+document.addEventListener('dblclick', goFull);
+document.addEventListener('fullscreenchange', () => { const fs = !!document.fullscreenElement; hint.classList.toggle('off', fs); document.body.classList.toggle('ui', !fs); });
+document.addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F') goFull(); else ch.postMessage({ t: 'key', key: e.key }); });   // a clicker pressed here still works
+</script>
+</body>
+</html>

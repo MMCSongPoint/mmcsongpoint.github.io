@@ -192,6 +192,33 @@
   .lbadge.wait { background: rgba(255, 170, 60, .2); color: #e0a040; }
   .lhead { margin: 18px 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .listacts .pbtn.on { border-color: var(--ok); color: var(--ok); }
+  .presenter { position: fixed; inset: 0; z-index: 88; background: #0d0a0c; color: #eee; display: none; flex-direction: column; }
+  .presenter.show { display: flex; }
+  .prhead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #1b1418; border-bottom: 1px solid #2c2228; }
+  .prtitle { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 17px; }
+  .prtitle span { color: #a8989f; font-size: 14px; }
+  .prcode { color: #cbbcc2; font-size: 14px; } .prcode b { color: #fff; font-size: 18px; letter-spacing: .08em; }
+  #prBlank.on { background: #fff; color: #000; }
+  .prbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px 1fr 260px; gap: 12px; padding: 12px; }
+  .prsongs { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+  .prsongs button { text-align: left; background: #1b1418; color: #ddd; border: 1px solid #2c2228; border-radius: 8px; padding: 9px 10px; font-size: 14px; }
+  .prsongs button span { color: #8c7c84; margin-right: 8px; } .prsongs button small { display: block; color: #e0a040; font-size: 11px; margin-top: 2px; }
+  .prsongs button.now { background: var(--accent); border-color: var(--accent); color: #fff; } .prsongs button.now span { color: #f3d0de; }
+  .prmain { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .prstage { flex: 1; min-height: 0; background: #000; border-radius: 10px; display: grid; place-items: center; overflow: hidden; position: relative; outline: 3px solid transparent; }
+  .prstage.blank { outline-color: #555; } .prstage.blank img { opacity: .25; }
+  .prstage img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .prmsg { color: #a8989f; text-align: center; padding: 20px; font-size: 15px; } .prmsg.sm { font-size: 13px; padding: 10px; }
+  .prnav { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .prnav .pbtn { min-width: 150px; font-size: 16px; padding: 12px; }
+  .prnav span { color: #a8989f; }
+  .prside { min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .prlbl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8c7c84; }
+  .prnext { background: #000; border-radius: 8px; aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden; }
+  .prnext img { max-width: 100%; max-height: 100%; }
+  .prthumbs { flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
+  .prthumbs img { width: 100%; border-radius: 4px; border: 2px solid transparent; cursor: pointer; background: #000; }
+  .prthumbs img.now { border-color: var(--accent-text); }
+  @media (max-width: 900px) { .prbody { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; } .prsongs { flex-direction: row; overflow-x: auto; } .prsongs button { white-space: nowrap; } .prside { display: none; } }
   .perfbar { display: none; align-items: center; gap: 8px; padding: 6px 10px; background: var(--accent); color: #fff; font-size: 13px; }
   .perfbar.show { display: flex; }
   .perfbar .ptxt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -615,7 +642,7 @@
       <b>Songs</b><button class="pbtn ghost editonly" id="addSongsBtn">+ Add songs</button>
     </div>
     <div class="list" id="noteSongs"></div>
-    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
+    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="notePresent">Present</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <div class="nview viewonly"><div class="vtext" id="viewText"></div></div>
     <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Share with everyone</button><button class="pbtn ghost" id="noteOffline">Keep offline</button><button class="pbtn ghost" id="noteCopy">Make a copy</button></div>
@@ -748,6 +775,24 @@
   </div>
 </div>
 <button class="perfpill" id="perfPill"></button>
+
+<div class="presenter" id="presenter">
+  <div class="prhead">
+    <button class="pbtn ghost" id="prExit">✕ Exit</button>
+    <div class="prtitle"><b id="prTitle">Presenter</b><span id="prSub"></span></div>
+    <span class="prcode" id="prCode"></span>
+    <button class="pbtn ghost" id="prBlank" title="Black screen (B)">Blank</button>
+    <button class="pbtn" id="prProj">Open projector window</button>
+  </div>
+  <div class="prbody">
+    <div class="prsongs" id="prSongs"></div>
+    <div class="prmain">
+      <div class="prstage"><img id="prCur" alt=""><div class="prmsg" id="prMsg"></div></div>
+      <div class="prnav"><button class="pbtn ghost" id="prPrev">◀ Previous</button><span id="prPos"></span><button class="pbtn" id="prNext">Next ▶</button></div>
+    </div>
+    <div class="prside"><div class="prlbl">Next</div><div class="prnext"><img id="prNextImg" alt=""><div class="prmsg sm" id="prNextMsg"></div></div><div class="prlbl">This song</div><div class="prthumbs" id="prThumbs"></div></div>
+  </div>
+</div>
 
 <!-- Menu (slides in from the right) -->
 <div class="drawer-bg" id="drawerBg"></div>
@@ -1926,7 +1971,7 @@ async function showChords(x) {
     if (chordFile !== x) return;
     chordChart = parseChordPro(text);
     const arr = arrangements.get(x.id);
-    if (arr && chordView === 'arranged' && !(perf && perf.role === 'guest' && perf.following)) applyArrKey(viewing, arr);
+    if (arr && chordView === 'arranged' && !(perf && perf.role === 'guest' && perf.following && !(perf.last && perf.last.presenter))) applyArrKey(viewing, arr);
     drawChords();
     loadArrangements();
   } catch { if (chordFile === x) box.innerHTML = `<div class="vmsg">Couldn't open the chords.${navigator.onLine ? '' : ' You\'re offline.'}</div>`; }
@@ -1981,7 +2026,7 @@ function afterKeyChange(s) {
 $('#vPages').addEventListener('click', e => {
   const b = e.target.closest('.chart [data-c]'); if (!b) return;
   const c = b.dataset.c;
-  if (['up', 'down', 'reset', 'arranged', 'original'].includes(c)) perfDetach();
+  if (['up', 'down', 'reset', 'arranged', 'original'].includes(c)) perfDetach(!(perf && perf.last && perf.last.presenter));
   if (c === 'up') chordStep(1); else if (c === 'down') chordStep(-1);
   else if (c === 'reset') { keyOverrides.delete(viewing.key); chordOffset.delete(viewing.key); afterKeyChange(viewing); }
   else if (c === 'small' || c === 'big') { chordSize = Math.max(12, Math.min(34, chordSize + (c === 'big' ? 2 : -2))); store.set('chordSize', chordSize); drawChords(); }
@@ -2093,8 +2138,8 @@ async function perfPollLoop(me) {
   }
 }
 // ---- host
-async function perfHostStart() {
-  if (!viewing) return toast('Open a song first');
+async function perfHostStart(fromPresenter = false) {
+  if (!viewing && !fromPresenter) return toast('Open a song first');
   if (!navigator.onLine) return toast('Connect to the internet to start');
   if (!window.RTCPeerConnection) toast('This device can only lead through the server (slower)', 3500);
   const r = await api('perfHost').catch(() => ({}));
@@ -2136,6 +2181,11 @@ function perfAnchor() {
 }
 function perfState() {
   const st = { t: 'state', seq: ++perf.seq, host: userName() };
+  if (pr) {   // presenting: musicians follow the song (and the words on the projector); their key and scrolling stay their own
+    const s = pr.songs[pr.si];
+    return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
+      slideNo: pr.slide, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || '') });
+  }
   if (!viewing) { st.closed = 1; return st; }
   Object.assign(st, { song: viewing.key, list: viewerList ? viewerList.map(x => x.key) : null, group: vSheet, mode: viewerMode, view: chordView,
     keyP: keyOverrides.has(viewing.key) ? keyOverrides.get(viewing.key) : null, off: chordOffset.get(viewing.key) || 0, pos: perfAnchor() });
@@ -2232,9 +2282,12 @@ function perfShow(st) {
   const sig = [st.song, st.group, st.view, st.keyP, st.off].join('|');
   if (sig !== perf.sig) {
     perf.sig = sig;
-    if (st.keyP == null) keyOverrides.delete(s.key); else keyOverrides.set(s.key, st.keyP);
-    if (st.off) chordOffset.set(s.key, st.off); else chordOffset.delete(s.key);
+    if (!st.presenter) {
+      if (st.keyP == null) keyOverrides.delete(s.key); else keyOverrides.set(s.key, st.keyP);
+      if (st.off) chordOffset.set(s.key, st.off); else chordOffset.delete(s.key);
+    }
     chordView = st.view || chordView;
+    perf.pendingSlide = st.presenter ? st : null;
     perf.pendingPos = st.pos;
     const list = st.list ? st.list.map(k => songIndex.get(k)).filter(Boolean) : null;
     if (viewing !== s || !$('#viewer').classList.contains('show')) openViewer(s, true, list, st.mode);
@@ -2244,6 +2297,7 @@ function perfShow(st) {
     renderViewerKey(); render(); if (now && now.song === s) applyShift();
     return;
   }
+  if (st.presenter) { if (st.slideNo !== perf.lastSlideNo || st.slideText !== perf.lastSlideText) { perf.lastSlideNo = st.slideNo; perf.lastSlideText = st.slideText; perfFollowSlide(st); } return; }
   perfScrollTo(st.pos);
 }
 // Followers glide to the leader's place instead of jumping: small moves ease in, big ones are capped at a
@@ -2292,10 +2346,12 @@ function perfAfterDraw() {
   if (!perf) return;
   if (perf.role === 'host') return perfSync();
   if (perf.following && perf.pendingPos) { const p = perf.pendingPos; perf.pendingPos = null; requestAnimationFrame(() => perfScrollTo(p, true)); }
+  if (perf.following && perf.pendingSlide) { const st = perf.pendingSlide; perf.pendingSlide = null; perf.slideLine = -1; perf.lastSlideNo = st.slideNo; perf.lastSlideText = st.slideText; requestAnimationFrame(() => perfFollowSlide(st)); }
 }
-function perfDetach() {
+function perfDetach(hard = false) {
   if (!perf || perf.role !== 'guest' || !perf.following) return;
   cancelAnimationFrame(perfGlideRAF); perfGlideRAF = 0; perfGlideTarget = null;
+  if (perf.last && perf.last.presenter && !hard) return;   // following a presenter: scroll freely, songs keep following
   perf.following = false; renderPerfBar();
 }
 function perfFollow() {
@@ -2304,6 +2360,7 @@ function perfFollow() {
   if (perf.last) perfShow(perf.last);
 }
 function renderPerfBar() {
+  if (pr) setTimeout(() => { if (pr) $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size ? ` · ${perf.peers.size + perf.relayers.size} following` : ''}` : ''; });
   const bar = $('#perfBar'), pill = $('#perfPill');
   $('#vPerform').classList.toggle('on', !!perf);
   $('#viewer').classList.toggle('following', !!perf && perf.role === 'guest' && perf.following);
@@ -2318,6 +2375,7 @@ function renderPerfBar() {
     const how = perf.connected ? '' : perf.relay ? ' · through the server' : ' · connecting…';
     text = `<b>Following ${esc(perf.hostName)}</b> · ${esc(perf.code)}${how}`;
     btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow leader</button>')
+      + (perf.last && perf.last.presenter ? `<button class="${followSlides ? 'on' : ''}" data-p="slides" title="Scroll my chords to the words on the screen">Slides${followSlides ? ' ✓' : ''}</button>` : '')
       + `<button data-p="reconnect" title="${perfOnline() ? 'Connected' : 'Not connected'}"><i class="pdot ${perfOnline() ? 'ok' : 'bad'}"></i>Reconnect</button>`
       + '<button data-p="leave">Leave</button>';
   }
@@ -2332,6 +2390,7 @@ $('#perfBar').addEventListener('click', async e => {
   else if (b.dataset.p === 'leave') perfLeave();
   else if (b.dataset.p === 'follow') perfFollow();
   else if (b.dataset.p === 'reconnect') perfReconnect();
+  else if (b.dataset.p === 'slides') { followSlides = !followSlides; store.set('followSlides', followSlides); renderPerfBar(); if (followSlides && perf && perf.last) { perf.slideLine = -1; perfFollowSlide(perf.last); } toast(followSlides ? 'Your chords follow the slides' : 'You scroll your own chords', 1800); }
 });
 // Connected = a direct link is open, or the server route answered in the last few seconds.
 function perfOnline() { return !!perf && (perf.connected || (perf.relay && Date.now() - (perf.relayOk || 0) < 6000)); }
@@ -2370,6 +2429,170 @@ $('#dPerform').onclick = () => { closeDrawer(); if (perf && perf.role === 'guest
 // Host: tell followers when scrolling. Follower: touching the screen stops following until "Follow leader".
 $('#vBody').addEventListener('scroll', () => { if (perf && perf.role === 'host') perfSync(); }, { passive: true });
 ['touchstart', 'wheel', 'mousedown'].forEach(t => $('#vBody').addEventListener(t, () => perfDetach(), { passive: true }));
+
+// ------------------------------------------------------------------ presenter (projector slides + musicians follow)
+// A computer runs this: its screen shows the controls, a second window (projector.html) on the projector shows only
+// the slides. It also leads a performance session, so musicians' devices switch songs with it and (optionally)
+// scroll their chords to the part of the song that's on the screen.
+let pr = null;   // { songs, si, slide, decks: Map(fileId -> { imgs, texts } | Promise), blank }
+const prChannel = 'BroadcastChannel' in window ? new BroadcastChannel('songpoint-projector') : null;
+let prPdfLib = null;
+async function prPdf() {
+  if (!prPdfLib) { prPdfLib = await import('./vendor/pdf.min.mjs'); prPdfLib.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdf.worker.min.mjs', location.href).href; }
+  return prPdfLib;
+}
+const prFile = s => s && s.slides && s.slides[0];
+// One song's slides: the server sends a PDF (and each slide's words); each page is drawn once as a full-HD picture.
+function prDeck(s) {
+  const f = prFile(s); if (!f) return Promise.resolve(null);
+  if (pr.decks.has(f.id)) return pr.decks.get(f.id);
+  const p = (async () => {
+    const r = await api('slideDeck', { id: f.id });
+    if (!r.ok) throw new Error(r.error || 'Couldn\'t open the slides');
+    const lib = await prPdf(), bytes = Uint8Array.from(atob(r.pdf), c => c.charCodeAt(0));
+    const doc = await lib.getDocument({ data: bytes }).promise, imgs = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i), base = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: 1920 / base.width });
+      const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, c.width, c.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      imgs.push(c.toDataURL('image/jpeg', 0.9)); c.width = c.height = 0;
+    }
+    return { imgs, texts: r.texts || [] };
+  })();
+  pr.decks.set(f.id, p);
+  p.catch(() => pr && pr.decks.delete(f.id));
+  return p;
+}
+async function presentList(list) {
+  if (window.Native && window.Native.isAndroid) return toast('Presenter mode runs in the web app on a computer');
+  if (!navigator.onLine) return toast('Connect to the internet to present');
+  const songsIn = list.filter(Boolean);
+  if (!songsIn.length) return;
+  pr = { songs: songsIn, si: 0, slide: 0, decks: new Map(), blank: false, deck: null };
+  $('#presenter').classList.add('show');
+  if (N && N.keepScreenOn) N.keepScreenOn(true);
+  prShowSong(0, 0);
+  if (!perf) await perfHostStart(true);
+  prRender();
+  // get every song's slides ready in the background, in order
+  (async () => { for (const s of songsIn) { if (!pr) return; try { await prDeck(s); } catch {} } prRender(); })();
+}
+async function prShowSong(si, slide) {
+  if (!pr) return;
+  pr.si = Math.max(0, Math.min(si, pr.songs.length - 1)); pr.slide = slide; pr.deck = null;
+  const s = pr.songs[pr.si], want = pr.si;
+  prRender();
+  try {
+    const deck = await prDeck(s);
+    if (!pr || pr.si !== want) return;
+    pr.deck = deck || { imgs: [], texts: [] };
+    if (pr.slide < 0) pr.slide = Math.max(0, pr.deck.imgs.length - 1);   // came back from the next song: its last slide
+    pr.slide = Math.min(pr.slide, Math.max(0, pr.deck.imgs.length - 1));
+  } catch (e) { if (pr && pr.si === want) { pr.deck = { imgs: [], texts: [], error: e.message }; } }
+  prRender();
+}
+function prStep(d) {
+  if (!pr) return;
+  const n = pr.deck ? pr.deck.imgs.length : 0;
+  if (pr.blank) { pr.blank = false; return prRender(); }
+  if (d > 0) { if (pr.deck && pr.slide < n - 1) { pr.slide++; return prRender(); } if (pr.si < pr.songs.length - 1) return prShowSong(pr.si + 1, 0); return toast('End of the song list', 1500); }
+  if (pr.deck && pr.slide > 0) { pr.slide--; return prRender(); }
+  if (pr.si > 0) return prShowSong(pr.si - 1, -1);
+}
+function prSend() {
+  if (!prChannel || !pr) return;
+  const s = pr.songs[pr.si], img = pr.deck && pr.deck.imgs[pr.slide];
+  if (pr.blank) prChannel.postMessage({ t: 'blank' });
+  else if (img) prChannel.postMessage({ t: 'slide', img });
+  else if (pr.deck) prChannel.postMessage({ t: 'title', text: s.title });
+  else prChannel.postMessage({ t: 'blank' });
+}
+function prRender() {
+  if (!pr) return;
+  const s = pr.songs[pr.si], deck = pr.deck, n = deck ? deck.imgs.length : 0;
+  $('#prTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
+  $('#prSub').textContent = ` · song ${pr.si + 1} of ${pr.songs.length}`;
+  $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size ? ` · ${perf.peers.size + perf.relayers.size} following` : ''}` : '';
+  $('#prBlank').classList.toggle('on', pr.blank);
+  const cur = deck && deck.imgs[pr.slide];
+  $('#prCur').src = cur || ''; $('#prCur').style.display = cur ? '' : 'none';
+  $('#prMsg').textContent = cur ? '' : !deck ? 'Getting the slides ready…' : deck.error ? deck.error : `No slides for “${s.title}”. The projector shows the song title.`;
+  $('#prMsg').style.display = cur ? 'none' : '';
+  document.querySelector('.prstage').classList.toggle('blank', pr.blank);
+  $('#prPos').textContent = n ? `Slide ${pr.slide + 1} of ${n}` : '';
+  // next slide (or the next song's first)
+  let nextImg = deck && deck.imgs[pr.slide + 1], nextMsg = '';
+  if (!nextImg) {
+    const ns = pr.songs[pr.si + 1];
+    if (ns) { const f = prFile(ns), d2 = f && pr.decks.get(f.id); nextMsg = `Next song: ${ns.title}`; if (d2 && d2.then) d2.then(v => { if (pr && pr.songs[pr.si + 1] === ns && !(pr.deck && pr.deck.imgs[pr.slide + 1])) { $('#prNextImg').src = (v && v.imgs[0]) || ''; $('#prNextImg').style.display = v && v.imgs[0] ? '' : 'none'; } }).catch(() => {}); }
+    else nextMsg = 'End of the song list';
+  }
+  $('#prNextImg').src = nextImg || ''; $('#prNextImg').style.display = nextImg ? '' : 'none';
+  $('#prNextMsg').textContent = nextMsg; $('#prNextMsg').style.display = nextMsg ? '' : 'none';
+  $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<img src="${u}" data-i="${i}" class="${i === pr.slide ? 'now' : ''}" alt="Slide ${i + 1}">`).join('') : '';
+  const nowThumb = $('#prThumbs .now'); if (nowThumb) nowThumb.scrollIntoView({ block: 'nearest' });
+  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}" data-i="${i}"><span>${i + 1}</span>${esc((x.number ? x.number + '. ' : '') + x.title)}${prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
+  prSend(); perfSync();
+}
+function prExit() {
+  if (!pr) return;
+  if (prChannel) prChannel.postMessage({ t: 'blank' });
+  pr = null; $('#presenter').classList.remove('show');
+  if (N && N.keepScreenOn) N.keepScreenOn(false);
+  if (perf && perf.role === 'host') perfStop();
+}
+$('#prExit').onclick = async () => { const c = await choose('Stop presenting?', 'The projector goes black and musicians stop following.', [{ label: 'Stop', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]); if (c === 'go') prExit(); };
+$('#prNext').onclick = () => prStep(1);
+$('#prPrev').onclick = () => prStep(-1);
+$('#prBlank').onclick = () => { if (!pr) return; pr.blank = !pr.blank; prRender(); };
+$('#prProj').onclick = () => {
+  const w = window.open('projector.html', 'songpoint-projector', 'popup,width=960,height=540');
+  if (!w) return toast('Allow pop-ups for this site, then try again', 4000);
+  setTimeout(prSend, 600);
+};
+$('#prSongs').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) prShowSong(+b.dataset.i, 0); });
+$('#prThumbs').addEventListener('click', e => { const im = e.target.closest('[data-i]'); if (im && pr) { pr.slide = +im.dataset.i; pr.blank = false; prRender(); } });
+if (prChannel) prChannel.onmessage = e => {
+  const m = e.data || {};
+  if (m.t === 'hello') prSend();
+  else if (m.t === 'key' && pr) prKey(m.key);
+};
+function prKey(key) {
+  if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(key)) prStep(1);
+  else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(key)) prStep(-1);
+  else if (key === 'b' || key === 'B' || key === '.') { pr.blank = !pr.blank; prRender(); }
+}
+document.addEventListener('keydown', e => {
+  if (!pr || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('#choiceBox.show')) return;
+  if (e.target.closest && e.target.closest('input, textarea, select')) return;
+  if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter', 'ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace', 'b', 'B', '.'].includes(e.key)) { e.preventDefault(); e.stopImmediatePropagation(); prKey(e.key); }
+}, true);
+$('#notePresent').onclick = () => presentList(editing.songs.map(r => songIndex.get(r.key)));
+
+// ---- musicians: follow the slides in the chord chart (match the slide's words to a line of the chart)
+let followSlides = store.get('followSlides', true);
+const slideWords = t => normalize(String(t || '').replace(/\s*-\s*/g, '')).split(' ').filter(w => w.length > 1);
+function perfFollowSlide(st) {
+  if (!perf || !followSlides || !st || !st.slideText) return;
+  if (!$('#viewer').classList.contains('chordmode')) return;
+  const lines = [...document.querySelectorAll('#vPages .chart .cl')].filter(el => el.getBoundingClientRect().height);
+  if (!lines.length) { perf.pendingSlide = st; return; }
+  const want = st.slideText.split(/\n+/).map(slideWords).filter(w => w.length >= 2).slice(0, 2);
+  if (!want.length) return;
+  const texts = lines.map(el => new Set(slideWords([...el.querySelectorAll('.ct')].map(x => x.textContent).join(''))));
+  const overlap = (a, set) => a.length ? a.filter(w => set.has(w)).length / a.length : 0;
+  const scores = texts.map((t, i) => overlap(want[0], t) + (want[1] ? 0.5 * overlap(want[1], texts[i + 1] || new Set()) : 0));
+  const best = Math.max(...scores); if (best < 0.45) return;
+  const last = perf.slideLine ?? -1, back = (st.slideNo ?? 0) < (perf.slideNo ?? 0) && st.song === perf.slideSong;
+  const cands = scores.map((v, i) => [v, i]).filter(([v]) => v >= best - 0.15).map(([, i]) => i);
+  const pick = (back ? cands.filter(i => i <= last).pop() : cands.find(i => i > last)) ?? cands[0];
+  perf.slideLine = pick; perf.slideNo = st.slideNo; perf.slideSong = st.song;
+  let el = lines[pick];
+  const block = el.closest('.cblock'); if (block && block.querySelector('.cl') === el) el = block;   // first line of a section: show its heading too
+  const body = $('#vBody'), top = body.getBoundingClientRect().top + perfTopInset() + 8;
+  perfGlide(body.scrollTop + el.getBoundingClientRect().top - top);
+}
 
 // ------------------------------------------------------------------ sheet music viewer
 let viewing = null, vSheet = null, zoom = 1;
@@ -2465,7 +2688,7 @@ function closeViewer() {
   if (N && N.keepScreenOn) N.keepScreenOn(false);
 }
 $('#vClose').onclick = closeViewer;
-$('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (!b) return; perfDetach(); viewerMode = /^Chords/.test(b.dataset.g) ? 'chords' : 'sheet'; showSheetGroup(b.dataset.g); });
+$('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (!b) return; perfDetach(true); viewerMode = /^Chords/.test(b.dataset.g) ? 'chords' : 'sheet'; showSheetGroup(b.dataset.g); });
 $('#vPlay').onclick = () => {
   if (!viewing || !viewing.parts.length) return;
   if (now && viewing.parts.includes(now.part)) return togglePlay();
@@ -2527,7 +2750,7 @@ $('#zOut').onclick = () => setZoom(zoom / 1.5);
 })();
 function viewerStep(d) {
   if (!viewerList || !viewing) return;
-  perfDetach();
+  perfDetach(true);
   const i = viewerList.indexOf(viewing), next = viewerList[i + d];
   if (!next) return toast(d > 0 ? 'Last song in the list' : 'First song in the list', 1500);
   const pane = $('#vBody');
@@ -2740,6 +2963,7 @@ function renderNoteSongs() {
   }).join('') : `<div class="empty" style="padding:22px"><b>No songs yet</b>Tap “+ Add songs”, then tap + next to each song.</div>`;
   $('#notePlay').disabled = !n.songs.some(r => (songIndex.get(r.key) || {}).parts?.length);
   $('#noteChords').style.display = n.songs.some(r => (songIndex.get(r.key) || {}).chords?.length) ? '' : 'none';
+  $('#notePresent').style.display = !(window.Native && window.Native.isAndroid) && n.songs.some(r => (songIndex.get(r.key) || {}).slides?.length) ? '' : 'none';
   $('#noteDelete').style.display = n.isNew || !canEditList(n) ? 'none' : '';
   $('#noteEdit').style.display = canEditList(n) ? '' : 'none';
   $('#noteShare').style.display = !n.isNew && (isMine(n) || meUser().admin) ? '' : 'none';
@@ -3142,6 +3366,7 @@ window.handleBack = () => {
   if ($('#pipeBox').classList.contains('show')) { closePipe(); return true; }
   if ($('#arrBox').classList.contains('show')) { closeArrange(); return true; }
   if ($('#perfBox').classList.contains('show')) { closePerfJoin(); return true; }
+  if (pr) { $('#prExit').click(); return true; }
   if (viewing) { closeViewer(); return true; }
   if ($('#wheelBox').classList.contains('show')) { closeWheel(); return true; }
   if ($('#usersPanel').classList.contains('show')) { closePanel('usersPanel'); return true; }
