@@ -2201,7 +2201,8 @@ function perfState() {
   if (pr) {   // presenting: musicians follow the song (and the words on the projector); their key and scrolling stay their own
     const s = pr.songs[pr.si];
     return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
-      slideNo: pr.slide, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || '') });
+      slideNo: pr.slide, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || ''),
+      slideSection: pr.blank ? '' : ((pr.deck && pr.deck.sections && pr.deck.sections[pr.slide]) || '') });
   }
   if (!viewing) { st.closed = 1; return st; }
   Object.assign(st, { song: viewing.key, list: viewerList ? viewerList.map(x => x.key) : null, group: vSheet, mode: viewerMode, view: chordView,
@@ -2316,7 +2317,7 @@ function perfShow(st) {
     renderViewerKey(); render(); if (now && now.song === s) applyShift();
     return;
   }
-  if (st.presenter) { if (st.slideNo !== perf.lastSlideNo || st.slideText !== perf.lastSlideText) { perf.lastSlideNo = st.slideNo; perf.lastSlideText = st.slideText; perfFollowSlide(st); } return; }
+  if (st.presenter) { if (st.slideNo !== perf.lastSlideNo || st.slideText !== perf.lastSlideText || st.slideSection !== perf.lastSlideSection) { perf.lastSlideSection = st.slideSection; perf.lastSlideNo = st.slideNo; perf.lastSlideText = st.slideText; perfFollowSlide(st); } return; }
   perfScrollTo(st.pos);
 }
 // Followers glide to the leader's place instead of jumping: small moves ease in, big ones are capped at a
@@ -2365,7 +2366,7 @@ function perfAfterDraw() {
   if (!perf) return;
   if (perf.role === 'host') return perfSync();
   if (perf.following && perf.pendingPos) { const p = perf.pendingPos; perf.pendingPos = null; requestAnimationFrame(() => perfScrollTo(p, true)); }
-  if (perf.following && perf.pendingSlide) { const st = perf.pendingSlide; perf.pendingSlide = null; perf.slideLine = -1; perf.lastSlideNo = st.slideNo; perf.lastSlideText = st.slideText; requestAnimationFrame(() => perfFollowSlide(st)); }
+  if (perf.following && perf.pendingSlide) { const st = perf.pendingSlide; perf.pendingSlide = null; perf.slideLine = -1; perf.slideBlock = -1; perf.lastSlideNo = st.slideNo; perf.lastSlideText = st.slideText; requestAnimationFrame(() => perfFollowSlide(st)); }
 }
 function perfDetach(hard = false) {
   if (!perf || perf.role !== 'guest' || !perf.following) return;
@@ -2409,7 +2410,7 @@ $('#perfBar').addEventListener('click', async e => {
   else if (b.dataset.p === 'leave') perfLeave();
   else if (b.dataset.p === 'follow') perfFollow();
   else if (b.dataset.p === 'reconnect') perfReconnect();
-  else if (b.dataset.p === 'slides') { followSlides = !followSlides; store.set('followSlides', followSlides); renderPerfBar(); if (followSlides && perf && perf.last) { perf.slideLine = -1; perfFollowSlide(perf.last); } toast(followSlides ? 'Your chords follow the slides' : 'You scroll your own chords', 1800); }
+  else if (b.dataset.p === 'slides') { followSlides = !followSlides; store.set('followSlides', followSlides); renderPerfBar(); if (followSlides && perf && perf.last) { perf.slideLine = -1; perf.slideBlock = -1; perfFollowSlide(perf.last); } toast(followSlides ? 'Your chords follow the slides' : 'You scroll your own chords', 1800); }
 });
 // Connected = a direct link is open, or the server route answered in the last few seconds.
 // Green only while the leader is answering: pings over the direct link, or fresh heartbeats through the server.
@@ -2482,6 +2483,17 @@ async function prPdf() {
   return prPdfLib;
 }
 const prFile = s => s && s.slides && s.slides[0];
+// Which part of the song a slide is: its speaker note ("Verse 1", "Chorus"), or the marker printed on the slide
+// ("1 We Praise Thee O God" = verse 1, "C …" = chorus, "B …" = bridge).
+function slideSection(note, text) {
+  const n = String(note || '').split(/\n/)[0].trim();
+  if (n && n.length <= 30) return n;
+  for (const line of String(text || '').split(/\n/)) {
+    const m = line.trim().match(/^(\d{1,2}|C|R|B|T|E)\s+\S/);
+    if (m) return /^\d/.test(m[1]) ? 'Verse ' + m[1] : { C: 'Chorus', R: 'Chorus', B: 'Bridge', T: 'Tag', E: 'Ending' }[m[1]];
+  }
+  return '';
+}
 // One song's slides: the server sends a PDF (and each slide's words); each page is drawn once as a full-HD picture.
 function prDeck(s) {
   const f = prFile(s); if (!f) return Promise.resolve(null);
@@ -2498,7 +2510,8 @@ function prDeck(s) {
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
       imgs.push(c.toDataURL('image/jpeg', 0.9)); c.width = c.height = 0;
     }
-    return { imgs, texts: r.texts || [] };
+    const texts = r.texts || [], notes = r.notes || [];
+    return { imgs, texts, sections: imgs.map((_, i) => slideSection(notes[i], texts[i])) };
   })();
   pr.decks.set(f.id, p);
   p.catch(() => pr && pr.decks.delete(f.id));
@@ -2560,7 +2573,8 @@ function prRender() {
   $('#prMsg').textContent = cur ? '' : !deck ? 'Getting the slides ready…' : deck.error ? deck.error : `No slides for “${s.title}”. The projector shows the song title.`;
   $('#prMsg').style.display = cur ? 'none' : '';
   document.querySelector('.prstage').classList.toggle('blank', pr.blank);
-  $('#prPos').textContent = n ? `Slide ${pr.slide + 1} of ${n}` : '';
+  const sec = deck && deck.sections && deck.sections[pr.slide];
+  $('#prPos').textContent = n ? `Slide ${pr.slide + 1} of ${n}${sec ? ' · ' + sec : ''}` : '';
   // next slide (or the next song's first)
   let nextImg = deck && deck.imgs[pr.slide + 1], nextMsg = '';
   if (!nextImg) {
@@ -2613,9 +2627,31 @@ $('#notePresent').onclick = () => presentList(editing.songs.map(r => songIndex.g
 // ---- musicians: follow the slides in the chord chart (match the slide's words to a line of the chart)
 let followSlides = store.get('followSlides', true);
 const slideWords = t => normalize(String(t || '').replace(/\s*-\s*/g, '')).split(' ').filter(w => w.length > 1);
+// "Verse 1" on a slide = the chart's "Verse 1" section; "Chorus" = "Chorus" (or "Refrain").
+const secKey = t => normalize(String(t || '')).replace(/\brefrain\b/, 'chorus').replace(/\s+/g, '');
+function perfFollowSection(st) {
+  const blocks = [...document.querySelectorAll('#vPages .chart section.cblock')];
+  if (!blocks.length) return false;
+  const arranged = !!(chordFile && arrFor(chordFile)) && chordView === 'arranged';
+  const auto = !arranged && chordChart ? chartSections(chordChart) : [];
+  const labels = blocks.map((b, i) => { const l = b.querySelector('.clabel'); const a = auto.find(x => x.i === i); return (a && a.label) || (l ? l.textContent : ''); });
+  const want = secKey(st.slideSection), base = want.replace(/\d+$/, '');
+  let cands = labels.map((l, i) => secKey(l) === want ? i : -1).filter(i => i >= 0);
+  if (!cands.length) { const one = labels.map((l, i) => secKey(l) === base ? i : -1).filter(i => i >= 0); if (one.length === 1 && !labels.some(l => secKey(l).startsWith(base) && /\d$/.test(secKey(l)))) cands = one; }
+  if (!cands.length) return false;
+  const last = perf.slideBlock ?? -1, back = (st.slideNo ?? 0) < (perf.slideNo ?? 0) && st.song === perf.slideSong;
+  const pick = (back ? cands.filter(i => i <= last).pop() : cands.find(i => i > last)) ?? (back ? cands[cands.length - 1] : cands[0]);
+  perf.slideBlock = pick; perf.slideNo = st.slideNo; perf.slideSong = st.song;
+  const body = $('#vBody'), top = body.getBoundingClientRect().top + perfTopInset() + 8;
+  perfGlide(body.scrollTop + blocks[pick].getBoundingClientRect().top - top);
+  return true;
+}
 function perfFollowSlide(st) {
-  if (!perf || !followSlides || !st || !st.slideText) return;
+  if (!perf || !followSlides || !st || !(st.slideText || st.slideSection)) return;
   if (!$('#viewer').classList.contains('chordmode')) return;
+  if (!document.querySelector('#vPages .chart')) { perf.pendingSlide = st; return; }
+  if (st.slideSection) { perfFollowSection(st); return; }   // the slide says which part it is: never guess from the words
+  if (!st.slideText) return;
   const lines = [...document.querySelectorAll('#vPages .chart .cl')].filter(el => el.getBoundingClientRect().height);
   if (!lines.length) { perf.pendingSlide = st; return; }
   const want = st.slideText.split(/\n+/).map(slideWords).filter(w => w.length >= 2).slice(0, 2);

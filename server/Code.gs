@@ -122,7 +122,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 19 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 20 }); }
 
 function doPost(e) {
   var d;
@@ -777,19 +777,23 @@ function slideDeck_(d) {
   var folder = folder_('SongPoint slide cache'), name = conv + '.pdf', pdf = null, it = folder.getFilesByName(name);
   while (it.hasNext()) { var f = it.next(); if (!pdf && f.getDateCreated().getTime() >= convFile.getLastUpdated().getTime()) pdf = f; else f.setTrashed(true); }
   if (!pdf) pdf = folder.createFile(convFile.getAs('application/pdf').setName(name));
-  var cacheKey = 'deckText:' + conv + ':' + convFile.getLastUpdated().getTime(), c = CacheService.getScriptCache(), texts = c.get(cacheKey);
-  if (texts) texts = JSON.parse(texts);
+  // Each slide's words and its speaker note (the note names the part: "Verse 1", "Chorus"…)
+  var cacheKey = 'deckInfo:' + conv + ':' + convFile.getLastUpdated().getTime(), c = CacheService.getScriptCache(), info = c.get(cacheKey);
+  if (info) info = JSON.parse(info);
   else {
-    texts = SlidesApp.openById(conv).getSlides().map(function (sl) {
+    info = { texts: [], notes: [] };
+    SlidesApp.openById(conv).getSlides().forEach(function (sl) {
       var out = [];
       sl.getPageElements().forEach(function (el) {
         try { if (el.getPageElementType() === SlidesApp.PageElementType.SHAPE) { var t = el.asShape().getText().asString().trim(); if (t) out.push(t); } } catch (e) {}
       });
-      return out.join('\n');
+      var note = '';
+      try { note = sl.getNotesPage().getSpeakerNotesShape().getText().asString().trim(); } catch (e) {}
+      info.texts.push(out.join('\n')); info.notes.push(note);
     });
-    try { c.put(cacheKey, JSON.stringify(texts), 21600); } catch (e) {}
+    try { c.put(cacheKey, JSON.stringify(info), 21600); } catch (e) {}
   }
-  return { ok: true, texts: texts, pdf: Utilities.base64Encode(pdf.getBlob().getBytes()) };
+  return { ok: true, texts: info.texts, notes: info.notes, pdf: Utilities.base64Encode(pdf.getBlob().getBytes()) };
 }
 
 // ------------------------------------------------------------------ chord sheet uploads
