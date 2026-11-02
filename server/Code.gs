@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 22 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 23 }); }
 
 function doPost(e) {
   var d;
@@ -158,6 +158,7 @@ function handle_(d) {
   if (a === 'finalizeSlides') return finalizeSlides_(me, d);
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
+  if (a === 'getKnown') return { ok: true, known: known_() };
   if (a === 'file') return file_(d);
   if (a === 'slideDeck') return slideDeck_(d);
   if (a === 'chordUpload') return chordUpload_(me, d);
@@ -188,6 +189,7 @@ function handle_(d) {
   if (a === 'getIgnored') return { ok: true, ignored: ignored_() };
   if (a === 'setIgnored') return setIgnored_(me, d);
   if (a === 'setTextDoc') return setTextDoc_(me, d);
+  if (a === 'setKnown') return setKnown_(me, d);
   if (a === 'logRecords') return logRecords_();
   if (a === 'deleteLog') return deleteLog_(me, d);
   return { ok: false, error: 'Unknown action' };
@@ -534,6 +536,26 @@ function setTextDoc_(me, d) {
     if (!d.textDoc && i >= 0) sh.deleteRow(i + 2);
   } finally { lock.releaseLock(); }
   return { ok: true, textDocs: textDocs_() };
+}
+
+/** "Songs we know" changes made in the app (on top of the list built into the app): key -> known yes/no. */
+var KNOWN = 'Known Songs', KHEAD = ['Song', 'Known', 'Title', 'Book', 'Marked by', 'When'];
+function known_() {
+  var sh = tab_(KNOWN, KHEAD), n = sh.getLastRow() - 1, out = {};
+  if (n < 1) return out;
+  sh.getRange(2, 1, n, 2).getValues().forEach(function (r) { if (r[0]) out[String(r[0])] = r[1] === true || r[1] === 'TRUE'; });
+  return out;
+}
+function setKnown_(me, d) {
+  var key = String(d.key || ''); if (!key) return { ok: false, error: 'No song given.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(KNOWN, KHEAD), n = sh.getLastRow() - 1;
+    var keys = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [];
+    var row = [key, !!d.known, String(d.title || ''), String(d.book || ''), me.name || me.username, new Date()], i = keys.indexOf(key);
+    if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
+  } finally { lock.releaseLock(); }
+  return { ok: true, known: known_() };
 }
 
 // ------------------------------------------------------------------ usage records (admins)

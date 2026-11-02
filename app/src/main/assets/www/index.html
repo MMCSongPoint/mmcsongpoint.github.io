@@ -84,6 +84,7 @@
   .meta-bar { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; margin: 10px 2px 10px; gap: 8px; }
   .meta-bar #status { flex: 1; }
   .song.known { box-shadow: inset 4px 0 0 #3fa463; }   /* songs we know well */
+  #rowMenu .ic.known { color: #3fa463; font-weight: 900; }
   .meta-bar select { font-size: 13px; padding: 5px 8px; border-radius: 999px; background: transparent; color: var(--muted); }
   select { background: var(--row); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 13.5px; }
 
@@ -1094,7 +1095,14 @@ const keyList = new Map();
 const bookKey = b => String(b || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const knownSet = new Set();
 for (const b of window.SONGS_KNOWN || []) for (const book of [b.book, ...(b.aka || [])]) for (const n of b.numbers) knownSet.add(bookKey(book) + '|' + n);
-const isKnown = s => !!(s && s.number && knownSet.has(bookKey(s.collection) + '|' + String(s.number).replace(/^0+/, '')));
+let knownEdits = store.get('knownEdits', {});   // marked / unmarked in the app (admins), shared through the server
+const knownBase = s => !!(s && s.number && knownSet.has(bookKey(s.collection) + '|' + String(s.number).replace(/^0+/, '')));
+const isKnown = s => !!s && (s.key in knownEdits ? !!knownEdits[s.key] : knownBase(s));
+function applyKnown(map) {
+  const was = JSON.stringify(knownEdits); knownEdits = map || {}; store.set('knownEdits', knownEdits);
+  if (was !== JSON.stringify(knownEdits)) { if (filterBy === 'known') search(); else render(); }
+}
+async function loadKnown() { try { const r = await api('getKnown'); if (r.ok) applyKnown(r.known); } catch {} }
 // Verse counts from verses.js (by hymn number for SFP, by title for Misc)
 const verseNumbers = new Map(), verseTitles = new Map();
 for (const b of window.SONG_VERSES_BY_NUMBER || []) for (const book of [b.book, ...(b.aka || [])]) for (const n in b.verses) verseNumbers.set(book + '|' + n, b.verses[n]);
@@ -3792,7 +3800,9 @@ const NOTE_NAMES = ['A', 'A♯/B♭', 'B', 'C', 'C♯/D♭', 'D', 'D♯/E♭', '
 const PC = { C: 3, D: 5, E: 7, F: 8, G: 10, A: 0, B: 2 };          // index into NOTE_NAMES
 // Songs admins marked "Text doc" on the Library check screen: no key button, no MP3/key expected.
 let textDocs = new Set(store.get('textDocs', []));
-const isTextDoc = s => textDocs.has(s.key);
+// Songs of Faith and Praise songs with no MP3 are always text docs (readings etc.); others are marked by admins.
+const autoTextDoc = s => !!s && !s.parts.length && ['sfp', 'songsoffaithandpraise'].includes(bookKey(s.collection));
+const isTextDoc = s => textDocs.has(s.key) || autoTextDoc(s);
 function applyTextDocs(list) {
   const was = [...textDocs].sort().join('|'); textDocs = new Set(list); store.set('textDocs', list);
   if (was !== [...list].sort().join('|')) { render(); if ($('#checkPanel').classList.contains('show')) renderCheck(); }
@@ -3932,6 +3942,7 @@ function openRowMenu(s, btn) {
     `<button data-m="fav"><span class="ic star">${isFav(s) ? '★' : '☆'}</span>${isFav(s) ? 'Remove from favorites' : 'Add to favorites'}</button>`
     + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (tap to cancel)' : saved ? 'Remove offline copy' : 'Save for offline'}</button>` : '')
     + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Upload a new chord sheet' : 'Upload a chord sheet'}</button>`
+    + (isAdmin() ? `<button data-m="known"><span class="ic known">▍</span>${isKnown(s) ? 'Not a song we know' : 'Mark as a song we know'}</button>` : '')
     + (myLive && !(perf && perf.role === 'host') ? liveBtn(myLive) : '');
   const m = $('#rowMenu'); m.classList.add('show');
   checkMyLive().then(x => { if (rowMenuSong === s && x && !m.querySelector('[data-m=live]') && !(perf && perf.role === 'host')) { m.insertAdjacentHTML('beforeend', liveBtn(x)); placeRowMenu(btn); } });
@@ -3976,6 +3987,14 @@ $('#rowMenu').addEventListener('click', e => {
     renderTabs(); if (collection === '__fav') search(); else render();
   } else if (b.dataset.m === 'dl') toggleDownload(s);
   else if (b.dataset.m === 'live') sendToLive(s);
+  else if (b.dataset.m === 'known') {
+    const on = !isKnown(s), before = knownEdits;
+    knownEdits = Object.assign({}, knownEdits, { [s.key]: on }); store.set('knownEdits', knownEdits);
+    if (filterBy === 'known') search(); else render();
+    toast(on ? `Marked “${s.title}” as a song we know` : `“${s.title}” is no longer marked`);
+    api('setKnown', { key: s.key, known: on, title: s.title, book: s.collection }).then(r => { if (r.ok) applyKnown(r.known); else { applyKnown(before); toast(r.error || 'Couldn\'t save that', 4000); } })
+      .catch(() => { applyKnown(before); toast('Couldn\'t save that. Check your connection.', 4000); });
+  }
   else if (b.dataset.m === 'chords') { chordUploadSong = s; $('#chordFile').value = ''; $('#chordFile').click(); }
 });
 // ---- upload a chord sheet (ChordPro / OnSong / SongSelect .txt) for a song: saved to the Chord Pro folder on Drive
@@ -4351,7 +4370,7 @@ function renderCheck() {
       <div class="ci"><div class="ct">${x.s.number ? `<span class="num">${esc(x.s.number)}</span>` : ''}${esc(x.s.title)}</div>
       <div class="cb">${esc(x.s.collection)}${isTextDoc(x.s) ? ' · <b class="tdoc">Text doc</b>' : ''}</div><div>${x.miss.map(c => `<span class="miss">No ${c.label}</span>`).join('')}</div></div>
       <div class="cbtns"><button class="pbtn ghost" data-ign="${esc(x.s.key)}">${ig ? 'Un-ignore' : 'Ignore'}</button>
-      <button class="pbtn ghost" data-tdoc="${esc(x.s.key)}">${isTextDoc(x.s) ? 'Not text doc' : 'Text doc'}</button></div></div>`; }).join('')
+      ${autoTextDoc(x.s) ? '<span class="m">Text doc (SFP, no MP3)</span>' : `<button class="pbtn ghost" data-tdoc="${esc(x.s.key)}">${isTextDoc(x.s) ? 'Not text doc' : 'Text doc'}</button>`}</div></div>`; }).join('')
       + (rows.length > checkLimit ? `<button class="act" id="checkMore">Show more (${rows.length - checkLimit} left)</button>` : '')
     : '<div class="vmsg">Nothing missing here.</div>');
 }
@@ -4557,6 +4576,7 @@ function startApp(fresh = false) {
     started = true; flushLog();
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
+    if (navigator.onLine && auth.token) loadKnown();
     if (navigator.onLine && auth.token) loadArrangements(true);
     if (navigator.onLine && auth.token) loadLists();
     if (navigator.onLine && auth.token) api('me').then(r => { if (r.ok) { auth.user = r.user; saveAuth(); renderWelcome(); } }).catch(() => {});
