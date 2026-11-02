@@ -181,6 +181,12 @@
   .ccom { font-style: italic; color: var(--muted); margin: .2em 0 .4em; }
   .cblank { height: .7em; }
   .ctab { font-size: .8em; margin: 0; overflow-x: auto; }
+  /* following a leader: just the music (tabs, buttons and song details come back with "Follow leader" off) */
+  .viewer.following .vtabs, .viewer.following .cbar, .viewer.following .cview, .viewer.following .cbody > .cmeta:not(.cfoot), .viewer.following .ctitle { display: none; }
+  .viewer.following .chart { padding-top: 14px; }
+  .showpw { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--muted); margin: 10px 0 2px; cursor: pointer; }
+  .lock .showpw input { width: 18px; height: 18px; padding: 0; margin: 0; accent-color: var(--accent); }
+  .pwrow { display: flex; gap: 6px; align-items: stretch; } .field .pwrow input { flex: 1; width: auto; min-width: 0; } .pwrow .pbtn { padding: 0 14px; font-size: 18px; margin: 0; }
   .perfbar { display: none; align-items: center; gap: 8px; padding: 6px 10px; background: var(--accent); color: #fff; font-size: 13px; }
   .perfbar.show { display: flex; }
   .perfbar .ptxt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -559,6 +565,7 @@
     <input id="lockPw" type="password" placeholder="Password" autocomplete="current-password">
     <input id="lockNew" type="password" placeholder="New password (at least 6 characters)" autocomplete="new-password">
     <input id="lockNew2" type="password" placeholder="Type the new password again" autocomplete="new-password">
+    <label class="showpw"><input type="checkbox" id="lockShow"> Show password</label>
     <button type="submit" id="lockBtn">Sign in</button>
     <button type="button" class="link" id="lockAlt"></button>
     <div class="err" id="lockErr"></div>
@@ -690,6 +697,8 @@
       <b>Add a user</b>
       <label class="field" style="margin-top:10px"><span>Name</span><input id="nuName" placeholder="e.g. Sam Smith" maxlength="40"></label>
       <label class="field"><span>Username (for signing in)</span><input id="nuUser" placeholder="e.g. sam" autocapitalize="none" autocorrect="off" maxlength="30"></label>
+      <label class="field"><span>Password</span><div class="pwrow"><input id="nuPw" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="pbtn ghost" id="nuPwNew" title="Make up a new one" aria-label="Make up a new password">↻</button></div></label>
+      <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" id="nuMust" checked> Ask them to choose their own password the first time they sign in</label>
       <label style="display:flex;align-items:center;gap:8px;margin:0 0 12px"><input type="checkbox" id="nuAdmin"> Admin (can see everyone's usage and manage users)</label>
       <button class="pbtn" id="nuCreate">Add user</button>
     </div>
@@ -2256,6 +2265,7 @@ function perfFollow() {
 function renderPerfBar() {
   const bar = $('#perfBar'), pill = $('#perfPill');
   $('#vPerform').classList.toggle('on', !!perf);
+  $('#viewer').classList.toggle('following', !!perf && perf.role === 'guest' && perf.following);
   if (!perf) { bar.innerHTML = ''; bar.classList.remove('show'); pill.classList.remove('show'); return; }
   let text, btns;
   if (perf.role === 'host') {
@@ -2896,23 +2906,33 @@ async function loadUsers() {
       </div>`).join('');
   } catch (e) { $('#usersList').innerHTML = `<div class="vmsg">${navigator.onLine ? esc(e.message || 'Couldn\'t load users.') : 'Connect to the internet to manage users.'}</div>`; }
 }
-function showTemp(name, username, temp, verb) {
+function showTemp(name, username, temp, verb, must = true) {
   $('#tempBox').style.display = '';
-  $('#tempBox').innerHTML = `<b>${esc(verb)} ${esc(name)}</b><p class="m" style="margin:6px 0 0">Give them these to sign in. They'll pick their own password right away.</p>
-    <div class="temp">Username: ${esc(username)}<br>Password: ${esc(temp)}</div><p class="m" style="margin:0">This temporary password is shown only once.</p>`;
+  $('#tempBox').innerHTML = `<b>${esc(verb)} ${esc(name)}</b><p class="m" style="margin:6px 0 0">Give them these to sign in.${must ? ' They\'ll pick their own password right away.' : ''}</p>
+    <div class="temp">Username: ${esc(username)}<br>Password: ${esc(temp)}</div><p class="m" style="margin:0">This password is shown only once.</p>`;
   $('#usersPanel .pbody').scrollTo(0, 0);
 }
-$('#usersBtn').onclick = () => { closeSheet(); $('#tempBox').style.display = 'none'; openPanel('usersPanel'); loadUsers(); };
+$('#lockShow').onchange = () => ['#lockPw', '#lockNew', '#lockNew2'].forEach(x => { $(x).type = $('#lockShow').checked ? 'text' : 'password'; });
+// A password is filled in for new users (easy to read out); type over it to choose your own.
+function suggestPassword() {
+  const w = ['amen', 'anthem', 'bell', 'choir', 'chord', 'dove', 'grace', 'harp', 'hymn', 'joy', 'lamb', 'light', 'lyre', 'psalm', 'rest', 'river', 'song', 'staff', 'tenor', 'tune', 'verse', 'voice', 'zion'];
+  const a = new Uint32Array(3); crypto.getRandomValues(a);
+  return `${w[a[0] % w.length]}-${w[a[1] % w.length]}-${100 + a[2] % 900}`;
+}
+$('#nuPwNew').onclick = () => { $('#nuPw').value = suggestPassword(); };
+$('#usersBtn').onclick = () => { closeSheet(); $('#tempBox').style.display = 'none'; if (!$('#nuPw').value) $('#nuPw').value = suggestPassword(); openPanel('usersPanel'); loadUsers(); };
 $('#usersRefresh').onclick = loadUsers;
 $('#nuCreate').onclick = async () => {
   const name = $('#nuName').value.trim(), username = $('#nuUser').value.trim().toLowerCase();
+  const password = $('#nuPw').value.trim(), must = $('#nuMust').checked;
   if (!name || !username) return toast('Enter a name and a username');
+  if (password.length < 6) return toast('Passwords need at least 6 characters');
   $('#nuCreate').disabled = true;
   try {
-    const r = await api('createUser', { name, username, admin: $('#nuAdmin').checked });
+    const r = await api('createUser', { name, username, admin: $('#nuAdmin').checked, password, mustChange: must });
     if (!r.ok) return toast(r.error || 'Couldn\'t add that user');
-    $('#nuName').value = $('#nuUser').value = ''; $('#nuAdmin').checked = false;
-    showTemp(name, r.username, r.tempPassword, 'Added'); loadUsers();
+    $('#nuName').value = $('#nuUser').value = ''; $('#nuAdmin').checked = false; $('#nuMust').checked = true; $('#nuPw').value = suggestPassword();
+    showTemp(name, r.username, r.tempPassword || password, 'Added', r.mustChange !== false && must); loadUsers();
   } catch { toast('Connect to the internet to add users'); } finally { $('#nuCreate').disabled = false; }
 };
 $('#usersList').addEventListener('click', async e => {
@@ -2981,7 +3001,8 @@ function showLock(mode = 'signin', msg = '') {
   $('#lockAlt').textContent = mode === 'change' && !(auth.user && auth.user.mustChange) ? 'Cancel' : mode === 'change' ? 'Sign out' : '';
   $('#lockAlt').style.display = $('#lockAlt').textContent ? '' : 'none';
   $('#lockErr').textContent = '';
-  ['#lockPw', '#lockNew', '#lockNew2'].forEach(x => { $(x).value = ''; });
+  ['#lockPw', '#lockNew', '#lockNew2'].forEach(x => { $(x).value = ''; $(x).type = 'password'; });
+  $('#lockShow').checked = false;
   $('#lock').classList.add('show');
   setTimeout(() => (mode === 'setup' ? $('#lockName') : mode === 'change' ? $('#lockPw') : $('#lockUser').value ? $('#lockPw') : $('#lockUser')).focus(), 300);
 }

@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 14 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 15 }); }
 
 function doPost(e) {
   var d;
@@ -217,10 +217,12 @@ function createUser_(d) {
   var username = String(d.username || '').trim().toLowerCase();
   if (!validUsername_(username)) return { ok: false, error: 'Usernames use 2–30 letters, numbers, dots or dashes.' };
   if (findUser_(username)) return { ok: false, error: 'That username is taken.' };
-  var temp = tempPassword_(), salt = newSalt_();
+  var chosen = d.password != null && String(d.password) !== '';
+  if (chosen && !validPassword_(d.password)) return { ok: false, error: 'Passwords need at least 6 characters.' };
+  var temp = chosen ? String(d.password) : tempPassword_(), salt = newSalt_(), must = chosen ? d.mustChange !== false : true;
   saveUser_({ username: username, name: String(d.name || username).trim().slice(0, 40), admin: !!d.admin, salt: salt,
-    hash: hash_(temp, salt), mustChange: true, created: new Date(), lastLogin: '', validAfter: 0, disabled: false });
-  return { ok: true, username: username, tempPassword: temp };
+    hash: hash_(temp, salt), mustChange: must, created: new Date(), lastLogin: '', validAfter: 0, disabled: false });
+  return { ok: true, username: username, tempPassword: chosen ? '' : temp, mustChange: must };
 }
 
 function resetPassword_(d) {
