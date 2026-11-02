@@ -788,6 +788,7 @@
     <button class="pbtn ghost" id="prExit">✕ Exit</button>
     <div class="prtitle"><b id="prTitle">Presenter</b><span id="prSub"></span></div>
     <span class="prcode" id="prCode"></span>
+    <button class="pbtn ghost" id="prOrder" title="Play the slides in the chords' order (the arrangement if the song has one), or as they are in the PowerPoint">Order: Chords</button>
     <button class="pbtn ghost" id="prBlank" title="Black screen (B)">Blank</button>
     <button class="pbtn" id="prProj">Open projector window</button>
   </div>
@@ -2201,7 +2202,7 @@ function perfState() {
   if (pr) {   // presenting: musicians follow the song (and the words on the projector); their key and scrolling stay their own
     const s = pr.songs[pr.si];
     return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
-      slideNo: pr.slide, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || ''),
+      view: 'arranged', slideNo: pr.slide, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || ''),
       slideSection: pr.blank ? '' : ((pr.deck && pr.deck.sections && pr.deck.sections[pr.slide]) || '') });
   }
   if (!viewing) { st.closed = 1; return st; }
@@ -2484,12 +2485,12 @@ async function prPdf() {
 }
 const prFile = s => s && s.slides && s.slides[0];
 // Which part of the song a slide is: its speaker note ("Verse 1", "Chorus"), or the marker printed on the slide
-// ("1 We Praise Thee O God" = verse 1, "C …" = chorus, "B …" = bridge).
+// ("1 We Praise Thee O God" = verse 1, "C …" = chorus, "B …" = bridge, "1-2 …" = verse 1's second slide).
 function slideSection(note, text) {
   const n = String(note || '').split(/\n/)[0].trim();
   if (n && n.length <= 30) return n;
   for (const line of String(text || '').split(/\n/)) {
-    const m = line.trim().match(/^(\d{1,2}|C|R|B|T|E)\s+\S/);
+    const m = line.trim().match(/^(\d{1,2}|C|R|B|T|E)(?:[-.]\d{1,2})?\s+\S/);
     if (m) return /^\d/.test(m[1]) ? 'Verse ' + m[1] : { C: 'Chorus', R: 'Chorus', B: 'Bridge', T: 'Tag', E: 'Ending' }[m[1]];
   }
   return '';
@@ -2531,6 +2532,47 @@ async function presentList(list) {
   // get every song's slides ready in the background, in order
   (async () => { for (const s of songsIn) { if (!pr) return; try { await prDeck(s); } catch {} } prRender(); })();
 }
+// The slides play in the same order as the musicians' chords: the song's arrangement if it has one, otherwise the
+// chord chart's own order. Each part's slides are taken once from the PowerPoint ("Verse 1" = its 2 slides) and
+// placed where that part comes in the chords, so a chorus written once after verse 1 is shown once, after verse 1.
+// Parts the chords don't have stay next to the part they followed in the PowerPoint. "PowerPoint order" turns it off.
+let prOrderMode = store.get('prOrder', 'chords');
+function prArrFor(s, f) {
+  const a = arrangements.get(f.id); if (a) return a;
+  let best = null; for (const x of arrangements.values()) if (x.songKey === s.key && (!best || (x.at || '') > (best.at || ''))) best = x;
+  return best;
+}
+async function prOrdered(s, deck) {
+  const sec = deck.sections || [], plain = Object.assign({}, deck, { order: null, how: '' });
+  if (prOrderMode !== 'chords' || !sec.some(Boolean) || !s.chords || !s.chords.length) return plain;
+  let labels;
+  try {
+    const f = s.chords[0], chart = parseChordPro(await loadChordText(f)), arr = prArrFor(s, f);
+    labels = (arr ? resolveOrder(chart, arr.order) : chartSections(chart)).map(x => x.label);
+    plain.how = arr ? 'arranged' : 'chords';
+  } catch { return plain; }
+  // the slides of each part: its first run in the PowerPoint
+  const runs = [], byKey = new Map();
+  sec.forEach((l, i) => {
+    const k = secKey(l), last = runs[runs.length - 1];
+    if (last && last.k === k) last.idx.push(i); else { const r = { k, idx: [i] }; runs.push(r); if (k && !byKey.has(k)) byKey.set(k, r); }
+  });
+  const find = l => { const k = secKey(l); if (byKey.has(k)) return byKey.get(k); const base = k.replace(/\d+$/, ''); const c = [...byKey.keys()].filter(x => x.replace(/\d+$/, '') === base); return c.length === 1 ? byKey.get(c[0]) : null; };
+  const out = [], used = new Set();
+  for (const l of labels) { const r = find(l); if (r) { out.push(...r.idx); used.add(r); } }
+  if (!used.size) return plain;
+  // slides before the first part (a title slide) stay first; parts the chords don't have go after the part they followed
+  const lead = runs[0] && !runs[0].k ? runs[0].idx : [];
+  let prevEnd = -1;
+  runs.forEach(r => {
+    if (r === runs[0] && !r.k) return;
+    if (r.k && byKey.get(r.k) !== r) return;   // a repeat (chorus again): placed with its first time
+    if (used.has(r)) { const at = out.indexOf(r.idx[0]); if (at >= 0) prevEnd = at + r.idx.length - 1; return; }
+    out.splice(prevEnd + 1, 0, ...r.idx); used.add(r); prevEnd += r.idx.length;
+  });
+  const order = [...lead.filter(i => !out.includes(i)), ...out];
+  return Object.assign({}, deck, { imgs: order.map(i => deck.imgs[i]), texts: order.map(i => (deck.texts || [])[i]), sections: order.map(i => sec[i]), order, how: plain.how });
+}
 async function prShowSong(si, slide) {
   if (!pr) return;
   pr.si = Math.max(0, Math.min(si, pr.songs.length - 1)); pr.slide = slide; pr.deck = null;
@@ -2539,7 +2581,8 @@ async function prShowSong(si, slide) {
   try {
     const deck = await prDeck(s);
     if (!pr || pr.si !== want) return;
-    pr.deck = deck || { imgs: [], texts: [] };
+    pr.deck = deck ? await prOrdered(s, deck) : { imgs: [], texts: [] };
+    if (!pr || pr.si !== want) return;
     if (pr.slide < 0) pr.slide = Math.max(0, pr.deck.imgs.length - 1);   // came back from the next song: its last slide
     pr.slide = Math.min(pr.slide, Math.max(0, pr.deck.imgs.length - 1));
   } catch (e) { if (pr && pr.si === want) { pr.deck = { imgs: [], texts: [], error: e.message }; } }
@@ -2568,6 +2611,7 @@ function prRender() {
   $('#prSub').textContent = ` · song ${pr.si + 1} of ${pr.songs.length}`;
   $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size ? ` · ${perf.peers.size + perf.relayers.size} following` : ''}` : '';
   $('#prBlank').classList.toggle('on', pr.blank);
+  $('#prOrder').textContent = prOrderMode === 'chords' ? (deck && deck.how === 'arranged' ? 'Order: Arranged' : 'Order: Chords') : 'Order: PowerPoint';
   const cur = deck && deck.imgs[pr.slide];
   $('#prCur').src = cur || ''; $('#prCur').style.display = cur ? '' : 'none';
   $('#prMsg').textContent = cur ? '' : !deck ? 'Getting the slides ready…' : deck.error ? deck.error : `No slides for “${s.title}”. The projector shows the song title.`;
@@ -2599,6 +2643,10 @@ function prExit() {
 $('#prExit').onclick = async () => { const c = await choose('Stop presenting?', 'The projector goes black and musicians stop following.', [{ label: 'Stop', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]); if (c === 'go') prExit(); };
 $('#prNext').onclick = () => prStep(1);
 $('#prPrev').onclick = () => prStep(-1);
+$('#prOrder').onclick = () => {
+  prOrderMode = prOrderMode === 'chords' ? 'slides' : 'chords'; store.set('prOrder', prOrderMode);
+  if (pr) prShowSong(pr.si, 0);
+};
 $('#prBlank').onclick = () => { if (!pr) return; pr.blank = !pr.blank; prRender(); };
 $('#prProj').onclick = () => {
   const w = window.open('projector.html', 'songpoint-projector', 'popup,width=960,height=540');
@@ -2639,9 +2687,11 @@ function perfFollowSection(st) {
   let cands = labels.map((l, i) => secKey(l) === want ? i : -1).filter(i => i >= 0);
   if (!cands.length) { const one = labels.map((l, i) => secKey(l) === base ? i : -1).filter(i => i >= 0); if (one.length === 1 && !labels.some(l => secKey(l).startsWith(base) && /\d$/.test(secKey(l)))) cands = one; }
   if (!cands.length) return false;
+  // another slide of the part already showing: stay put (the top of the part stays at the top)
+  if (st.song === perf.slideSong && perf.slideKey === want && perf.slideBlock != null && cands.includes(perf.slideBlock)) { perf.slideNo = st.slideNo; return true; }
   const last = perf.slideBlock ?? -1, back = (st.slideNo ?? 0) < (perf.slideNo ?? 0) && st.song === perf.slideSong;
   const pick = (back ? cands.filter(i => i <= last).pop() : cands.find(i => i > last)) ?? (back ? cands[cands.length - 1] : cands[0]);
-  perf.slideBlock = pick; perf.slideNo = st.slideNo; perf.slideSong = st.song;
+  perf.slideBlock = pick; perf.slideNo = st.slideNo; perf.slideSong = st.song; perf.slideKey = want;
   const body = $('#vBody'), top = body.getBoundingClientRect().top + perfTopInset() + 8;
   perfGlide(body.scrollTop + blocks[pick].getBoundingClientRect().top - top);
   return true;
