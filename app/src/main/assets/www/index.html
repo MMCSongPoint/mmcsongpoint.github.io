@@ -237,7 +237,7 @@
   /* "View Slides": the slide on the projector fills the screen below the following bar (for singers on stage) */
   .slidepip { display: none; position: fixed; left: 0; right: 0; bottom: 0; top: 0; z-index: 60; background: #000; place-items: center; overflow: hidden; }
   .slidepip.show { display: grid; }
-  .slidepip img { width: 100%; height: 100%; object-fit: contain; }
+  .slidepip img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }   /* whole slide, letterboxed */
   .slidepip .spmsg { color: #aaa; font-size: 18px; padding: 16px; text-align: center; }
   .pdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
   .pdot.ok { background: #3ddc84; } .pdot.bad { background: #ff4d4d; }
