@@ -181,6 +181,16 @@
   .ccom { font-style: italic; color: var(--muted); margin: .2em 0 .4em; }
   .cblank { height: .7em; }
   .ctab { font-size: .8em; margin: 0; overflow-x: auto; }
+  .perfbar { display: none; align-items: center; gap: 8px; padding: 6px 10px; background: var(--accent); color: #fff; font-size: 13px; }
+  .perfbar.show { display: flex; }
+  .perfbar .ptxt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .perfbar .pcode { font-size: 15px; letter-spacing: .08em; }
+  .perfbar button { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 8px; height: 30px; padding: 0 10px; font-weight: 700; font-size: 13px; }
+  .perfbar button.on { background: #fff; color: var(--accent); }
+  #vPerform.on { color: var(--accent-text); }
+  .perfcode { width: 100%; box-sizing: border-box; font-size: 34px; letter-spacing: .4em; text-align: center; padding: 10px 0 10px .4em; margin: 4px 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-weight: 800; }
+  .perfpill { position: fixed; z-index: 70; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: none; background: var(--accent); color: #fff; border: none; border-radius: 99px; padding: 7px 14px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+  .perfpill.show { display: block; }
   .cview { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 8px; font-size: 14px; }
   .cview button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; height: 32px; padding: 0 10px; font-weight: 700; font-size: 14px; }
   .cview .seg button { border-radius: 0; } .cview .seg button:first-child { border-radius: 8px 0 0 8px; } .cview .seg button:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
@@ -530,8 +540,10 @@
     <div class="info"><div class="title" id="vTitle"></div><div class="sub" id="vSub"></div></div>
     <span id="vKey"></span>
     <button class="icon" id="vDownload" aria-label="Download" title="Save to this device"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg></button>
+    <button class="icon" id="vPerform" aria-label="Perform" title="Perform: lead other devices, or follow one"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button>
     <button class="icon" id="vPlay" aria-label="Play"></button>
   </div>
+  <div class="perfbar" id="perfBar"></div>
   <div class="vtabs scroller" id="vTabs"></div>
   <div class="vbody" id="vBody"><div class="pages" id="vPages"></div></div>
   <div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div>
@@ -709,12 +721,23 @@
   </div>
 </div>
 
+<div class="wheelbox" id="perfBox">
+  <div class="wheel">
+    <h3>Join a performance</h3>
+    <p>Type the 4-digit code shown on the leader's screen.</p>
+    <input id="perfCode" class="perfcode" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000">
+    <div class="row2"><button class="pbtn ghost" id="perfCancel">Cancel</button><button class="pbtn" id="perfGo">Join</button></div>
+  </div>
+</div>
+<button class="perfpill" id="perfPill"></button>
+
 <!-- Menu (slides in from the right) -->
 <div class="drawer-bg" id="drawerBg"></div>
 <nav class="drawer" id="drawer" aria-label="Menu">
   <div class="dhead"><b>Menu</b><button class="icon" id="drawerClose" aria-label="Close menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
   <button class="ditem" id="dNotes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg>Song Lists</button>
   <button class="ditem" id="dSlides"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4M8 21h8M7 9h6M7 12h10"/></svg>PowerPoints</button>
+  <button class="ditem" id="dPerform"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>Join a performance</button>
   <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
   <button class="ditem" id="dOffline"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Offline songs<small id="dOffCount"></small></button>
   <button class="ditem" id="dSettings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
@@ -1880,7 +1903,7 @@ async function showChords(x) {
     if (chordFile !== x) return;
     chordChart = parseChordPro(text);
     const arr = arrangements.get(x.id);
-    if (arr && chordView === 'arranged') applyArrKey(viewing, arr);
+    if (arr && chordView === 'arranged' && !(perf && perf.role === 'guest' && perf.following)) applyArrKey(viewing, arr);
     drawChords();
     loadArrangements();
   } catch { if (chordFile === x) box.innerHTML = `<div class="vmsg">Couldn't open the chords.${navigator.onLine ? '' : ' You\'re offline.'}</div>`; }
@@ -1914,6 +1937,7 @@ function drawChords() {
     ${m.copyright || m.ccli ? `<div class="cmeta cfoot">${esc([m.copyright ? (/^©/.test(m.copyright) ? '' : '© ') + m.copyright : '', m.ccli ? 'CCLI Song # ' + m.ccli : ''].filter(Boolean).join(' · '))}</div>` : ''}
     </div>
   </div>`;
+  perfAfterDraw();
 }
 function chordStep(d) {
   const s = viewing; if (!s || !chordChart) return;
@@ -1934,6 +1958,7 @@ function afterKeyChange(s) {
 $('#vPages').addEventListener('click', e => {
   const b = e.target.closest('.chart [data-c]'); if (!b) return;
   const c = b.dataset.c;
+  if (['up', 'down', 'reset', 'arranged', 'original'].includes(c)) perfDetach();
   if (c === 'up') chordStep(1); else if (c === 'down') chordStep(-1);
   else if (c === 'reset') { keyOverrides.delete(viewing.key); chordOffset.delete(viewing.key); afterKeyChange(viewing); }
   else if (c === 'small' || c === 'big') { chordSize = Math.max(12, Math.min(34, chordSize + (c === 'big' ? 2 : -2))); store.set('chordSize', chordSize); drawChords(); }
@@ -2008,6 +2033,277 @@ $('#arrRemove').onclick = async () => {
   } catch (e) { toast(e.message || 'Couldn\'t remove it', 4000); }
 };
 
+// ------------------------------------------------------------------ performance mode
+// One device hosts; others join with a 4-digit code and follow its song, key, view and scroll position.
+// The SongPoint server only introduces the devices (WebRTC connection details); then they talk directly over
+// the network. If a direct connection can't be made, followers poll the host's position through the server.
+const PERF_ICE = [{ urls: 'stun:stun.l.google.com:19302' }];
+let perf = null;   // { role: 'host'|'guest', code, peer, ... }
+const pause = ms => new Promise(r => setTimeout(r, ms));
+function waitIce(pc) {
+  return new Promise(res => {
+    if (pc.iceGatheringState === 'complete') return res();
+    const t = setTimeout(res, 2500);
+    pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } });
+  });
+}
+async function perfPollLoop(me) {
+  while (perf === me) {
+    try {
+      if (me.role === 'guest' && me.relay && !me.connected) {
+        const r = await api('perfState', { code: me.code });
+        if (perf !== me) return;
+        if (r.ended) return perfLeave('The leader ended the session');
+        if (r.state) perfApply(r.state);
+      }
+      const due = me.role === 'host' || !me.connected || Date.now() - (me.lastPoll || 0) > 15000;
+      if (due) {
+        me.lastPoll = Date.now();
+        const r = await api('perfPoll', { code: me.code, peer: me.peer });
+        if (perf !== me) return;
+        if (r.ended) { if (me.role === 'guest') return perfLeave('The leader ended the session'); return perfStop(true); }
+        for (const m of r.msgs || []) await (me.role === 'host' ? perfHostMsg(me, m) : perfGuestMsg(me, m));
+      }
+    } catch {}
+    await pause(me.role === 'host' ? 2500 : me.relay && !me.connected ? 1200 : 1500);
+  }
+}
+// ---- host
+async function perfHostStart() {
+  if (!viewing) return toast('Open a song first');
+  if (!navigator.onLine) return toast('Connect to the internet to start');
+  if (!window.RTCPeerConnection) toast('This device can only lead through the server (slower)', 3500);
+  const r = await api('perfHost').catch(() => ({}));
+  if (!r.ok) return toast(r.error || 'Couldn\'t start a session', 4000);
+  perf = { role: 'host', code: r.code, peer: r.peer, peers: new Map(), relayers: new Set(), seq: 0 };
+  renderPerfBar(); perfSync(); perfPollLoop(perf);
+}
+async function perfHostMsg(me, m) {
+  if (m.type === 'offer' && window.RTCPeerConnection) {
+    const old = me.peers.get(m.from); if (old) try { old.pc.close(); } catch {}
+    const pc = new RTCPeerConnection({ iceServers: PERF_ICE }), entry = { pc, dc: null, name: m.name || 'Someone' };
+    me.peers.set(m.from, entry);
+    pc.ondatachannel = e => {
+      entry.dc = e.channel;
+      entry.dc.onopen = () => { if (perf !== me) return; me.relayers.delete(m.from); try { entry.dc.send(JSON.stringify(perfState())); } catch {} renderPerfBar(); };
+      entry.dc.onclose = () => { if (me.peers.get(m.from) === entry) me.peers.delete(m.from); renderPerfBar(); };
+    };
+    pc.onconnectionstatechange = () => { if (/failed|closed/.test(pc.connectionState) && me.peers.get(m.from) === entry) { me.peers.delete(m.from); renderPerfBar(); } };
+    try {
+      await pc.setRemoteDescription(m.sdp);
+      await pc.setLocalDescription(await pc.createAnswer());
+      await waitIce(pc);
+      await api('perfSend', { code: me.code, to: m.from, msg: { type: 'answer', sdp: pc.localDescription } });
+    } catch {}
+  } else if (m.type === 'relay') { me.relayers.add(m.from); me.names = me.names || {}; me.names[m.from] = m.name; renderPerfBar(); perfRelayPush(true); }
+  else if (m.type === 'bye') { const e = me.peers.get(m.from); if (e) try { e.pc.close(); } catch {} me.peers.delete(m.from); me.relayers.delete(m.from); renderPerfBar(); }
+}
+function perfAnchorEls() { return [...document.querySelectorAll('#vPages .chart .clabel, #vPages .chart .cl, #vPages .chart .ccom, #vPages .chart .ctab, #vPages .chart .cblank')]; }
+const perfTopInset = () => { const b = document.querySelector('#vPages .cbar'); return b ? b.offsetHeight : 0; };
+// Where the host is: the line at the top of the screen (so different screen and text sizes still line up)
+function perfAnchor() {
+  const body = $('#vBody'), max = body.scrollHeight - body.clientHeight;
+  if (body.scrollTop <= 2) return { top: 1 };
+  if (body.scrollTop >= max - 2) return { end: 1 };
+  if (!$('#viewer').classList.contains('chordmode')) return { r: body.scrollTop / Math.max(1, max) };
+  const top = body.getBoundingClientRect().top + perfTopInset(), els = perfAnchorEls();
+  for (let i = 0; i < els.length; i++) { const r = els[i].getBoundingClientRect(); if (r.height && r.bottom > top) return { ln: i, f: +Math.max(0, (top - r.top) / r.height).toFixed(3) }; }
+  return { top: 1 };
+}
+function perfState() {
+  const st = { t: 'state', seq: ++perf.seq, host: userName() };
+  if (!viewing) { st.closed = 1; return st; }
+  Object.assign(st, { song: viewing.key, list: viewerList ? viewerList.map(x => x.key) : null, group: vSheet, mode: viewerMode, view: chordView,
+    keyP: keyOverrides.has(viewing.key) ? keyOverrides.get(viewing.key) : null, off: chordOffset.get(viewing.key) || 0, pos: perfAnchor() });
+  return st;
+}
+let perfSyncT = null, perfSyncLast = 0;
+function perfSync() {
+  if (!perf || perf.role !== 'host') return;
+  const go = () => {
+    perfSyncLast = Date.now(); perfSyncT = null;
+    const msg = JSON.stringify(perfState());
+    for (const e of perf.peers.values()) if (e.dc && e.dc.readyState === 'open') try { e.dc.send(msg); } catch {}
+    perfRelayPush();
+  };
+  if (perfSyncT) return;
+  const wait = Math.max(0, 80 - (Date.now() - perfSyncLast));
+  if (!wait) go(); else perfSyncT = setTimeout(go, wait);
+}
+let perfRelayT = null;
+function perfRelayPush(now = false) {
+  if (!perf || perf.role !== 'host' || !perf.relayers.size) return;
+  clearTimeout(perfRelayT);
+  perfRelayT = setTimeout(() => { if (perf && perf.role === 'host') api('perfState', { code: perf.code, state: perfState() }).catch(() => {}); }, now ? 0 : 700);
+}
+async function perfStop(silent = false) {
+  const me = perf; if (!me) return;
+  perf = null;
+  if (me.role === 'host') {
+    const bye = JSON.stringify({ t: 'end' });
+    for (const e of me.peers.values()) { try { e.dc && e.dc.send(bye); } catch {} try { e.pc.close(); } catch {} }
+    if (!silent) api('perfEnd', { code: me.code }).catch(() => {});
+  }
+  renderPerfBar();
+}
+// ---- guest
+async function perfJoin(code) {
+  if (!navigator.onLine) return toast('Connect to the internet to join');
+  const r = await api('perfJoin', { code }).catch(() => ({}));
+  if (!r.ok) return toast(r.error || 'Couldn\'t join', 4500);
+  if (perf) await perfLeave();
+  perf = { role: 'guest', code: r.code, peer: r.peer, hostPeer: r.hostPeer, hostName: r.host, following: true, relay: !window.RTCPeerConnection, connected: false, seq: -1 };
+  loadArrangements(true);
+  toast(`Joined ${r.host}'s session. Waiting for the leader…`, 3000);
+  renderPerfBar(); perfPollLoop(perf);
+  if (window.RTCPeerConnection) perfConnect(perf);
+  else api('perfSend', { code: perf.code, to: perf.hostPeer, msg: { type: 'relay', from: perf.peer, name: userName() } }).catch(() => {});
+}
+async function perfConnect(me) {
+  if (perf !== me) return;
+  me.connected = false;
+  const pc = new RTCPeerConnection({ iceServers: PERF_ICE }), dc = pc.createDataChannel('perf');
+  me.pc = pc; me.dc = dc;
+  dc.onopen = () => { if (perf !== me || me.pc !== pc) return; me.connected = true; me.relay = false; renderPerfBar(); };
+  dc.onmessage = e => { if (perf === me) try { perfApply(JSON.parse(e.data)); } catch {} };
+  dc.onclose = () => {
+    if (perf !== me || me.pc !== pc) return;
+    me.connected = false; renderPerfBar();
+    setTimeout(() => perfConnect(me), 2500);                       // try to reconnect (e.g. after the screen slept)
+  };
+  try {
+    await pc.setLocalDescription(await pc.createOffer());
+    await waitIce(pc);
+    await api('perfSend', { code: me.code, to: me.hostPeer, msg: { type: 'offer', from: me.peer, name: userName(), sdp: pc.localDescription } });
+  } catch {}
+  setTimeout(() => {                                               // no direct connection: follow through the server instead
+    if (perf === me && me.pc === pc && !me.connected && !me.relay) {
+      me.relay = true; renderPerfBar();
+      api('perfSend', { code: me.code, to: me.hostPeer, msg: { type: 'relay', from: me.peer, name: userName() } }).catch(() => {});
+    }
+  }, 12000);
+}
+function perfGuestMsg(me, m) { if (m.type === 'answer' && me.pc && me.pc.signalingState === 'have-local-offer') return me.pc.setRemoteDescription(m.sdp).catch(() => {}); }
+async function perfLeave(msg) {
+  const me = perf; if (!me) return;
+  perf = null;
+  if (me.role === 'guest') {
+    try { me.pc && me.pc.close(); } catch {}
+    if (!msg) api('perfSend', { code: me.code, to: me.hostPeer, msg: { type: 'bye', from: me.peer } }).catch(() => {});
+  }
+  if (msg) toast(msg, 3500);
+  renderPerfBar();
+}
+function perfApply(st) {
+  if (!perf || perf.role !== 'guest') return;
+  if (st.t === 'end') return perfLeave('The leader ended the session');
+  if (st.t !== 'state' || st.seq <= perf.seq) return;
+  perf.seq = st.seq; perf.last = st;
+  if (perf.following) perfShow(st);
+}
+function perfShow(st) {
+  if (!st || st.closed) return;
+  const s = songIndex.get(st.song);
+  if (!s) { if (perf.missing !== st.song) { perf.missing = st.song; toast('The leader\'s song isn\'t in your library yet. Pull down to refresh.', 4000); } return; }
+  const sig = [st.song, st.group, st.view, st.keyP, st.off].join('|');
+  if (sig !== perf.sig) {
+    perf.sig = sig;
+    if (st.keyP == null) keyOverrides.delete(s.key); else keyOverrides.set(s.key, st.keyP);
+    if (st.off) chordOffset.set(s.key, st.off); else chordOffset.delete(s.key);
+    chordView = st.view || chordView;
+    perf.pendingPos = st.pos;
+    const list = st.list ? st.list.map(k => songIndex.get(k)).filter(Boolean) : null;
+    if (viewing !== s || !$('#viewer').classList.contains('show')) openViewer(s, true, list, st.mode);
+    else if (st.group && vSheet !== st.group) showSheetGroup(st.group);
+    else if ($('#viewer').classList.contains('chordmode')) drawChords();
+    if (st.group && vSheet !== st.group) showSheetGroup(st.group);
+    renderViewerKey(); render(); if (now && now.song === s) applyShift();
+    return;
+  }
+  perfScrollTo(st.pos);
+}
+function perfScrollTo(pos) {
+  if (!pos || !perf) return;
+  const body = $('#vBody');
+  if (!document.querySelector('#vPages .chart, #vPages img, #vPages .vmsg')) { perf.pendingPos = pos; return; }
+  perf.selfScroll = Date.now();
+  if (pos.top) body.scrollTop = 0;
+  else if (pos.end) body.scrollTop = body.scrollHeight;
+  else if (pos.r != null) body.scrollTop = pos.r * (body.scrollHeight - body.clientHeight);
+  else {
+    const els = perfAnchorEls(); let i = pos.ln;
+    while (i < els.length && !els[i].getBoundingClientRect().height) i++;
+    const el = els[i]; if (!el) { perf.pendingPos = pos; return; }
+    const r = el.getBoundingClientRect(), top = body.getBoundingClientRect().top + perfTopInset();
+    body.scrollTop += (r.top + pos.f * r.height) - top;
+  }
+}
+// After the chart or sheet music is drawn: the host tells everyone; a follower moves to the host's place.
+function perfAfterDraw() {
+  if (!perf) return;
+  if (perf.role === 'host') return perfSync();
+  if (perf.following && perf.pendingPos) { const p = perf.pendingPos; perf.pendingPos = null; requestAnimationFrame(() => perfScrollTo(p)); }
+}
+function perfDetach() {
+  if (!perf || perf.role !== 'guest' || !perf.following) return;
+  perf.following = false; renderPerfBar();
+}
+function perfFollow() {
+  if (!perf || perf.role !== 'guest') return;
+  perf.following = true; perf.sig = null; renderPerfBar();
+  if (perf.last) perfShow(perf.last);
+}
+function renderPerfBar() {
+  const bar = $('#perfBar'), pill = $('#perfPill');
+  $('#vPerform').classList.toggle('on', !!perf);
+  if (!perf) { bar.innerHTML = ''; bar.classList.remove('show'); pill.classList.remove('show'); return; }
+  let text, btns;
+  if (perf.role === 'host') {
+    const n = perf.peers.size + perf.relayers.size;
+    const names = [...perf.peers.values()].filter(e => e.dc && e.dc.readyState === 'open').map(e => e.name);
+    text = `<b>Leading</b> · code <b class="pcode">${esc(perf.code)}</b> · ${n ? `${n} following${names.length ? ': ' + esc(names.join(', ')) : ''}` : 'waiting for others to join'}`;
+    btns = '<button data-p="end">End</button>';
+  } else {
+    const how = perf.connected ? '' : perf.relay ? ' · through the server' : ' · connecting…';
+    text = `<b>Following ${esc(perf.hostName)}</b> · ${esc(perf.code)}${how}`;
+    btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow leader</button>') + '<button data-p="leave">Leave</button>';
+  }
+  bar.innerHTML = `<span class="ptxt">${text}</span>${btns}`;
+  bar.classList.add('show');
+  pill.textContent = perf.role === 'host' ? `● Leading · ${perf.code}` : `● Following ${perf.hostName}`;
+  pill.classList.toggle('show', !viewing);
+}
+$('#perfBar').addEventListener('click', async e => {
+  const b = e.target.closest('[data-p]'); if (!b) return;
+  if (b.dataset.p === 'end') { const c = await choose('End the session?', 'Everyone following will stop following.', [{ label: 'End', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]); if (c === 'go') perfStop(); }
+  else if (b.dataset.p === 'leave') perfLeave();
+  else if (b.dataset.p === 'follow') perfFollow();
+});
+$('#perfPill').onclick = () => {
+  if (!perf) return;
+  if (perf.role === 'guest') { perfFollow(); if (!viewing) toast('Waiting for the leader to open a song…'); }
+  else toast('Open a song to lead. To end the session, tap End at the top of a song.', 3500);
+};
+function openPerfJoin() { $('#perfCode').value = ''; $('#perfBox').classList.add('show'); setTimeout(() => $('#perfCode').focus(), 50); }
+function closePerfJoin() { $('#perfBox').classList.remove('show'); }
+$('#perfCancel').onclick = closePerfJoin;
+$('#perfBox').addEventListener('click', e => { if (e.target.id === 'perfBox') closePerfJoin(); });
+$('#perfGo').onclick = () => { const c = $('#perfCode').value.replace(/\D/g, ''); if (c.length !== 4) return toast('Enter the 4-digit code'); closePerfJoin(); perfJoin(c); };
+$('#perfCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#perfGo').click(); });
+$('#vPerform').onclick = async () => {
+  if (perf) {
+    if (perf.role === 'host') return $('#perfBar [data-p=end]').click();
+    return perfLeave();
+  }
+  const c = await choose('Perform', 'Lead: other devices follow your song, key and scrolling. Follow: join someone who is leading.',
+    [{ label: 'Lead from this device', value: 'host', primary: true }, { label: 'Follow someone', value: 'join' }, { label: 'Cancel', value: 'cancel' }]);
+  if (c === 'host') perfHostStart(); else if (c === 'join') openPerfJoin();
+};
+$('#dPerform').onclick = () => { closeDrawer(); if (perf && perf.role === 'guest') return perfFollow(); openPerfJoin(); };
+// Host: tell followers when scrolling. Follower: touching the screen stops following until "Follow leader".
+$('#vBody').addEventListener('scroll', () => { if (perf && perf.role === 'host') perfSync(); }, { passive: true });
+['touchstart', 'wheel', 'mousedown'].forEach(t => $('#vBody').addEventListener(t, () => perfDetach(), { passive: true }));
+
 // ------------------------------------------------------------------ sheet music viewer
 let viewing = null, vSheet = null, zoom = 1;
 let viewerList = null;   // songs (with sheet music) of the song list the viewer was opened from: swipe between them
@@ -2072,6 +2368,7 @@ function showSheetGroup(label) {
       box.appendChild(img);
     }
   }
+  perfAfterDraw();
 }
 // Save the sheet music being shown (PDF or image) to the device itself.
 async function downloadSheet() {
@@ -2097,10 +2394,11 @@ $('#vDownload').onclick = downloadSheet;
 function closeViewer() {
   viewing = null; vSheet = null; viewerList = null;
   $('#viewer').classList.remove('show'); updatePlayerMode();
+  if (perf) { renderPerfBar(); if (perf.role === 'host') perfSync(); }
   if (N && N.keepScreenOn) N.keepScreenOn(false);
 }
 $('#vClose').onclick = closeViewer;
-$('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (!b) return; viewerMode = /^Chords/.test(b.dataset.g) ? 'chords' : 'sheet'; showSheetGroup(b.dataset.g); });
+$('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (!b) return; perfDetach(); viewerMode = /^Chords/.test(b.dataset.g) ? 'chords' : 'sheet'; showSheetGroup(b.dataset.g); });
 $('#vPlay').onclick = () => {
   if (!viewing || !viewing.parts.length) return;
   if (now && viewing.parts.includes(now.part)) return togglePlay();
@@ -2162,6 +2460,7 @@ $('#zOut').onclick = () => setZoom(zoom / 1.5);
 })();
 function viewerStep(d) {
   if (!viewerList || !viewing) return;
+  perfDetach();
   const i = viewerList.indexOf(viewing), next = viewerList[i + d];
   if (!next) return toast(d > 0 ? 'Last song in the list' : 'First song in the list', 1500);
   const pane = $('#vBody');
@@ -2644,6 +2943,7 @@ window.handleBack = () => {
   if ($('#drawer').classList.contains('show')) { closeDrawer(); return true; }
   if ($('#pipeBox').classList.contains('show')) { closePipe(); return true; }
   if ($('#arrBox').classList.contains('show')) { closeArrange(); return true; }
+  if ($('#perfBox').classList.contains('show')) { closePerfJoin(); return true; }
   if (viewing) { closeViewer(); return true; }
   if ($('#wheelBox').classList.contains('show')) { closeWheel(); return true; }
   if ($('#usersPanel').classList.contains('show')) { closePanel('usersPanel'); return true; }

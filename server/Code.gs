@@ -121,7 +121,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 13 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 14 }); }
 
 function doPost(e) {
   var d;
@@ -153,6 +153,12 @@ function handle_(d) {
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
   if (a === 'file') return file_(d);
+  if (a === 'perfHost') return perfHost_(me);
+  if (a === 'perfJoin') return perfJoin_(d);
+  if (a === 'perfSend') return perfSend_(d);
+  if (a === 'perfPoll') return perfPoll_(d);
+  if (a === 'perfState') return perfState_(d);
+  if (a === 'perfEnd') return perfEnd_(d);
   if (a === 'getArrangements') return { ok: true, arrangements: arrangements_() };
   if (a === 'setArrangement') return setArrangement_(me, d);
   if (a === 'deleteArrangement') return deleteArrangement_(me, d);
@@ -623,3 +629,49 @@ function deleteArrangement_(me, d) {
   } finally { lock.releaseLock(); }
   return { ok: true, arrangements: arrangements_() };
 }
+
+// ------------------------------------------------------------------ performance mode (devices following a host)
+// The server only introduces devices to each other (a short mailbox for connection details), then they talk
+// directly. If a direct connection isn't possible, the host's current position is kept here for them to poll.
+// Everything lives in the script cache and expires on its own (sessions after 6 hours, messages after 10 minutes).
+function pc_() { return CacheService.getScriptCache(); }
+function perfSession_(code) { var v = pc_().get('ps:' + code); return v ? JSON.parse(v) : null; }
+function perfHost_(me) {
+  var c = pc_(), code = '';
+  for (var i = 0; i < 30; i++) { code = String(1000 + Math.floor(Math.random() * 9000)); if (!c.get('ps:' + code)) break; }
+  var s = { host: me.name || me.username, hostPeer: 'h' + Utilities.getUuid().slice(0, 8), at: Date.now() };
+  c.put('ps:' + code, JSON.stringify(s), 21600);
+  return { ok: true, code: code, peer: s.hostPeer };
+}
+function perfJoin_(d) {
+  var code = String(d.code || '').replace(/\D/g, ''), s = perfSession_(code);
+  if (!s) return { ok: false, error: 'No session with that code. Check the number on the host\'s screen.' };
+  return { ok: true, code: code, host: s.host, hostPeer: s.hostPeer, peer: 'p' + Utilities.getUuid().slice(0, 8) };
+}
+function perfSend_(d) {
+  var code = String(d.code || ''), to = String(d.to || ''); if (!perfSession_(code)) return { ok: false, ended: true };
+  var lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    var k = 'pm:' + code + ':' + to, list = JSON.parse(pc_().get(k) || '[]');
+    list.push(d.msg); if (list.length > 20) list = list.slice(-20);
+    pc_().put(k, JSON.stringify(list), 600);
+  } finally { lock.releaseLock(); }
+  return { ok: true };
+}
+function perfPoll_(d) {
+  var code = String(d.code || ''), peer = String(d.peer || '');
+  if (!perfSession_(code)) return { ok: true, ended: true, msgs: [] };
+  var lock = LockService.getScriptLock(); lock.waitLock(10000);
+  var msgs = [];
+  try { var k = 'pm:' + code + ':' + peer; msgs = JSON.parse(pc_().get(k) || '[]'); if (msgs.length) pc_().remove(k); }
+  finally { lock.releaseLock(); }
+  return { ok: true, msgs: msgs };
+}
+function perfState_(d) {
+  var code = String(d.code || '');
+  if (!perfSession_(code)) return { ok: true, ended: true };
+  if (d.state) { pc_().put('pst:' + code, JSON.stringify(d.state), 21600); return { ok: true }; }
+  var v = pc_().get('pst:' + code);
+  return { ok: true, state: v ? JSON.parse(v) : null };
+}
+function perfEnd_(d) { var code = String(d.code || ''); pc_().removeAll(['ps:' + code, 'pst:' + code]); return { ok: true }; }
