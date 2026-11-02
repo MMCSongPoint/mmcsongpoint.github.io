@@ -206,7 +206,7 @@
   .prtitle span { color: #a8989f; font-size: 14px; }
   .prcode { color: #cbbcc2; font-size: 14px; } .prcode b { color: #fff; font-size: 18px; letter-spacing: .08em; }
   #prBlank.on { background: #fff; color: #000; }
-  .prbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px 1fr 260px; gap: 12px; padding: 12px; }
+  .prbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr minmax(300px, .55fr); gap: 12px; padding: 12px; }
   .prsongs { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
   .prsongs button { text-align: left; background: #1b1418; color: #ddd; border: 1px solid #2c2228; border-radius: 8px; padding: 9px 10px; font-size: 14px; }
   .prsongs button span { color: #8c7c84; margin-right: 8px; } .prsongs button small { display: block; color: #e0a040; font-size: 11px; margin-top: 2px; }
@@ -790,7 +790,7 @@
     <span class="prcode" id="prCode"></span>
     <button class="pbtn ghost" id="prOrder" title="Play the slides in the chords' order (the arrangement if the song has one), or as they are in the PowerPoint">Order: Chords</button>
     <button class="pbtn ghost" id="prBlank" title="Black screen (B)">Blank</button>
-    <button class="pbtn" id="prProj">Open projector window</button>
+    <button class="pbtn" id="prProj">Start Slideshow</button>
   </div>
   <div class="prbody">
     <div class="prsongs" id="prSongs"></div>
@@ -2611,6 +2611,7 @@ function prRender() {
   $('#prSub').textContent = ` · song ${pr.si + 1} of ${pr.songs.length}`;
   $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size ? ` · ${perf.peers.size + perf.relayers.size} following` : ''}` : '';
   $('#prBlank').classList.toggle('on', pr.blank);
+  prProjLabel();
   $('#prOrder').textContent = prOrderMode === 'chords' ? (deck && deck.how === 'arranged' ? 'Order: Arranged' : 'Order: Chords') : 'Order: PowerPoint';
   const cur = deck && deck.imgs[pr.slide];
   $('#prCur').src = cur || ''; $('#prCur').style.display = cur ? '' : 'none';
@@ -2635,7 +2636,7 @@ function prRender() {
 }
 function prExit() {
   if (!pr) return;
-  if (prChannel) prChannel.postMessage({ t: 'blank' });
+  prCloseProj();
   pr = null; $('#presenter').classList.remove('show');
   if (N && N.keepScreenOn) N.keepScreenOn(false);
   if (perf && perf.role === 'host') perfStop();
@@ -2652,7 +2653,7 @@ $('#prBlank').onclick = () => { if (!pr) return; pr.blank = !pr.blank; prRender(
 // windows on all your displays". Browsers only allow full screen right after a click or key press, so the projector
 // goes full screen with the press of "Open projector window" when it can, otherwise with your next key or click in
 // the presenter (Next, a clicker, a foot pedal…).
-let prWin = null, prFull = false;
+let prWin = null, prFull = false, prSeen = false;   // prSeen: a projector window said hello (e.g. after the presenter reloaded)
 async function prOtherScreen(ask) {
   try {
     if (!('getScreenDetails' in window)) return null;
@@ -2662,12 +2663,20 @@ async function prOtherScreen(ask) {
   } catch { return null; }
 }
 const prPlace = x => x ? `,left=${x.availLeft},top=${x.availTop},width=${x.availWidth},height=${x.availHeight}` : ',width=960,height=540';
+function prProjOpen() { return !!(prWin && !prWin.closed) || prSeen; }
+function prProjLabel() { $('#prProj').textContent = prProjOpen() ? 'End Slideshow' : 'Start Slideshow'; }
+function prCloseProj() {
+  if (prChannel) prChannel.postMessage({ t: 'close' });
+  try { if (prWin && !prWin.closed) prWin.close(); } catch {}
+  prWin = null; prSeen = false; prFull = false; prProjLabel();
+}
 $('#prProj').onclick = async () => {
+  if (prProjOpen()) return prCloseProj();
   const known = await prOtherScreen(false);   // already allowed: no prompt, so the click still counts
   prFull = false;
   const w = window.open('projector.html', 'songpoint-projector', 'popup,fullscreen' + prPlace(known));
   if (!w) return toast('Allow pop-ups for this site, then try again', 4000);
-  prWin = w;
+  prWin = w; prProjLabel();
   if (!known) {   // first time: ask, then move the window over to the projector
     const x = await prOtherScreen(true);
     if (x) try { w.moveTo(x.availLeft, x.availTop); w.resizeTo(x.availWidth, x.availHeight); } catch {}
@@ -2685,7 +2694,8 @@ $('#prSongs').addEventListener('click', e => { const b = e.target.closest('[data
 $('#prThumbs').addEventListener('click', e => { const im = e.target.closest('[data-i]'); if (im && pr) { pr.slide = +im.dataset.i; pr.blank = false; prRender(); } });
 if (prChannel) prChannel.onmessage = e => {
   const m = e.data || {};
-  if (m.t === 'hello') prSend();
+  if (m.t === 'hello') { prSeen = true; prProjLabel(); prSend(); }
+  else if (m.t === 'bye') { prSeen = false; prFull = false; if (prWin && prWin.closed) prWin = null; setTimeout(prProjLabel, 100); }
   else if (m.t === 'fs') prFull = !!m.on;
   else if (m.t === 'key' && pr) prKey(m.key);
 };

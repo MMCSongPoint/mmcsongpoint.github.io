@@ -28,6 +28,7 @@ ch.onmessage = e => {
   else if (m.t === 'close') window.close();
 };
 ch.postMessage({ t: 'hello' });
+addEventListener('pagehide', () => ch.postMessage({ t: 'bye' }));
 // Full screen. The presenter opens this window on the projector screen and passes on the go-ahead (a click or key
 // press there), or it goes full screen straight away where the browser allows it. Double-click or F works here too.
 async function goFull() { if (!document.fullscreenElement) try { await document.documentElement.requestFullscreen(); } catch (e) {} }
