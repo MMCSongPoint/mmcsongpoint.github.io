@@ -11,6 +11,7 @@ var HEAD = ['Logged at', 'Date used', 'Leader', 'Event', 'Note', 'Note ID', 'Ver
 var UHEAD = ['Username', 'Name', 'Admin', 'Salt', 'Hash', 'Must change password', 'Created', 'Last sign-in',
   'Signed out before', 'Disabled'];
 var ROUNDS = 2000;
+var CHORDS_FOLDER = '1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ';   // Chord Pro (one subfolder per book): uploaded chord sheets go here
 var SHARED_SLIDES_FOLDER = '1A_h83VBsar3VD4j2LQ2js8sbdrBAIGQc';   // built PowerPoints are saved here (PowerPoint Presentations)
 
 // ------------------------------------------------------------------ sheets
@@ -121,7 +122,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 17 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 18 }); }
 
 function doPost(e) {
   var d;
@@ -154,6 +155,7 @@ function handle_(d) {
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
   if (a === 'file') return file_(d);
   if (a === 'slideDeck') return slideDeck_(d);
+  if (a === 'chordUpload') return chordUpload_(me, d);
   if (a === 'listsGet') return listsGet_(me);
   if (a === 'listSave') return listSave_(me, d);
   if (a === 'listDelete') return listDelete_(me, d);
@@ -787,4 +789,23 @@ function slideDeck_(d) {
     try { c.put(cacheKey, JSON.stringify(texts), 21600); } catch (e) {}
   }
   return { ok: true, texts: texts, pdf: Utilities.base64Encode(pdf.getBlob().getBytes()) };
+}
+
+// ------------------------------------------------------------------ chord sheet uploads
+// A signed-in user uploads a ChordPro text file for a song; it is saved in Chord Pro › <book>. A file with the same
+// name is updated in place.
+function chordUpload_(me, d) {
+  var text = String(d.text || '');
+  if (!text.trim() || text.length > 200000) return { ok: false, error: 'That file is empty or too big.' };
+  if (!/\[[A-G][^\]]*\]/.test(text)) return { ok: false, error: 'No [chords] found. Upload a ChordPro chord sheet.' };
+  var book = String(d.book || 'Misc').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'Misc';
+  var name = String(d.name || 'Chord sheet').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (!/\.(cho|chordpro|chopro|crd|pro|onsong|txt)$/i.test(name)) name += '.chordpro';
+  var root = DriveApp.getFolderById(CHORDS_FOLDER), it = root.getFoldersByName(book);
+  var folder = it.hasNext() ? it.next() : root.createFolder(book);
+  var same = folder.getFilesByName(name), f;
+  if (same.hasNext()) { f = same.next(); f.setContent(text); }
+  else f = folder.createFile(name, text, 'text/plain');
+  try { f.setDescription('Uploaded in SongPoint by ' + (me.name || me.username) + ' on ' + new Date().toDateString()); } catch (e) {}
+  return { ok: true, id: f.getId(), name: f.getName(), modified: f.getLastUpdated().toISOString() };
 }

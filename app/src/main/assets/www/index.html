@@ -188,7 +188,7 @@
   .lock .showpw input { width: 18px; height: 18px; padding: 0; margin: 0; accent-color: var(--accent); }
   .pwrow { display: flex; gap: 6px; align-items: stretch; } .field .pwrow input { flex: 1; width: auto; min-width: 0; } .pwrow .pbtn { padding: 0 14px; font-size: 18px; margin: 0; }
   .lbadge { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 99px; font-size: 11px; font-weight: 700; vertical-align: 2px; background: var(--mark); color: var(--accent-text); }
-  .lbadge.off { background: rgba(95, 207, 150, .18); color: var(--ok); }
+  .lbadge.off { background: rgba(95, 207, 150, .18); color: var(--ok); padding: 3px 6px; line-height: 0; vertical-align: 1px; }
   .lbadge.wait { background: rgba(255, 170, 60, .2); color: #e0a040; }
   .lhead { margin: 18px 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .listacts .pbtn.on { border-color: var(--ok); color: var(--ok); }
@@ -775,6 +775,7 @@
   </div>
 </div>
 <button class="perfpill" id="perfPill"></button>
+<input type="file" id="chordFile" accept=".cho,.chordpro,.chopro,.crd,.pro,.onsong,.txt,text/plain" hidden>
 
 <div class="presenter" id="presenter">
   <div class="prhead">
@@ -2924,7 +2925,7 @@ document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closePa
 function renderNotes() {
   const sort = l => [...l].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.updated || 0) - (a.updated || 0));
   const card = n => `<div class="card" data-id="${esc(n.id)}">
-      <div class="t">${esc(n.title || 'Untitled')}${n.shared ? '<span class="lbadge">Shared</span>' : ''}${offlineIds.has(n.id) ? '<span class="lbadge off" title="Kept on this device for offline use">Offline</span>' : ''}${pendingIds.has(n.id) ? '<span class="lbadge wait" title="Will upload when you\'re online">Not uploaded</span>' : ''}</div>
+      <div class="t">${esc(n.title || 'Untitled')}${n.shared ? '<span class="lbadge">Shared</span>' : ''}${offlineIds.has(n.id) ? '<span class="lbadge off" title="Downloaded: kept on this device for offline use" aria-label="Downloaded for offline use"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg></span>' : ''}${pendingIds.has(n.id) ? '<span class="lbadge wait" title="Will upload when you\'re online">Not uploaded</span>' : ''}</div>
       <div class="m">${esc(longDate(n.date))} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}${!isMine(n) && n.ownerName ? ' · by ' + esc(n.ownerName) : n.leader ? ' · ' + esc(n.leader) : ''}</div>
       ${n.songs.length ? `<div class="songsline">${esc(n.songs.map(songLabel).join(' · '))}</div>` : ''}
     </div>`;
@@ -2932,7 +2933,7 @@ function renderNotes() {
   $('#notesList').innerHTML = (mine.length ? mine.map(card).join('') : `<div class="empty"><b>No song lists yet</b>Tap “+ New” to start one for your next time leading.</div>`)
     + (others.length ? `<h4 class="lhead">Shared by others</h4>${others.map(card).join('')}` : '');
   $('#notesInfo').textContent = navigator.onLine
-    ? 'Song lists are saved to the SongPoint server, so they follow you to any device you sign in on. Lists marked Offline are also kept on this device.'
+    ? 'Song lists are saved to the SongPoint server, so they follow you to any device you sign in on. Lists with the ⬇ icon are also downloaded to this device for offline use.'
     : 'You\'re offline: showing the song lists kept on this device.';
 }
 $('#notesList').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) openNote(notes.find(n => n.id === c.dataset.id)); });
@@ -3670,7 +3671,8 @@ function openRowMenu(s, btn) {
   const files = songFiles(s), saved = files.length && files.every(p => downloaded.has(p.id)), busy = files.some(p => downloading.has(p.id));
   $('#rowMenu').innerHTML =
     `<button data-m="fav"><span class="ic star">${isFav(s) ? '★' : '☆'}</span>${isFav(s) ? 'Remove from favorites' : 'Add to favorites'}</button>`
-    + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (tap to cancel)' : saved ? 'Remove offline copy' : 'Save for offline'}</button>` : '');
+    + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (tap to cancel)' : saved ? 'Remove offline copy' : 'Save for offline'}</button>` : '')
+    + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Upload a new chord sheet' : 'Upload a chord sheet'}</button>`;
   const m = $('#rowMenu'); m.classList.add('show');
   const r = btn.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
   m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
@@ -3687,7 +3689,40 @@ $('#rowMenu').addEventListener('click', e => {
     toast(on ? 'Added to favorites' : 'Removed from favorites');
     renderTabs(); if (collection === '__fav') search(); else render();
   } else if (b.dataset.m === 'dl') toggleDownload(s);
+  else if (b.dataset.m === 'chords') { chordUploadSong = s; $('#chordFile').value = ''; $('#chordFile').click(); }
 });
+// ---- upload a chord sheet (ChordPro / OnSong / SongSelect .txt) for a song: saved to the Chord Pro folder on Drive
+let chordUploadSong = null;
+$('#chordFile').onchange = async e => {
+  const f = e.target.files && e.target.files[0], s = chordUploadSong; e.target.value = '';
+  if (!f || !s) return;
+  if (f.size > 200000) return toast('That file is too big for a chord sheet');
+  if (!navigator.onLine) return toast('Connect to the internet to upload');
+  let text = '';
+  try { text = await f.text(); } catch { return toast('Couldn\'t read that file'); }
+  const chart = parseChordPro(text), hasChords = /\[[A-G][^\]]*\]/.test(text);
+  if (!hasChords) return toast('That doesn\'t look like a chord sheet (no [chords] found). Use a ChordPro file.', 4500);
+  const km = (chart.meta.key || '').match(/^[A-G][#b]?m?/), key = km ? km[0] : '';
+  const num = s.number ? String(s.number).padStart(4, '0') + ' ' : '';
+  const name = `${num}${s.title.replace(/[\\/:*?"<>|]+/g, ' ').trim()}${key ? ' - ' + key : ''}.chordpro`;
+  const mismatch = chart.meta.title && normalize(baseTitle(chart.meta.title)) !== normalize(baseTitle(s.title)) && !normalize(chart.meta.title).includes(normalize(baseTitle(s.title)));
+  const c = await choose(`Upload chords for “${s.title}”?`,
+    `${mismatch ? `⚠ This file is titled “${chart.meta.title}”, not “${s.title}”. Make sure it's the right song. ` : ''}${f.name}${chart.meta.title ? ` (${chart.meta.title}${key ? ', key of ' + key : ''})` : ''} will be saved for everyone as “${name}” in Chord Pro › ${s.collection}.${s.chords.length ? ' The current chord sheet stays too; the new one is added as another Chords tab.' : ''}`,
+    [{ label: 'Upload', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]);
+  if (c !== 'go') return;
+  toast('Uploading…', 1500);
+  try {
+    const r = await api('chordUpload', { book: s.collection, name, text });
+    if (!r.ok) return toast(r.error || 'Couldn\'t upload it', 4500);
+    const p = parseChordFile(r.name, true) || { ext: 'chordpro', number: s.number, title: s.title };
+    const entry = { id: r.id, name: r.name, collection: s.collection, number: p.number || s.number || '', title: p.title || s.title, ext: p.ext, modified: r.modified };
+    library.chords = (library.chords || []).filter(x => x.id !== r.id).concat(entry);
+    chordText.clear(); store.set('library', library); buildIndex(); renderTabs(); search();
+    toast(`Chords added to ${s.title}`);
+    const fresh = songIndex.get(s.key) || songs.find(x => x.chords.some(y => y.id === r.id));
+    if (fresh) openViewer(fresh, false, null, 'chords');
+  } catch { toast('Connect to the internet to upload'); }
+};
 
 // ------------------------------------------------------------------ saved PowerPoints (kept on this device)
 const slideDB = () => new Promise((res, rej) => {
