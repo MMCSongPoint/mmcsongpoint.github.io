@@ -83,8 +83,6 @@
   .chip.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight: 600; }
   .meta-bar { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; margin: 10px 2px 10px; gap: 8px; }
   .meta-bar #status { flex: 1; }
-  .listnote { color: var(--muted); font-size: 12.5px; padding: 12px 12px 16px; border-top: 1px solid var(--line); line-height: 1.6; }
-  .listnote b { color: var(--text); font-size: 13px; }
   .closelist { list-style: none; margin: 0; padding: 0; }
   .closelist li { padding: 12px 6px; border-top: 1px solid var(--line); font-size: 16px; }
   .closelist li:first-child { border-top: none; }
@@ -1117,14 +1115,6 @@ function applyKnown(map) {
   const was = JSON.stringify(knownEdits); knownEdits = map || {}; store.set('knownEdits', knownEdits);
   if (was !== JSON.stringify(knownEdits)) { if (filterBy === 'known') search(); else render(); }
 }
-// "Worship Team" tab (known.js): the team's songs, found in the library by title, plus a "Worship Team" Drive folder
-const WT = 'Worship Team', WT_TAB = '__wt';
-const titleVariants = t => { const out = new Set([normalize(t), normalize(baseTitle(t))]); const m = String(t).match(/\(([^)]+)\)/); if (m) out.add(normalize(m[1])); return [...out].filter(Boolean); };
-const wtList = [...new Set(window.WORSHIP_TEAM || [])], wtTitles = new Map();
-for (const t of wtList) for (const v of titleVariants(t)) if (!wtTitles.has(v)) wtTitles.set(v, t);
-const wtOf = s => s.collection === WT ? s.title : (wtTitles.get(normalize(s.title)) || wtTitles.get(normalize(baseTitle(s.title))) || '');
-const inWorshipTeam = s => !!wtOf(s);
-const wtMissing = () => { const have = new Set(songs.map(wtOf).filter(Boolean)); return wtList.filter(t => !have.has(t) && !songs.some(s => s.collection === WT && titleVariants(t).includes(normalize(s.title)))); };
 async function loadKnown() { try { const r = await api('getKnown'); if (r.ok) applyKnown(r.known); } catch {} }
 // Verse counts from verses.js (by hymn number for SFP, by title for Misc)
 const verseNumbers = new Map(), verseTitles = new Map();
@@ -1333,7 +1323,6 @@ function runSearch(q) {
   const words = normalize(q.replace(/#/g, ' ')).split(' ').filter(Boolean);
   let pool = songs;
   if (collection === '__fav') pool = pool.filter(isFav);
-  else if (collection === WT_TAB) pool = pool.filter(inWorshipTeam);
   else if (collection) pool = pool.filter(s => s.collection === collection);
   if (fields.part) pool = pool.filter(s => s.parts.some(p => normalize(p.part).includes(fields.part)));
   if (fields.book) pool = pool.filter(s => normalize(s.collection).includes(fields.book));
@@ -1461,10 +1450,10 @@ function renderTabs() {
   const counts = {};
   for (const s of songs) counts[s.collection] = (counts[s.collection] || 0) + 1;
   const favCount = songs.filter(isFav).length;
-  if (collection && collection !== WT_TAB && !counts[collection]) collection = '';
+  if (collection && !counts[collection]) collection = '';
   const order = store.get('tabOrder', []), rank = c => { const i = order.indexOf(c); return i < 0 ? 999 + library.collections.indexOf(c) : i; };
-  const books = library.collections.filter(c => counts[c] && c !== WT).sort((a, b) => rank(a) - rank(b));
-  const tabs = [['', 'All', songs.length], ...(wtList.length || counts[WT] ? [[WT_TAB, WT, songs.filter(inWorshipTeam).length]] : []), ...books.map(c => [c, c, counts[c]])];
+  const books = library.collections.filter(c => counts[c]).sort((a, b) => rank(a) - rank(b));
+  const tabs = [['', 'All', songs.length], ...books.map(c => [c, c, counts[c]])];
   $('#tabs').innerHTML = tabs.map(([v, label, n]) =>
     `<button class="tab${v === collection ? ' on' : ''}" data-c="${esc(v)}">${esc(label)}<small>${n}</small></button>`).join('');
 }
@@ -1542,8 +1531,6 @@ function render() {
   } else {
     list.innerHTML = results.slice(0, limit).map(({ s, fuzzy }, i) => songRow(s, i, words, fuzzy)).join('') + (results.length > limit ? `<div class="empty" style="padding:18px"><button class="chip" id="moreBtn">Show more (${results.length - limit})</button></div>` : '');
   }
-  if (collection === WT_TAB && !lastQ.trim() && songs.length && wtMissing().length)
-    list.insertAdjacentHTML('beforeend', `<div class="listnote"><b>Not in the library yet</b><br>${esc(wtMissing().join(' · '))}</div>`);
   if ($('#songsPanel').classList.contains('show')) renderSongsPanel();
   if (viewing) renderViewerKey();
   const n = results.length;
