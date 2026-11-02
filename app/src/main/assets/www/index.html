@@ -184,6 +184,13 @@
   /* following a leader: just the music (tabs, buttons and song details come back with "Follow leader" off) */
   .viewer.following .vtabs, .viewer.following .cbar, .viewer.following .cview, .viewer.following .cbody > .cmeta:not(.cfoot), .viewer.following .ctitle { display: none; }
   .viewer.following .chart { padding-top: 14px; }
+  .lock .pwwrap { position: relative; margin-top: 10px; }
+  .lock .pwwrap input { padding-left: 48px; padding-right: 48px; }
+  .lock .eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; margin: 0; padding: 0; background: none; color: var(--muted); display: grid; place-items: center; border-radius: 10px; }
+  .lock .eye .shut, .lock .pwwrap.shown .eye .open { display: none; } .lock .pwwrap.shown .eye .shut { display: block; }
+  .lock button .spin { display: inline-block; width: 16px; height: 16px; margin: 0 10px -3px 0; border: 2.5px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
+  .lock button:disabled { opacity: .9; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .showpw { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--muted); margin: 10px 0 2px; cursor: pointer; }
   .lock .showpw input { width: 18px; height: 18px; padding: 0; margin: 0; accent-color: var(--accent); }
   .pwrow { display: flex; gap: 6px; align-items: stretch; } .field .pwrow input { flex: 1; width: auto; min-width: 0; } .pwrow .pbtn { padding: 0 14px; font-size: 18px; margin: 0; }
@@ -597,10 +604,9 @@
     <p id="lockMsg">Sign in to continue.</p>
     <input id="lockName" type="text" placeholder="Your name (shown on song lists)" autocomplete="name" autocapitalize="words" maxlength="40">
     <input id="lockUser" type="text" placeholder="Username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="30">
-    <input id="lockPw" type="password" placeholder="Password" autocomplete="current-password">
-    <input id="lockNew" type="password" placeholder="New password (at least 6 characters)" autocomplete="new-password">
-    <input id="lockNew2" type="password" placeholder="Type the new password again" autocomplete="new-password">
-    <label class="showpw"><input type="checkbox" id="lockShow"> Show password</label>
+    <div class="pwwrap"><input id="lockPw" type="password" placeholder="Password" autocomplete="current-password"><button type="button" class="eye" tabindex="-1" aria-label="Show password" title="Show password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
+    <div class="pwwrap"><input id="lockNew" type="password" placeholder="New password (at least 6 characters)" autocomplete="new-password"><button type="button" class="eye" tabindex="-1" aria-label="Show password" title="Show password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
+    <div class="pwwrap"><input id="lockNew2" type="password" placeholder="Type the new password again" autocomplete="new-password"><button type="button" class="eye" tabindex="-1" aria-label="Show password" title="Show password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
     <button type="submit" id="lockBtn">Sign in</button>
     <button type="button" class="link" id="lockAlt"></button>
     <div class="err" id="lockErr"></div>
@@ -3312,7 +3318,8 @@ async function loadUsers() {
         <div><div class="t">${esc(u.name)}${u.admin ? '<span class="tag ok">Admin</span>' : ''}${u.disabled ? '<span class="tag">Turned off</span>' : ''}${u.mustChange ? '<span class="tag wait">Temp password</span>' : ''}</div>
         <div class="m">${esc(u.username)} · ${u.lastLogin ? 'last signed in ' + esc(shortDate(u.lastLogin.slice(0, 10))) : 'never signed in'}</div></div>
         <div></div>
-        ${u.username === auth.user.username ? '<div class="acts2"><span class="m">This is you</span></div>' : `<div class="acts2">
+        ${u.username === auth.user.username ? '<div class="acts2"><button class="pbtn ghost" data-a="rename">Change username</button><span class="m">This is you</span></div>' : `<div class="acts2">
+          <button class="pbtn ghost" data-a="rename">Change username</button>
           <button class="pbtn ghost" data-a="reset">Reset password</button>
           <button class="pbtn ghost" data-a="admin">${u.admin ? 'Remove admin' : 'Make admin'}</button>
           <button class="pbtn ghost" data-a="disable">${u.disabled ? 'Turn on' : 'Turn off'}</button></div>`}
@@ -3325,7 +3332,15 @@ function showTemp(name, username, temp, verb, must = true) {
     <div class="temp">Username: ${esc(username)}<br>Password: ${esc(temp)}</div><p class="m" style="margin:0">This password is shown only once.</p>`;
   $('#usersPanel .pbody').scrollTo(0, 0);
 }
-$('#lockShow').onchange = () => ['#lockPw', '#lockNew', '#lockNew2'].forEach(x => { $(x).type = $('#lockShow').checked ? 'text' : 'password'; });
+// The eye in a password box shows / hides what's typed.
+document.querySelectorAll('#lock .eye').forEach(b => {
+  b.addEventListener('pointerdown', e => e.preventDefault());   // keep the keyboard up
+  b.onclick = () => {
+    const w = b.closest('.pwwrap'), input = w.querySelector('input'), on = input.type === 'password';
+    input.type = on ? 'text' : 'password'; w.classList.toggle('shown', on);
+    b.setAttribute('aria-label', on ? 'Hide password' : 'Show password'); b.title = b.getAttribute('aria-label');
+  };
+});
 // A password is filled in for new users (easy to read out); type over it to choose your own.
 function suggestPassword() {
   const w = ['amen', 'anthem', 'bell', 'choir', 'chord', 'dove', 'grace', 'harp', 'hymn', 'joy', 'lamb', 'light', 'lyre', 'psalm', 'rest', 'river', 'song', 'staff', 'tenor', 'tune', 'verse', 'voice', 'zion'];
@@ -3352,7 +3367,15 @@ $('#usersList').addEventListener('click', async e => {
   const b = e.target.closest('[data-a]'); if (!b) return;
   const card = b.closest('[data-u]'), username = card.dataset.u, name = card.querySelector('.t').firstChild.textContent;
   try {
-    if (b.dataset.a === 'reset') {
+    if (b.dataset.a === 'rename') {
+      const to = (prompt(`New username for ${name} (letters, numbers, dots or dashes):`, username) || '').trim().toLowerCase();
+      if (!to || to === username) return;
+      if (!/^[a-z0-9][a-z0-9._-]{1,29}$/.test(to)) return toast('Usernames use 2–30 letters, numbers, dots or dashes', 4000);
+      const r = await api('renameUser', { username, newUsername: to });
+      if (!r.ok) return toast(r.error || 'Couldn\'t change it', 4000);
+      if (r.token) { auth.token = r.token; auth.user.username = r.username; saveAuth(); store.set('lastUser', r.username); renderWelcome(); }
+      toast(r.token ? `Your username is now ${r.username}` : `${name} now signs in as ${r.username}`, 4000);
+    } else if (b.dataset.a === 'reset') {
       if (!confirm(`Reset ${name}'s password? They'll be signed out and get a temporary password.`)) return;
       const r = await api('resetPassword', { username });
       if (!r.ok) return toast(r.error); showTemp(name, username, r.tempPassword, 'New password for');
@@ -3403,7 +3426,7 @@ $('#lockTitle').textContent = CFG.appName;
 let lockMode = 'signin';
 function showLock(mode = 'signin', msg = '') {
   lockMode = mode;
-  const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+  const show = (id, on) => { ($(id).closest('.pwwrap') || $(id)).style.display = on ? '' : 'none'; };
   show('#lockName', mode === 'setup'); show('#lockUser', mode !== 'change');
   show('#lockPw', true); show('#lockNew', mode !== 'signin'); show('#lockNew2', mode !== 'signin');
   $('#lockPw').placeholder = mode === 'change' ? 'Current password' : mode === 'setup' ? 'Password (at least 6 characters)' : 'Password';
@@ -3415,8 +3438,7 @@ function showLock(mode = 'signin', msg = '') {
   $('#lockAlt').textContent = mode === 'change' && !(auth.user && auth.user.mustChange) ? 'Cancel' : mode === 'change' ? 'Sign out' : '';
   $('#lockAlt').style.display = $('#lockAlt').textContent ? '' : 'none';
   $('#lockErr').textContent = '';
-  ['#lockPw', '#lockNew', '#lockNew2'].forEach(x => { $(x).value = ''; $(x).type = 'password'; });
-  $('#lockShow').checked = false;
+  ['#lockPw', '#lockNew', '#lockNew2'].forEach(x => { $(x).value = ''; $(x).type = 'password'; $(x).closest('.pwwrap').classList.remove('shown'); });
   $('#lock').classList.add('show');
   setTimeout(() => (mode === 'setup' ? $('#lockName') : mode === 'change' ? $('#lockPw') : $('#lockUser').value ? $('#lockPw') : $('#lockUser')).focus(), 300);
 }
@@ -3427,7 +3449,9 @@ $('#lockForm').addEventListener('submit', async e => {
   e.preventDefault();
   const err = t => { $('#lockErr').textContent = t; };
   if (!navigator.onLine) return err('Connect to the internet to sign in.');
-  const btn = $('#lockBtn'); btn.disabled = true; err('');
+  const btn = $('#lockBtn'), label = btn.textContent;
+  btn.disabled = true; err('');
+  btn.innerHTML = `<span class="spin" aria-hidden="true"></span>${lockMode === 'signin' ? 'Signing in…' : lockMode === 'setup' ? 'Creating account…' : 'Saving password…'}`;
   try {
     let r;
     if (lockMode === 'signin') {
@@ -3452,7 +3476,7 @@ $('#lockForm').addEventListener('submit', async e => {
     usage = null; store.set('usage', null); indexUsage();
     startApp(true);
   } catch { err('Couldn\'t reach the server. Check your internet connection.'); }
-  finally { btn.disabled = false; }
+  finally { btn.disabled = false; btn.textContent = label; }
 });
 async function chooseLockMode() {
   $('#lockUser').value = store.get('lastUser', '');

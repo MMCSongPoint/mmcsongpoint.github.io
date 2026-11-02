@@ -122,7 +122,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 18 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 19 }); }
 
 function doPost(e) {
   var d;
@@ -177,6 +177,7 @@ function handle_(d) {
   if (a === 'resetPassword') return resetPassword_(d);
   if (a === 'setAdmin') return setAdmin_(me, d);
   if (a === 'setDisabled') return setDisabled_(me, d);
+  if (a === 'renameUser') return renameUser_(me, d);
   if (a === 'getIgnored') return { ok: true, ignored: ignored_() };
   if (a === 'setIgnored') return setIgnored_(me, d);
   if (a === 'setTextDoc') return setTextDoc_(me, d);
@@ -808,4 +809,24 @@ function chordUpload_(me, d) {
   else f = folder.createFile(name, text, 'text/plain');
   try { f.setDescription('Uploaded in SongPoint by ' + (me.name || me.username) + ' on ' + new Date().toDateString()); } catch (e) {}
   return { ok: true, id: f.getId(), name: f.getName(), modified: f.getLastUpdated().toISOString() };
+}
+
+// ------------------------------------------------------------------ change a username (admins)
+// The password stays the same. The person signs in again with the new username (their old sign-in stops working),
+// and their song lists move with them. An admin renaming themselves gets a new sign-in token straight away.
+function renameUser_(me, d) {
+  var from = String(d.username || '').trim().toLowerCase(), to = String(d.newUsername || '').trim().toLowerCase();
+  if (!validUsername_(to)) return { ok: false, error: 'Usernames use 2–30 letters, numbers, dots or dashes.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var u = findUser_(from); if (!u) return { ok: false, error: 'No such user.' };
+    if (from === to) return { ok: true, username: to };
+    if (findUser_(to)) return { ok: false, error: 'That username is taken.' };
+    u.username = to; saveUser_(u);
+    var sh = tab_(LISTS, LHEAD);
+    listRows_().forEach(function (x) { if (x.owner === from) sh.getRange(x.row, 2).setValue(to); });
+    var out = { ok: true, username: to };
+    if (me.username === from) out.token = token_(to);
+    return out;
+  } finally { lock.releaseLock(); }
 }
