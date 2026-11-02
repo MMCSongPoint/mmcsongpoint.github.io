@@ -9,8 +9,11 @@ var TAB = 'Log', USERS = 'Users', CACHE = 'SlideCache';
 var HEAD = ['Logged at', 'Date used', 'Leader', 'Event', 'Note', 'Note ID', 'Version', 'Position', 'Book', 'Number',
   'Title', 'Song key', 'Device', 'Comment', 'Entry ID', 'Username'];
 var UHEAD = ['Username', 'Name', 'Admin', 'Salt', 'Hash', 'Must change password', 'Created', 'Last sign-in',
-  'Signed out before', 'Disabled'];
+  'Signed out before', 'Disabled', 'Guest'];
 var ROUNDS = 2000;
+// A guest account (shared, e.g. for visiting musicians): views songs and follows presentations; nothing else.
+var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSlides', 'finalizeSlides', 'chordUpload',
+  'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log'];
 var CHORDS_FOLDER = '1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ';   // Chord Pro (one subfolder per book): uploaded chord sheets go here
 var SHARED_SLIDES_FOLDER = '1A_h83VBsar3VD4j2LQ2js8sbdrBAIGQc';   // built PowerPoints are saved here (PowerPoint Presentations)
 
@@ -82,7 +85,8 @@ function users_() {
   return v.map(function (r, i) {
     return { row: i + 2, username: String(r[0]), name: String(r[1]), admin: r[2] === true || r[2] === 'TRUE',
       salt: String(r[3]), hash: String(r[4]), mustChange: r[5] === true || r[5] === 'TRUE',
-      created: r[6], lastLogin: r[7], validAfter: Number(r[8]) || 0, disabled: r[9] === true || r[9] === 'TRUE' };
+      created: r[6], lastLogin: r[7], validAfter: Number(r[8]) || 0, disabled: r[9] === true || r[9] === 'TRUE',
+      guest: r[10] === true || r[10] === 'TRUE' };
   }).filter(function (u) { return u.username; });
 }
 function findUser_(username) {
@@ -91,12 +95,12 @@ function findUser_(username) {
 }
 function saveUser_(u) {
   var row = [u.username, u.name, u.admin, u.salt, u.hash, u.mustChange, u.created || new Date(), u.lastLogin || '',
-    u.validAfter || 0, u.disabled];
+    u.validAfter || 0, u.disabled, !!u.guest];
   if (u.row) usersTab_().getRange(u.row, 1, 1, row.length).setValues([row]);
   else usersTab_().appendRow(row);
 }
 function publicUser_(u) {
-  return { username: u.username, name: u.name, admin: u.admin, mustChange: u.mustChange, disabled: u.disabled,
+  return { username: u.username, name: u.name, admin: u.admin, guest: !!u.guest, mustChange: u.mustChange, disabled: u.disabled,
     lastLogin: u.lastLogin ? new Date(u.lastLogin).toISOString() : '' };
 }
 function checkToken_(token) {
@@ -122,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 21 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 22 }); }
 
 function doPost(e) {
   var d;
@@ -143,6 +147,7 @@ function handle_(d) {
   var me = checkToken_(d.token);
   if (!me) return { ok: false, error: 'Please sign in again.', signedOut: true };
   if (a === 'me') return { ok: true, user: publicUser_(me) };
+  if (me.guest && GUEST_BLOCKED.indexOf(a) >= 0) return { ok: false, error: 'The guest account can view songs and follow along, but can\'t change things.' };
   if (a === 'changePassword') return changePassword_(me, d);
   if (me.mustChange) return { ok: false, error: 'Please choose a new password first.', mustChange: true };
   if (a === 'log') return log_(me, d);
@@ -229,9 +234,11 @@ function createUser_(d) {
   if (!validUsername_(username)) return { ok: false, error: 'Usernames use 2–30 letters, numbers, dots or dashes.' };
   if (findUser_(username)) return { ok: false, error: 'That username is taken.' };
   var chosen = d.password != null && String(d.password) !== '';
-  if (chosen && !validPassword_(d.password)) return { ok: false, error: 'Passwords need at least 6 characters.' };
+  if (chosen && d.guest && String(d.password).length >= 4 && String(d.password).length <= 100) { /* guests may have a short shared password */ }
+  else if (chosen && !validPassword_(d.password)) return { ok: false, error: 'Passwords need at least 6 characters.' };
   var temp = chosen ? String(d.password) : tempPassword_(), salt = newSalt_(), must = chosen ? d.mustChange !== false : true;
-  saveUser_({ username: username, name: String(d.name || username).trim().slice(0, 40), admin: !!d.admin, salt: salt,
+  if (d.guest) must = false;   // a shared password: nobody changes it
+  saveUser_({ username: username, name: String(d.name || username).trim().slice(0, 40), admin: !d.guest && !!d.admin, guest: !!d.guest, salt: salt,
     hash: hash_(temp, salt), mustChange: must, created: new Date(), lastLogin: '', validAfter: 0, disabled: false });
   return { ok: true, username: username, tempPassword: chosen ? '' : temp, mustChange: must };
 }
@@ -240,7 +247,7 @@ function resetPassword_(d) {
   var u = findUser_(d.username);
   if (!u) return { ok: false, error: 'No such user.' };
   var temp = tempPassword_();
-  u.salt = newSalt_(); u.hash = hash_(temp, u.salt); u.mustChange = true; u.validAfter = Date.now();
+  u.salt = newSalt_(); u.hash = hash_(temp, u.salt); u.mustChange = !u.guest; u.validAfter = Date.now();
   saveUser_(u);
   return { ok: true, username: u.username, tempPassword: temp };
 }
@@ -250,6 +257,7 @@ function setAdmin_(me, d) {
   if (!u) return { ok: false, error: 'No such user.' };
   if (!d.admin && users_().filter(function (x) { return x.admin && !x.disabled; }).length <= 1 && u.admin)
     return { ok: false, error: 'There has to be at least one admin.' };
+  if (u.guest && d.admin) return { ok: false, error: 'The guest account can\'t be an admin.' };
   u.admin = !!d.admin; saveUser_(u);
   return { ok: true };
 }

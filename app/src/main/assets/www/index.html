@@ -425,6 +425,9 @@
   .pipeswap span { line-height: 1; }
   body.songspanel .player, body.overpanel .player { z-index: 76; }
   body.overpanel .panel .pbody { padding-bottom: 210px; }
+  body.guest #newNoteBtn, body.guest #noteEdit, body.guest #noteShare, body.guest #noteCopy, body.guest #noteDelete,
+  body.guest #notePresent, body.guest #noteSlides, body.guest #changePwBtn, body.guest #rowMenu [data-m=chords],
+  body.guest #rowMenu [data-m=live], body.guest .chart [data-c=arrange], body.guest .chart [data-c=savekey] { display: none !important; }
   body.overviewer .player { z-index: 82; }
   body.overviewer .player.show ~ .viewer .vbody, body.overviewer .vbody { padding-bottom: 0; }
   body.overviewer.playing-bar .vbody { padding-bottom: 90px; }
@@ -741,7 +744,8 @@
       <label class="field"><span>Username (for signing in)</span><input id="nuUser" placeholder="e.g. sam" autocapitalize="none" autocorrect="off" maxlength="30"></label>
       <label class="field"><span>Password</span><div class="pwrow"><input id="nuPw" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="pbtn ghost" id="nuPwNew" title="Make up a new one" aria-label="Make up a new password">↻</button></div></label>
       <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" id="nuMust" checked> Ask them to choose their own password the first time they sign in</label>
-      <label style="display:flex;align-items:center;gap:8px;margin:0 0 12px"><input type="checkbox" id="nuAdmin"> Admin (can see everyone's usage and manage users)</label>
+      <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" id="nuAdmin"> Admin (can see everyone's usage and manage users)</label>
+      <label style="display:flex;align-items:center;gap:8px;margin:0 0 12px"><input type="checkbox" id="nuGuest"> Guest (shared sign-in: can view songs and follow presentations, can't make lists, PowerPoints or chord sheets, or change the password)</label>
       <button class="pbtn" id="nuCreate">Add user</button>
     </div>
     <div id="usersList"><div class="vmsg">Loading…</div></div>
@@ -2059,6 +2063,7 @@ $('#vPages').addEventListener('click', e => {
 // ---- section order editor
 let arrDraft = null, noteOpen = false;
 function openArrange() {
+  if (isGuest()) return;
   if (!viewing || !chordChart || !chordFile) return;
   const secs = chartSections(chordChart), arr = arrFor(chordFile);
   if (!secs.length) return toast('This chart has no sections to arrange');
@@ -2486,6 +2491,7 @@ $('#vPerform').onclick = async () => {
     if (perf.role === 'host') return $('#perfBar [data-p=end]').click();
     return perfLeave();
   }
+  if (isGuest()) return openPerfJoin();   // guests can follow, not lead
   const c = await choose('Perform', 'Lead: other devices follow your song, key and scrolling. Follow: join someone who is leading.',
     [{ label: 'Lead from this device', value: 'host', primary: true }, { label: 'Follow someone', value: 'join' }, { label: 'Cancel', value: 'cancel' }]);
   if (c === 'host') perfHostStart(); else if (c === 'join') openPerfJoin();
@@ -3037,7 +3043,7 @@ let offlineIds = new Set(store.get('offlineLists', notes.map(n => n.id)));   // 
 let pendingIds = new Set(store.get('pendingLists', []));
 const meUser = () => (store.get('auth', {}).user || {});
 const isMine = n => !n.owner || n.owner === meUser().username;
-const canEditList = n => isMine(n) || (!!meUser().admin && n.shared);
+const canEditList = n => !isGuest() && isMine(n) || (!!meUser().admin && n.shared);
 let editing = null, editingDirty = false, picking = null;
 const userName = () => (store.get('auth', {}).user || {}).name || '';
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -3062,7 +3068,7 @@ async function loadLists() {
   listsLoading = (async () => {
     try {
       // first time on the server: upload this device's song lists under the signed-in person's name
-      const legacy = notes.filter(n => !n.owner);
+      const legacy = isGuest() ? [] : notes.filter(n => !n.owner);
       if (legacy.length) {
         const r = await api('listsImport', { lists: legacy });
         if (r.ok) { legacy.forEach(n => { offlineIds.add(n.id); pendingIds.delete(n.id); }); notes = notes.filter(n => n.owner); }
@@ -3378,7 +3384,7 @@ async function api(action, data = {}) {
   return body;
 }
 function logEntry(x) {
-  if (!CFG.logUrl) return;
+  if (!CFG.logUrl || isGuest()) return;
   outbox.push(Object.assign({ id: uid(), at: new Date().toISOString(), leader: userName(), device: deviceName() }, x,
     { songs: (x.songs || []).map(r => ({ key: r.key, book: r.book, number: r.number, title: r.title })) }));
   store.set('outbox', outbox); flushLog();
@@ -3464,10 +3470,12 @@ $('#usageRefresh').onclick = () => loadUsage(true);
 let auth = store.get('auth', {});
 const saveAuth = () => store.set('auth', auth);
 const isAdmin = () => !!(auth.user && auth.user.admin);
+const isGuest = () => !!(auth.user && auth.user.guest);   // shared guest account: view songs and follow along only
 function renderWelcome() {
   const n = userName();
   $('#welcome').innerHTML = n ? `Welcome, <b>${esc(n)}</b>` : '';
-  $('#acctLine').textContent = auth.user ? `Signed in as ${auth.user.name} (${auth.user.username})${auth.user.admin ? ' · Admin' : ''}` : '';
+  $('#acctLine').textContent = auth.user ? `Signed in as ${auth.user.name} (${auth.user.username})${auth.user.admin ? ' · Admin' : ''}${auth.user.guest ? ' · Guest' : ''}` : '';
+  document.body.classList.toggle('guest', isGuest());
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
@@ -3487,13 +3495,13 @@ async function loadUsers() {
     if (!r.ok) throw new Error(r.error);
     $('#usersList').innerHTML = r.users.sort((a, b) => a.name.localeCompare(b.name)).map(u => `
       <div class="card ucard" data-u="${esc(u.username)}">
-        <div><div class="t">${esc(u.name)}${u.admin ? '<span class="tag ok">Admin</span>' : ''}${u.disabled ? '<span class="tag">Turned off</span>' : ''}${u.mustChange ? '<span class="tag wait">Temp password</span>' : ''}</div>
+        <div><div class="t">${esc(u.name)}${u.admin ? '<span class="tag ok">Admin</span>' : ''}${u.guest ? '<span class="tag">Guest</span>' : ''}${u.disabled ? '<span class="tag">Turned off</span>' : ''}${u.mustChange ? '<span class="tag wait">Temp password</span>' : ''}</div>
         <div class="m">${esc(u.username)} · ${u.lastLogin ? 'last signed in ' + esc(shortDate(u.lastLogin.slice(0, 10))) : 'never signed in'}</div></div>
         <div></div>
         ${u.username === auth.user.username ? '<div class="acts2"><button class="pbtn ghost" data-a="rename">Change username</button><span class="m">This is you</span></div>' : `<div class="acts2">
           <button class="pbtn ghost" data-a="rename">Change username</button>
           <button class="pbtn ghost" data-a="reset">Reset password</button>
-          <button class="pbtn ghost" data-a="admin">${u.admin ? 'Remove admin' : 'Make admin'}</button>
+          ${u.guest ? '' : `<button class="pbtn ghost" data-a="admin">${u.admin ? 'Remove admin' : 'Make admin'}</button>`}
           <button class="pbtn ghost" data-a="disable">${u.disabled ? 'Turn on' : 'Turn off'}</button></div>`}
       </div>`).join('');
   } catch (e) { $('#usersList').innerHTML = `<div class="vmsg">${navigator.onLine ? esc(e.message || 'Couldn\'t load users.') : 'Connect to the internet to manage users.'}</div>`; }
@@ -3526,12 +3534,13 @@ $('#nuCreate').onclick = async () => {
   const name = $('#nuName').value.trim(), username = $('#nuUser').value.trim().toLowerCase();
   const password = $('#nuPw').value.trim(), must = $('#nuMust').checked;
   if (!name || !username) return toast('Enter a name and a username');
-  if (password.length < 6) return toast('Passwords need at least 6 characters');
+  const guest = $('#nuGuest').checked;
+  if (password.length < (guest ? 4 : 6)) return toast(`Passwords need at least ${guest ? 4 : 6} characters`);
   $('#nuCreate').disabled = true;
   try {
-    const r = await api('createUser', { name, username, admin: $('#nuAdmin').checked, password, mustChange: must });
+    const r = await api('createUser', { name, username, admin: !guest && $('#nuAdmin').checked, guest, password, mustChange: !guest && must });
     if (!r.ok) return toast(r.error || 'Couldn\'t add that user');
-    $('#nuName').value = $('#nuUser').value = ''; $('#nuAdmin').checked = false; $('#nuMust').checked = true; $('#nuPw').value = suggestPassword();
+    $('#nuName').value = $('#nuUser').value = ''; $('#nuAdmin').checked = $('#nuGuest').checked = false; $('#nuMust').checked = true; $('#nuPw').value = suggestPassword();
     showTemp(name, r.username, r.tempPassword || password, 'Added', r.mustChange !== false && must); loadUsers();
   } catch { toast('Connect to the internet to add users'); } finally { $('#nuCreate').disabled = false; }
 };
