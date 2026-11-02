@@ -234,13 +234,11 @@
   .perfbar button.on { background: #fff; color: var(--accent); }
   .perfbar button { display: inline-flex; align-items: center; gap: 6px; }
   @media (max-width: 640px) { .perfbar { flex-wrap: wrap; } .perfbar .ptxt { flex-basis: 100%; } }
-  .slidepip { display: none; position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 60; width: min(42vw, 360px);
-    aspect-ratio: 4 / 3; background: #000; border-radius: 10px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.45); cursor: zoom-in;
-    place-items: center; border: 2px solid rgba(255,255,255,.18); transition: width .2s; }
+  /* "View Slides": the slide on the projector fills the screen below the following bar (for singers on stage) */
+  .slidepip { display: none; position: fixed; left: 0; right: 0; bottom: 0; top: 0; z-index: 60; background: #000; place-items: center; overflow: hidden; }
   .slidepip.show { display: grid; }
-  .slidepip.big { width: min(92vw, 900px); cursor: zoom-out; }
   .slidepip img { width: 100%; height: 100%; object-fit: contain; }
-  .slidepip .spmsg { color: #bbb; font-size: 13px; padding: 10px; text-align: center; }
+  .slidepip .spmsg { color: #aaa; font-size: 18px; padding: 16px; text-align: center; }
   .pdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
   .pdot.ok { background: #3ddc84; } .pdot.bad { background: #ff4d4d; }
   #vPerform.on { color: var(--accent-text); }
@@ -603,7 +601,7 @@
     <button class="icon" id="vPlay" aria-label="Play"></button>
   </div>
   <div class="perfbar" id="perfBar"></div>
-  <div class="slidepip" id="slidePip" title="Tap to make it bigger or smaller"><img alt="Current slide"><div class="spmsg"></div></div>
+  <div class="slidepip" id="slidePip"><img alt="Current slide"><div class="spmsg"></div></div>
   <div class="vtabs scroller" id="vTabs"></div>
   <div class="vbody" id="vBody"><div class="pages" id="vPages"></div></div>
   <div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div>
@@ -2435,8 +2433,8 @@ function renderPerfBar() {
     const how = perf.connected ? (perfOnline() ? '' : ' · lost the leader') : perf.relay ? (perfOnline() ? ' · through the server' : ' · lost the leader') : ' · connecting…';
     text = `<b>Following ${esc(perf.hostName)}</b> · ${esc(perf.code)}${how}`;
     btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow leader</button>')
-      + (perf.last && perf.last.presenter ? `<button class="${followSlides ? 'on' : ''}" data-p="slides" title="Scroll my chords to the words on the screen">Sync w/ Slides${followSlides ? ' ✓' : ''}</button>`
-        + `<button class="${viewSlides ? 'on' : ''}" data-p="view" title="Show the slide that's on the screen">View Slides${viewSlides ? ' ✓' : ''}</button>` : '')
+      + (perf.last && perf.last.presenter ? (viewSlides ? '' : `<button class="${followSlides ? 'on' : ''}" data-p="slides" title="Scroll my chords to the words on the screen">Sync w/ Slides${followSlides ? ' ✓' : ''}</button>`)
+        + `<button data-p="view" title="${viewSlides ? 'Back to the chords' : 'Show the slides instead of the chords'}">${viewSlides ? 'Show Chords' : 'View Slides'}</button>` : '')
       + `<button data-p="reconnect" title="${perfOnline() ? 'Connected' : 'Not connected'}"><i class="pdot ${perfOnline() ? 'ok' : 'bad'}"></i>Reconnect</button>`
       + '<button data-p="leave">Leave</button>';
   }
@@ -2756,13 +2754,14 @@ $('#notePresent').onclick = () => presentList(editing.songs.map(r => songIndex.g
 
 // ---- musicians: follow the slides in the chord chart (match the slide's words to a line of the chart)
 let followSlides = store.get('followSlides', true);
-// ---- musicians: "View Slides" shows the slide that's on the projector in a small window (tap: bigger / smaller)
+// ---- musicians / singers: "View Slides" shows the slide that's on the projector, full screen, instead of the chords
 let viewSlides = store.get('viewSlides', false), pipKey = '';
 function perfSlideView(st) {
   const box = $('#slidePip');
   const on = viewSlides && perf && perf.role === 'guest' && st && st.presenter && $('#viewer').classList.contains('show');
   box.classList.toggle('show', !!on);
   if (!on) { pipKey = ''; return; }
+  placeSlidePip();
   const s = songIndex.get(st.song), msg = t => { box.querySelector('img').style.display = 'none'; const m = box.querySelector('.spmsg'); m.textContent = t; m.style.display = ''; };
   const key = [st.song, st.slideIdx, st.blank].join('|'); if (key === pipKey) return; pipKey = key;
   if (st.blank) return msg('Screen is blank');
@@ -2775,7 +2774,8 @@ function perfSlideView(st) {
     const img = box.querySelector('img'); img.src = src; img.style.display = ''; box.querySelector('.spmsg').style.display = 'none';
   }).catch(() => { if (pipKey === key) msg('Couldn\'t open the slides'); });
 }
-$('#slidePip').onclick = () => $('#slidePip').classList.toggle('big');
+function placeSlidePip() { const b = $('#perfBar').getBoundingClientRect(); $('#slidePip').style.top = Math.max(0, Math.round(b.bottom)) + 'px'; }
+window.addEventListener('resize', () => { if ($('#slidePip').classList.contains('show')) placeSlidePip(); });
 const slideWords = t => normalize(String(t || '').replace(/\s*-\s*/g, '')).split(' ').filter(w => w.length > 1);
 // "Verse 1" on a slide = the chart's "Verse 1" section; "Chorus" = "Chorus" (or "Refrain").
 const secKey = t => normalize(String(t || '')).replace(/\brefrain\b/, 'chorus').replace(/\s+/g, '');
