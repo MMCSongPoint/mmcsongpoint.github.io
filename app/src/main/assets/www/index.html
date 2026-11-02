@@ -1451,8 +1451,11 @@ function renderTabs() {
   for (const s of songs) counts[s.collection] = (counts[s.collection] || 0) + 1;
   const favCount = songs.filter(isFav).length;
   if (collection && !counts[collection]) collection = '';
-  const order = store.get('tabOrder', []), rank = c => { const i = order.indexOf(c); return i < 0 ? 999 + library.collections.indexOf(c) : i; };
-  const books = library.collections.filter(c => counts[c]).sort((a, b) => rank(a) - rank(b));
+
+  // every book with songs, including ones that only have chords / sheet music / slides so far (e.g. "Worship Team")
+  const all = [...library.collections, ...Object.keys(counts).filter(c => !library.collections.includes(c)).sort()];
+  const order = store.get('tabOrder', []), rank = c => { const i = order.indexOf(c); return i < 0 ? 999 + all.indexOf(c) : i; };
+  const books = all.filter(c => counts[c]).sort((a, b) => rank(a) - rank(b));
   const tabs = [['', 'All', songs.length], ...books.map(c => [c, c, counts[c]])];
   $('#tabs').innerHTML = tabs.map(([v, label, n]) =>
     `<button class="tab${v === collection ? ' on' : ''}" data-c="${esc(v)}">${esc(label)}<small>${n}</small></button>`).join('');
