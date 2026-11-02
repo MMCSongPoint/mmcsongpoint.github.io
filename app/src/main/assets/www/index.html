@@ -2171,6 +2171,7 @@ async function perfHostMsg(me, m) {
     pc.ondatachannel = e => {
       entry.dc = e.channel;
       entry.dc.onopen = () => { if (perf !== me) return; me.relayers.delete(m.from); try { entry.dc.send(JSON.stringify(perfState())); } catch {} renderPerfBar(); };
+      entry.dc.onmessage = e => { try { const x = JSON.parse(e.data); if (x.t === 'ping') entry.dc.send(JSON.stringify({ t: 'pong', id: x.id })); } catch {} };
       entry.dc.onclose = () => { if (me.peers.get(m.from) === entry) me.peers.delete(m.from); renderPerfBar(); };
     };
     pc.onconnectionstatechange = () => { if (/failed|closed/.test(pc.connectionState) && me.peers.get(m.from) === entry) { me.peers.delete(m.from); renderPerfBar(); } };
@@ -2196,7 +2197,7 @@ function perfAnchor() {
   return { top: 1 };
 }
 function perfState() {
-  const st = { t: 'state', seq: ++perf.seq, host: userName() };
+  const st = { t: 'state', seq: ++perf.seq, host: userName(), beat: Date.now() };
   if (pr) {   // presenting: musicians follow the song (and the words on the projector); their key and scrolling stay their own
     const s = pr.songs[pr.si];
     return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
@@ -2254,7 +2255,7 @@ async function perfConnect(me) {
   me.connected = false;
   const pc = new RTCPeerConnection({ iceServers: PERF_ICE }), dc = pc.createDataChannel('perf');
   me.pc = pc; me.dc = dc;
-  dc.onopen = () => { if (perf !== me || me.pc !== pc) return; me.connected = true; me.relay = false; renderPerfBar(); };
+  dc.onopen = () => { if (perf !== me || me.pc !== pc) return; me.connected = true; me.relay = false; me.pongAt = Date.now(); renderPerfBar(); };
   dc.onmessage = e => { if (perf === me) try { perfApply(JSON.parse(e.data)); } catch {} };
   dc.onclose = () => {
     if (perf !== me || me.pc !== pc) return;
@@ -2287,6 +2288,8 @@ async function perfLeave(msg) {
 function perfApply(st) {
   if (!perf || perf.role !== 'guest') return;
   if (st.t === 'end') return perfLeave('The leader ended the session');
+  if (st.t === 'pong') { perf.pongAt = Date.now(); return; }
+  if (st.beat && st.beat !== perf.beat) { perf.beat = st.beat; perf.beatAt = Date.now(); }   // leader is alive (server route)
   if (st.t !== 'state' || st.seq <= perf.seq) return;
   perf.seq = st.seq; perf.last = st;
   if (perf.following) perfShow(st);
@@ -2388,7 +2391,7 @@ function renderPerfBar() {
     text = `<b>Leading</b> · code <b class="pcode">${esc(perf.code)}</b> · ${n ? `${n} following${names.length ? ': ' + esc(names.join(', ')) : ''}` : 'waiting for others to join'}`;
     btns = '<button data-p="end">End</button>';
   } else {
-    const how = perf.connected ? '' : perf.relay ? ' · through the server' : ' · connecting…';
+    const how = perf.connected ? (perfOnline() ? '' : ' · lost the leader') : perf.relay ? (perfOnline() ? ' · through the server' : ' · lost the leader') : ' · connecting…';
     text = `<b>Following ${esc(perf.hostName)}</b> · ${esc(perf.code)}${how}`;
     btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow leader</button>')
       + (perf.last && perf.last.presenter ? `<button class="${followSlides ? 'on' : ''}" data-p="slides" title="Scroll my chords to the words on the screen">Slides${followSlides ? ' ✓' : ''}</button>` : '')
@@ -2409,18 +2412,39 @@ $('#perfBar').addEventListener('click', async e => {
   else if (b.dataset.p === 'slides') { followSlides = !followSlides; store.set('followSlides', followSlides); renderPerfBar(); if (followSlides && perf && perf.last) { perf.slideLine = -1; perfFollowSlide(perf.last); } toast(followSlides ? 'Your chords follow the slides' : 'You scroll your own chords', 1800); }
 });
 // Connected = a direct link is open, or the server route answered in the last few seconds.
-function perfOnline() { return !!perf && (perf.connected || (perf.relay && Date.now() - (perf.relayOk || 0) < 6000)); }
+// Green only while the leader is answering: pings over the direct link, or fresh heartbeats through the server.
+const PERF_LOST_MS = 8000, PERF_REDIAL_MS = 20000;
+function perfOnline() {
+  if (!perf) return false;
+  if (perf.connected) return Date.now() - (perf.pongAt || 0) < PERF_LOST_MS;
+  return perf.relay && Date.now() - (perf.relayOk || 0) < 6000 && Date.now() - (perf.beatAt || 0) < 15000;
+}
 // Start the connection over (and pick the leader's place back up).
-function perfReconnect() {
+function perfReconnect(quiet = false) {
   const me = perf; if (!me || me.role !== 'guest') return;
   try { me.pc && me.pc.close(); } catch {}
   me.pc = null; me.dc = null; me.connected = false; me.relay = !window.RTCPeerConnection; me.relayOk = 0;
-  me.following = true; me.sig = null; me.seq = -1;
-  toast('Reconnecting…', 1500); renderPerfBar();
+  if (!quiet) me.following = true;
+  me.sig = null; me.seq = -1;
+  if (!quiet) toast('Reconnecting…', 1500);
+  renderPerfBar();
   if (window.RTCPeerConnection) perfConnect(me);
   else api('perfSend', { code: me.code, to: me.hostPeer, msg: { type: 'relay', from: me.peer, name: userName() } }).catch(() => {});
 }
-setInterval(() => { if (perf && perf.role === 'guest') renderPerfBar(); }, 2000);   // keep the dot up to date
+// Followers ping the leader every 3 s; no answer for a while = red dot, and after longer it reconnects by itself.
+setInterval(() => {
+  if (!perf || perf.role !== 'guest') return;
+  const me = perf;
+  if (me.connected && me.dc && me.dc.readyState === 'open') {
+    try { me.dc.send(JSON.stringify({ t: 'ping', id: Date.now() })); } catch {}
+    if (Date.now() - (me.pongAt || 0) > PERF_REDIAL_MS && !me.redialing) {
+      me.redialing = true; perfReconnect(true); setTimeout(() => { me.redialing = false; }, PERF_REDIAL_MS);
+    }
+  }
+  renderPerfBar();
+}, 3000);
+// Leader: keep a heartbeat on the server for followers who couldn't connect directly.
+setInterval(() => { if (perf && perf.role === 'host' && perf.relayers.size) perfRelayPush(true); }, 5000);
 $('#perfPill').onclick = () => {
   if (!perf) return;
   if (perf.role === 'guest') { perfFollow(); if (!viewing) toast('Waiting for the leader to open a song…'); }
