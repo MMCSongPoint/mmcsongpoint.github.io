@@ -122,7 +122,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 20 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 21 }); }
 
 function doPost(e) {
   var d;
@@ -161,12 +161,14 @@ function handle_(d) {
   if (a === 'listDelete') return listDelete_(me, d);
   if (a === 'listShare') return listShare_(me, d);
   if (a === 'listsImport') return listsImport_(me, d);
-  if (a === 'perfHost') return perfHost_(me);
+  if (a === 'perfHost') return perfHost_(me, d);
   if (a === 'perfJoin') return perfJoin_(d);
   if (a === 'perfSend') return perfSend_(d);
   if (a === 'perfPoll') return perfPoll_(d);
   if (a === 'perfState') return perfState_(d);
   if (a === 'perfEnd') return perfEnd_(d);
+  if (a === 'perfMine') return perfMine_(me);
+  if (a === 'perfRemote') return perfRemote_(me, d);
   if (a === 'getArrangements') return { ok: true, arrangements: arrangements_() };
   if (a === 'setArrangement') return setArrangement_(me, d);
   if (a === 'deleteArrangement') return deleteArrangement_(me, d);
@@ -647,11 +649,12 @@ function deleteArrangement_(me, d) {
 // Everything lives in the script cache and expires on its own (sessions after 6 hours, messages after 10 minutes).
 function pc_() { return CacheService.getScriptCache(); }
 function perfSession_(code) { var v = pc_().get('ps:' + code); return v ? JSON.parse(v) : null; }
-function perfHost_(me) {
+function perfHost_(me, d) {
   var c = pc_(), code = '';
   for (var i = 0; i < 30; i++) { code = String(1000 + Math.floor(Math.random() * 9000)); if (!c.get('ps:' + code)) break; }
-  var s = { host: me.name || me.username, hostPeer: 'h' + Utilities.getUuid().slice(0, 8), at: Date.now() };
+  var s = { host: me.name || me.username, user: me.username, presenter: !!(d && d.presenter), hostPeer: 'h' + Utilities.getUuid().slice(0, 8), at: Date.now() };
   c.put('ps:' + code, JSON.stringify(s), 21600);
+  c.put('pu:' + me.username, code, 21600);   // so this person's phone can find the session (perfMine)
   return { ok: true, code: code, peer: s.hostPeer };
 }
 function perfJoin_(d) {
@@ -684,6 +687,22 @@ function perfState_(d) {
   if (d.state) { pc_().put('pst:' + code, JSON.stringify(d.state), 21600); return { ok: true }; }
   var v = pc_().get('pst:' + code);
   return { ok: true, state: v ? JSON.parse(v) : null };
+}
+// The signed-in person's own running session (presenter or leader on another device), for adding songs from a phone.
+function perfMine_(me) {
+  var code = pc_().get('pu:' + me.username), s = code && perfSession_(code);
+  if (!s || s.user !== me.username) return { ok: true, session: null };
+  var st = pc_().get('pst:' + code); st = st ? JSON.parse(st) : null;
+  return { ok: true, session: { code: code, presenter: !!(s.presenter || (st && st.presenter)), song: st ? st.song || '' : '', list: st ? st.list || [] : [], at: s.at } };
+}
+// A command from the same person's other device (or an admin) to the host: { t: 'add', song, where: 'next'|'end' }
+function perfRemote_(me, d) {
+  var code = String(d.code || ''), s = perfSession_(code);
+  if (!s) return { ok: false, ended: true, error: 'That session has ended.' };
+  if (s.user !== me.username && !me.admin) return { ok: false, error: 'Only the person running the session can change its list.' };
+  var cmd = d.cmd || {};
+  if (cmd.t !== 'add' || !cmd.song) return { ok: false, error: 'Unknown request.' };
+  return perfSend_({ code: code, to: s.hostPeer, msg: { type: 'remote', cmd: { t: 'add', song: String(cmd.song), where: cmd.where === 'end' ? 'end' : 'next' }, by: me.name || me.username } });
 }
 function perfEnd_(d) { var code = String(d.code || ''); pc_().removeAll(['ps:' + code, 'pst:' + code]); return { ok: true }; }
 

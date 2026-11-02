@@ -2159,7 +2159,7 @@ async function perfHostStart(fromPresenter = false) {
   if (!viewing && !fromPresenter) return toast('Open a song first');
   if (!navigator.onLine) return toast('Connect to the internet to start');
   if (!window.RTCPeerConnection) toast('This device can only lead through the server (slower)', 3500);
-  const r = await api('perfHost').catch(() => ({}));
+  const r = await api('perfHost', { presenter: fromPresenter ? 1 : 0 }).catch(() => ({}));
   if (!r.ok) return toast(r.error || 'Couldn\'t start a session', 4000);
   perf = { role: 'host', code: r.code, peer: r.peer, peers: new Map(), relayers: new Set(), seq: 0 };
   renderPerfBar(); perfSync(); perfPollLoop(perf);
@@ -2183,7 +2183,30 @@ async function perfHostMsg(me, m) {
       await api('perfSend', { code: me.code, to: m.from, msg: { type: 'answer', sdp: pc.localDescription } });
     } catch {}
   } else if (m.type === 'relay') { me.relayers.add(m.from); me.names = me.names || {}; me.names[m.from] = m.name; renderPerfBar(); perfRelayPush(true); }
+  else if (m.type === 'remote') perfRemoteAdd(m);
   else if (m.type === 'bye') { const e = me.peers.get(m.from); if (e) try { e.pc.close(); } catch {} me.peers.delete(m.from); me.relayers.delete(m.from); renderPerfBar(); }
+}
+// A song sent from the leader's phone: into the running presentation (or the leader's song list), next or at the end.
+// A song already coming up later is moved instead of added twice.
+function perfRemoteAdd(m) {
+  const c = m.cmd || {}, s = songIndex.get(c.song); if (!s) return toast('A song was sent from your phone, but it isn\'t in this device\'s library. Pull down to refresh.', 4500);
+  const place = (list, cur) => {
+    const at = list.indexOf(s);
+    if (at === cur) return false;
+    if (at > cur) list.splice(at, 1);
+    list.splice(c.where === 'end' ? list.length : cur + 1, 0, s);
+    return true;
+  };
+  if (pr) {
+    if (!place(pr.songs, pr.si)) return toast(`“${s.title}” is already showing`);
+    prDeck(s).catch(() => {}); prRender();
+  } else if (viewing) {
+    if (!viewerList || !viewerList.includes(viewing)) viewerList = [viewing];
+    if (!place(viewerList, viewerList.indexOf(viewing))) return toast(`“${s.title}” is already open`);
+    perfSync();
+    const pos = viewerList.indexOf(viewing); $('#vSub').textContent = $('#vSub').textContent.replace(/^\d+ of \d+ · /, `${pos + 1} of ${viewerList.length} · `);
+  } else return;
+  toast(`${c.where === 'end' ? 'Added to the end' : 'Up next'}: ${s.title}`, 3500);
 }
 function perfAnchorEls() { return [...document.querySelectorAll('#vPages .chart .clabel, #vPages .chart .cl, #vPages .chart .ccom, #vPages .chart .ctab, #vPages .chart .cblank')]; }
 const perfTopInset = () => { const b = document.querySelector('#vPages .cbar'); return b ? b.offsetHeight : 0; };
@@ -3846,8 +3869,35 @@ function openRowMenu(s, btn) {
   $('#rowMenu').innerHTML =
     `<button data-m="fav"><span class="ic star">${isFav(s) ? '★' : '☆'}</span>${isFav(s) ? 'Remove from favorites' : 'Add to favorites'}</button>`
     + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (tap to cancel)' : saved ? 'Remove offline copy' : 'Save for offline'}</button>` : '')
-    + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Upload a new chord sheet' : 'Upload a chord sheet'}</button>`;
+    + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Upload a new chord sheet' : 'Upload a chord sheet'}</button>`
+    + (myLive && !(perf && perf.role === 'host') ? liveBtn(myLive) : '');
   const m = $('#rowMenu'); m.classList.add('show');
+  checkMyLive().then(x => { if (rowMenuSong === s && x && !m.querySelector('[data-m=live]') && !(perf && perf.role === 'host')) { m.insertAdjacentHTML('beforeend', liveBtn(x)); placeRowMenu(btn); } });
+  placeRowMenu(btn);
+}
+// Your own presentation / leader session running on another device: send songs to it from here
+let myLive = null, myLiveAt = 0;
+const liveBtn = x => `<button data-m="live"><span class="ic">▶</span>Add to ${x.presenter ? 'the slideshow' : 'your live list'} (${esc(x.code)})</button>`;
+async function checkMyLive(force) {
+  if (!navigator.onLine || !auth.token) return null;
+  if (!force && Date.now() - myLiveAt < 20000) return myLive;
+  myLiveAt = Date.now();
+  try { const r = await api('perfMine'); myLive = r.ok ? r.session : myLive; } catch {}
+  return myLive;
+}
+async function sendToLive(s) {
+  const x = await checkMyLive(true);
+  if (!x) return toast('Your presentation isn\'t running any more');
+  const inList = (x.list || []).includes(s.key);
+  const where = await choose(`Add “${s.title}”`, `${x.presenter ? 'To the slideshow' : 'To your live song list'} on your other device${inList ? ' (it\'s already in the list; it will be moved)' : ''}.`,
+    [{ label: 'Play next', value: 'next', primary: true }, { label: 'Add to the end', value: 'end' }, { label: 'Cancel', value: 'cancel' }]);
+  if (where !== 'next' && where !== 'end') return;
+  const r = await api('perfRemote', { code: x.code, cmd: { t: 'add', song: s.key, where } }).catch(() => ({}));
+  if (r.ended) { myLive = null; return toast('Your presentation isn\'t running any more'); }
+  toast(r.ok ? `Sent: ${s.title}` : (r.error || 'Couldn\'t send it. Check your connection.'), 3500);
+}
+function placeRowMenu(btn) {
+  const m = $('#rowMenu');
   const r = btn.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
   m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
   m.style.top = (r.bottom + h + 8 > window.innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
@@ -3863,6 +3913,7 @@ $('#rowMenu').addEventListener('click', e => {
     toast(on ? 'Added to favorites' : 'Removed from favorites');
     renderTabs(); if (collection === '__fav') search(); else render();
   } else if (b.dataset.m === 'dl') toggleDownload(s);
+  else if (b.dataset.m === 'live') sendToLive(s);
   else if (b.dataset.m === 'chords') { chordUploadSong = s; $('#chordFile').value = ''; $('#chordFile').click(); }
 });
 // ---- upload a chord sheet (ChordPro / OnSong / SongSelect .txt) for a song: saved to the Chord Pro folder on Drive
