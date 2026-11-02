@@ -2231,30 +2231,56 @@ function perfShow(st) {
   }
   perfScrollTo(st.pos);
 }
-function perfScrollTo(pos) {
+// Followers glide to the leader's place instead of jumping: small moves ease in, big ones are capped at a
+// readable speed so a quick flick by the leader doesn't throw everyone off. A new song opens right at the spot.
+const PERF_MAX_SPEED = 900;     // pixels per second, at most
+const PERF_EASE = 0.16;         // seconds: how quickly small adjustments settle
+let perfGlideRAF = 0, perfGlideTarget = null;
+function perfGlide(target, instant) {
+  const body = $('#vBody');
+  target = Math.max(0, Math.min(target, body.scrollHeight - body.clientHeight));
+  if (instant) { cancelAnimationFrame(perfGlideRAF); perfGlideRAF = 0; perfGlideTarget = null; body.scrollTop = target; return; }
+  perfGlideTarget = target;
+  if (perfGlideRAF) return;
+  let last = performance.now();
+  const step = t => {
+    const dt = Math.min(0.05, (t - last) / 1000); last = t;
+    if (perfGlideTarget == null || !perf || perf.role !== 'guest' || !perf.following) { perfGlideRAF = 0; return; }
+    const cur = body.scrollTop, dist = perfGlideTarget - cur;
+    if (Math.abs(dist) < 0.5) { body.scrollTop = perfGlideTarget; perfGlideRAF = 0; perfGlideTarget = null; return; }
+    let move = dist * (1 - Math.exp(-dt / PERF_EASE));            // ease toward the target…
+    const cap = PERF_MAX_SPEED * dt;                               // …but never faster than the cap
+    if (Math.abs(move) > cap) move = Math.sign(dist) * cap;
+    if (Math.abs(move) < 0.5) move = Math.sign(dist) * Math.min(Math.abs(dist), 0.5);
+    body.scrollTop = cur + move;
+    perfGlideRAF = requestAnimationFrame(step);
+  };
+  perfGlideRAF = requestAnimationFrame(step);
+}
+function perfScrollTo(pos, instant = false) {
   if (!pos || !perf) return;
   const body = $('#vBody');
   if (!document.querySelector('#vPages .chart, #vPages img, #vPages .vmsg')) { perf.pendingPos = pos; return; }
   perf.selfScroll = Date.now();
-  if (pos.top) body.scrollTop = 0;
-  else if (pos.end) body.scrollTop = body.scrollHeight;
-  else if (pos.r != null) body.scrollTop = pos.r * (body.scrollHeight - body.clientHeight);
-  else {
-    const els = perfAnchorEls(); let i = pos.ln;
-    while (i < els.length && !els[i].getBoundingClientRect().height) i++;
-    const el = els[i]; if (!el) { perf.pendingPos = pos; return; }
-    const r = el.getBoundingClientRect(), top = body.getBoundingClientRect().top + perfTopInset();
-    body.scrollTop += (r.top + pos.f * r.height) - top;
-  }
+  if (pos.top) return perfGlide(0, instant);
+  if (pos.end) return perfGlide(body.scrollHeight, instant);
+  if (pos.r != null) return perfGlide(pos.r * (body.scrollHeight - body.clientHeight), instant);
+  const els = perfAnchorEls(); let i = pos.ln;
+  while (i < els.length && !els[i].getBoundingClientRect().height) i++;
+  const el = els[i]; if (!el) { perf.pendingPos = pos; return; }
+  // where the line is now, measured from the content top (unaffected by a glide already under way)
+  const r = el.getBoundingClientRect(), top = body.getBoundingClientRect().top + perfTopInset();
+  perfGlide(body.scrollTop + (r.top + pos.f * r.height) - top, instant);
 }
 // After the chart or sheet music is drawn: the host tells everyone; a follower moves to the host's place.
 function perfAfterDraw() {
   if (!perf) return;
   if (perf.role === 'host') return perfSync();
-  if (perf.following && perf.pendingPos) { const p = perf.pendingPos; perf.pendingPos = null; requestAnimationFrame(() => perfScrollTo(p)); }
+  if (perf.following && perf.pendingPos) { const p = perf.pendingPos; perf.pendingPos = null; requestAnimationFrame(() => perfScrollTo(p, true)); }
 }
 function perfDetach() {
   if (!perf || perf.role !== 'guest' || !perf.following) return;
+  cancelAnimationFrame(perfGlideRAF); perfGlideRAF = 0; perfGlideTarget = null;
   perf.following = false; renderPerfBar();
 }
 function perfFollow() {
