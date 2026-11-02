@@ -645,7 +645,7 @@
     <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="notePresent">Present</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <div class="nview viewonly"><div class="vtext" id="viewText"></div></div>
-    <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Share with everyone</button><button class="pbtn ghost" id="noteOffline">Keep offline</button><button class="pbtn ghost" id="noteCopy">Make a copy</button></div>
+    <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Share with everyone</button><button class="pbtn ghost" id="noteOffline">Download</button><button class="pbtn ghost" id="noteCopy">Make a copy</button></div>
     <label class="field editonly"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
     <p style="color:var(--muted);font-size:13px" id="noteStatus"></p>
     <div class="row2 editonly"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete song list</button></div>
@@ -2978,7 +2978,8 @@ function renderNoteSongs() {
   $('#noteEdit').style.display = canEditList(n) ? '' : 'none';
   $('#noteShare').style.display = !n.isNew && (isMine(n) || meUser().admin) ? '' : 'none';
   $('#noteShare').textContent = n.shared ? 'Stop sharing' : 'Share with everyone';
-  $('#noteOffline').textContent = offlineIds.has(n.id) ? '✓ Kept offline' : 'Keep offline';
+  $('#noteOffline').innerHTML = offlineIds.has(n.id) ? '✓ Downloaded' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>Download';
+  $('#noteOffline').title = offlineIds.has(n.id) ? 'Saved on this device for offline use. Tap to remove the download.' : 'Save this song list on this device for offline use';
   $('#noteOffline').classList.toggle('on', offlineIds.has(n.id));
   $('#noteCopy').style.display = n.isNew ? 'none' : '';
   $('#noteStatus').textContent = n.isNew ? '' : `${!isMine(n) && n.ownerName ? `Made by ${n.ownerName}. ` : ''}${n.shared ? 'Shared with everyone. ' : 'Only you can see it. '}Last saved${n.leader ? ' by ' + n.leader : ''} ${n.updated ? new Date(n.updated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}.`;
@@ -3121,7 +3122,7 @@ $('#noteOffline').onclick = () => {
   const id = editing.id;
   if (offlineIds.has(id)) offlineIds.delete(id); else offlineIds.add(id);
   saveNotes(); renderNoteSongs(); renderNotes();
-  toast(offlineIds.has(id) ? 'Kept on this device for offline use' : 'Removed from this device (still saved online)');
+  toast(offlineIds.has(id) ? 'Downloaded to this device for offline use' : 'Download removed (the song list is still saved online)');
 };
 $('#noteCopy').onclick = () => {
   const n = editing; if (!n) return;
