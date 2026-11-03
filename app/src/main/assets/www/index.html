@@ -2973,7 +2973,7 @@ function prRender() {
   if (prIsPpt(s)) {
     const st = pr.ppt;
     $('#prPos').dataset.ppt = st ? JSON.stringify([st.slide, st.total, st.running, st.done]) : '';
-    $('#prPos').textContent = !pr.pptOpen ? 'Opening in PowerPoint…' : !st || !st.running ? 'PowerPoint show ended · press Next to go on' :
+    $('#prPos').textContent = pr.pptBusy ? 'Opening in PowerPoint… (the first time can take 10–20 seconds)' : !pr.pptOpen ? (pr.pptError ? `PowerPoint didn't open it (${pr.pptError}) · showing pictures` : 'Opening in PowerPoint…') : !st || !st.running ? 'PowerPoint show ended · press Next to go on' :
       `In PowerPoint · slide ${st.slide} of ${st.total}${st.black ? ' · black screen' : ''}${st.done ? ' · end of the show (Next goes on)' : ''}`;
   }
   if (prIsLive(s)) {
@@ -3106,7 +3106,8 @@ const PPT_URL = 'http://127.0.0.1:47321';
 let pptHelper = null, pptTimer = null;
 async function pptCall(path, body) {
   try {
-    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), body ? 60000 : 2500);
+    // status checks are quick; anything else may wait for PowerPoint to start up and open the file
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), path === '/status' ? 2500 : 90000);
     const r = await fetch(PPT_URL + path, { method: path === '/status' ? 'GET' : 'POST', body, signal: ctl.signal });
     clearTimeout(t); const j = await r.json(); if (j && j.app) pptHelper = j; return j;
   } catch { if (path === '/status') pptHelper = null; return null; }
@@ -3116,15 +3117,25 @@ setInterval(() => { if (pr && !pr.pptOpen) pptPing().then(() => { if (pr) prRend
 const prIsPpt = s => !!(s && s.deck && s.mode === 'ppt' && pptHelper);
 async function pptStart(item) {
   const id = prFile(item).id, q = `/open?id=${encodeURIComponent(id)}&name=${encodeURIComponent((item.title || 'Slides').replace(/\.(pptx?|pdf)$/i, '') + '.pptx')}`;
+  if (pr) { pr.pptBusy = true; prRender(); }
   let r = await pptCall(q, '');
+  if (pr) pr.pptBusy = false;
   if (r && r.need === 'file') {
+    if (pr) { pr.pptBusy = true; prRender(); }
     toast('Opening it in PowerPoint…', 4000);
     const f = await api('deckFile', { id }).catch(() => ({}));
     if (!f.ok) { toast(f.error || 'Couldn\'t get the PowerPoint file', 5000); return null; }
     const bytes = Uint8Array.from(atob(f.data), c => c.charCodeAt(0));
     r = await pptCall(q, bytes);
+    if (pr) pr.pptBusy = false;
   }
-  if (!r || !r.ok) { toast((r && r.error) || 'PowerPoint didn\'t open it. Is the helper running on this computer?', 6000); return null; }
+  if (!r || !r.ok) {
+    const why = (r && r.error) || 'no answer from the helper';
+    toast(`PowerPoint didn't open it (${why}). Showing pictures instead; press Previous then Next to try again.`, 9000);
+    if (pr) pr.pptError = why;
+    return null;
+  }
+  if (pr) pr.pptError = '';
   if (pr) { pr.ppt = r; pr.pptOpen = id; }
   pptWatch();
   return r;
