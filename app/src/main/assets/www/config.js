@@ -29,7 +29,7 @@ window.HYMNAL_CONFIG = {
 
   // Firebase Realtime Database (worship team account): followers get the leader's slide / song changes through it in
   // a fraction of a second when the Wi-Fi won't let devices connect to each other. Empty = use the Apps Script server.
-  rtdb: "",
+  rtdb: "https://songpoint-default-rtdb.firebaseio.com",
 
   // Tab order (folders not listed come last, A-Z).
   collectionOrder: ["Misc", "SFP", "Zions Praises", "Christian Hymnal"],
