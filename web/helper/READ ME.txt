@@ -6,11 +6,15 @@ and musicians following with "View Slides" see the same slide.
 
 Set up (once, on the computer that runs the projector; it needs Microsoft PowerPoint):
  1. Unzip this folder somewhere that stays put (e.g. Documents\SongPoint helper).
- 2. Double-click "Start SongPoint PowerPoint helper.cmd". A small window opens and says it is running.
+ 2. To start it now: double-click "Start SongPoint PowerPoint helper (hidden).vbs" (no window appears),
+    or "Start SongPoint PowerPoint helper.cmd" to see a window with what it's doing (handy for troubleshooting).
     (If Windows asks whether to run it, choose "More info" > "Run anyway".)
- 3. Leave that window open while presenting (minimize it). Close it to stop.
+ 3. To start it with Windows: press Windows+R, type shell:startup, Enter. Right-click
+    "Start SongPoint PowerPoint helper (hidden).vbs" > Create shortcut, and move the shortcut into that folder.
  4. In PowerPoint, Slide Show tab > Monitor: choose the projector (or leave "Automatic").
  5. The first time, Chrome may ask to let mmcsongpoint.github.io "access other apps and services on this device":
     choose Allow.
 
-Tip: put a shortcut to the .cmd file in the Startup folder (Win+R, type shell:startup) so it starts with Windows.
+To stop the hidden helper: double-click "Stop SongPoint PowerPoint helper.cmd".
+What it does is written to Documents\SongPoint slides\helper log.txt.
+Only one copy runs at a time: stop the hidden one before starting the window version for troubleshooting.

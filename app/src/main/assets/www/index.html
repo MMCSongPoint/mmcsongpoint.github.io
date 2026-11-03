@@ -2896,6 +2896,7 @@ async function prShowSong(si, slide) {
   const target = pr.songs[Math.max(0, Math.min(si, pr.songs.length - 1))];
   if (target && target.deck && target.live && !target.liveId) await prLiveId(target);
   if (pr.pptOpen && !(prIsPpt(target) && prFile(target).id === pr.pptOpen)) pptEnd();
+  if (pr.songs[pr.si] !== target) pr.pptError = '';
   pr.liveFocus = prIsLive(target);
   if (pr.liveFocus) { try { if (prWin && !prWin.closed) prWin.focus(); } catch {} }
   pr.si = Math.max(0, Math.min(si, pr.songs.length - 1)); pr.slide = slide; pr.deck = null;
@@ -2935,7 +2936,8 @@ function prSend() {
   if (!prChannel || !pr) return;
   const s = pr.songs[pr.si], img = pr.deck && pr.deck.imgs[pr.slide];
   if (!pr.blank && prIsLive(s)) return prChannel.postMessage({ t: 'live', url: liveUrl(s.liveId), focus: !!pr.liveFocus });
-  if (prIsPpt(s) && pr.pptOpen) return prChannel.postMessage({ t: 'blank' });   // PowerPoint's own show covers the projector
+  // PowerPoint's own show covers the projector; until it's up, the projector stays black (pictures only if it failed)
+  if (prIsPpt(s) && !pr.pptError) return prChannel.postMessage({ t: 'blank' });
   if (pr.blank) prChannel.postMessage({ t: 'blank' });
   else if (img) prChannel.postMessage({ t: 'slide', img });
   else if (pr.deck) prChannel.postMessage({ t: 'title', text: s.title });
@@ -3117,7 +3119,7 @@ setInterval(() => { if (pr && !pr.pptOpen) pptPing().then(() => { if (pr) prRend
 const prIsPpt = s => !!(s && s.deck && s.mode === 'ppt' && pptHelper);
 async function pptStart(item) {
   const id = prFile(item).id, q = `/open?id=${encodeURIComponent(id)}&name=${encodeURIComponent((item.title || 'Slides').replace(/\.(pptx?|pdf)$/i, '') + '.pptx')}`;
-  if (pr) { pr.pptBusy = true; prRender(); }
+  if (pr) { pr.pptBusy = true; pr.pptError = ''; prRender(); }
   let r = await pptCall(q, '');
   if (pr) pr.pptBusy = false;
   if (r && r.need === 'file') {
