@@ -43,6 +43,13 @@ function Open-Show([string]$id, [string]$name, [byte[]]$body) {
   $path = Join-Path $Dir ($safe + $ext)
   if ($body -and $body.Length) { [IO.File]::WriteAllBytes($path, $body) }
   if (-not (Test-Path $path)) { return @{ ok = $false; need = 'file' } }
+  $size = (Get-Item $path).Length
+  $head = [IO.File]::ReadAllBytes($path)[0..3] | ForEach-Object { $_.ToString('X2') }
+  Write-Host "  File: $path ($size bytes, starts $($head -join ' '))"
+  if ($size -lt 1000 -or (($head -join '') -notin @('504B0304', 'D0CF11E0'))) {
+    Remove-Item $path -ErrorAction SilentlyContinue
+    throw "The file SongPoint sent isn't a valid PowerPoint ($size bytes). Try again."
+  }
   if ($script:presId -ne $safe -or -not $script:pres) {
     Close-Pres
     $app = Get-Ppt
@@ -57,7 +64,19 @@ function Open-Show([string]$id, [string]$name, [byte[]]$body) {
       # last try: find it among the open presentations
       try { foreach ($x in $app.Presentations) { if ($x.FullName -eq $path) { $p = $x } } } catch {}
     }
-    if (-not $p) { throw "PowerPoint couldn't open the file (it may be blocked by PowerPoint's Protected View or File Block settings): $path" }
+    if (-not $p) {
+      # another way in: ask Windows to start the slideshow (POWERPNT /S), then pick it up from the running PowerPoint
+      Write-Host '  Trying PowerPoint /S...'
+      try {
+        $exe = Join-Path $app.Path 'POWERPNT.EXE'
+        if (Test-Path $exe) { Start-Process -FilePath $exe -ArgumentList '/S', ('"' + $path + '"') } else { Start-Process -FilePath $path -Verb Show }
+        for ($i = 0; $i -lt 40 -and -not $p; $i++) {
+          Start-Sleep -Milliseconds 500
+          try { foreach ($x in $app.Presentations) { if ($x.FullName -eq $path) { $p = $x } } } catch {}
+        }
+      } catch { Write-Host "  /S: $($_.Exception.Message)" }
+    }
+    if (-not $p) { throw "PowerPoint couldn't open the file (see the helper window for details): $path" }
     $script:pres = $p; $script:presId = $safe; $script:presName = $name
     try { if ($p.Windows.Count -gt 0) { $p.Windows.Item(1).WindowState = 2 } } catch {}   # keep the editing window out of the way
   }
