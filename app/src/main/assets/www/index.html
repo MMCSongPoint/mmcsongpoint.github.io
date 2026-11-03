@@ -112,6 +112,9 @@
   @keyframes pulse { 50% { opacity: .3; } }
   .acts { display: flex; align-items: center; }
   .sm { color: var(--accent-text); }
+  /* dark mode: the sheet-music icons are plain white, not pink */
+  :root[data-theme="dark"] .sm { color: var(--text); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sm { color: var(--text); } }
   .parts { grid-column: 2 / 4; display: flex; gap: 6px; flex-wrap: wrap; }
   .pp { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 13px; color: var(--muted); white-space: nowrap; }
   .pp.mine { color: var(--text); border-color: var(--accent-text); }
