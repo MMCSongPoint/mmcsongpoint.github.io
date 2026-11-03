@@ -111,10 +111,10 @@
   .dl.busy svg { animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .3; } }
   .acts { display: flex; align-items: center; }
-  .sm { color: var(--accent-text); }
-  /* dark mode: sheet-music icons, key buttons, pitch pipes and the name in "Welcome" are plain white, not pink */
-  :root[data-theme="dark"] .sm, :root[data-theme="dark"] .keyb:not(.ringing), :root[data-theme="dark"] .nsong .ctl button.keyb:not(.ringing), :root[data-theme="dark"] .welcome b, :root[data-theme="dark"] #pipeBtn .pipe { color: var(--text); }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sm, :root:not([data-theme="light"]) .keyb:not(.ringing), :root:not([data-theme="light"]) .nsong .ctl button.keyb:not(.ringing), :root:not([data-theme="light"]) .welcome b, :root:not([data-theme="light"]) #pipeBtn .pipe { color: var(--text); } }
+  /* sheet-music icons: plain text colour (white in dark mode, black in light), not pink; dark mode: the name in "Welcome" is white */
+  .sm { color: var(--text); }
+  :root[data-theme="dark"] .welcome b { color: var(--text); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .welcome b { color: var(--text); } }
   .parts { grid-column: 2 / 4; display: flex; gap: 6px; flex-wrap: wrap; }
   .pp { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 13px; color: var(--muted); white-space: nowrap; }
   .pp.mine { color: var(--text); border-color: var(--accent-text); }
