@@ -12,32 +12,53 @@ New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 
 $script:ppt = $null; $script:pres = $null; $script:presId = ''; $script:presName = ''
 
+# PowerPoint is driven through its COM automation interface. Every call goes through IDispatch by name (InvokeMember),
+# so it works even when PowerShell can't read PowerPoint's type library (common with Microsoft 365 installs).
+$BF = [Reflection.BindingFlags]
+# (the leading comma stops PowerShell from unrolling a returned collection, e.g. Presentations, into its items)
+function CGet($o, [string]$n) { if ($null -eq $o) { return $null }; return , ([System.__ComObject].InvokeMember($n, $BF::GetProperty, $null, $o, $null)) }
+function CSet($o, [string]$n, $v) { [void][System.__ComObject].InvokeMember($n, $BF::SetProperty, $null, $o, @($v)) }
+function CCall($o, [string]$n, [object[]]$a = @()) { return , ([System.__ComObject].InvokeMember($n, $BF::InvokeMethod, $null, $o, $a)) }
+function CItems($coll) { $out = @(); $n = 0; try { $n = [int](CGet $coll 'Count') } catch {}; for ($i = 1; $i -le $n; $i++) { try { $out += , (CCall $coll 'Item' @($i)) } catch {} }; return , $out }
+
 function Get-Ppt {
-  try { if ($script:ppt) { $null = $script:ppt.Version; return $script:ppt } } catch { $script:ppt = $null }
-  $script:ppt = New-Object -ComObject PowerPoint.Application
-  return $script:ppt
+  try { if ($script:ppt) { $null = CGet $script:ppt 'Version'; return } } catch { $script:ppt = $null }
+  try { $script:ppt = [Runtime.InteropServices.Marshal]::GetActiveObject('PowerPoint.Application') } catch { $script:ppt = $null }
+  if (-not $script:ppt) { $script:ppt = New-Object -ComObject PowerPoint.Application }
+  try { Write-Host "  PowerPoint $(CGet $script:ppt 'Version') ready" } catch { Write-Host "  PowerPoint: $($_.Exception.Message)" }
+}
+function Find-Pres([string]$path) {
+  try { foreach ($x in (CItems (CGet $script:ppt 'Presentations'))) { if ((CGet $x 'FullName') -eq $path) { return $x } } } catch {}
+  return $null
 }
 function Get-View {
-  try { if ($script:pres -and $script:pres.SlideShowWindow) { return $script:pres.SlideShowWindow.View } } catch {}
+  try { if ($script:pres) { $w = CGet $script:pres 'SlideShowWindow'; if ($w) { return (CGet $w 'View') } } } catch {}
   return $null
 }
 function Get-State {
   $v = Get-View; $total = 0
-  try { if ($script:pres) { $total = $script:pres.Slides.Count } } catch {}
+  try { if ($script:pres) { $total = [int](CGet (CGet $script:pres 'Slides') 'Count') } } catch {}
   if ($v) {
-    $slide = 0; try { $slide = $v.Slide.SlideIndex } catch { try { $slide = $v.CurrentShowPosition } catch {} }
-    $st = 1; try { $st = $v.State } catch {}
-    return @{ ok = $true; app = 'songpoint-ppt'; v = 1; running = $true; id = $script:presId; name = $script:presName; slide = $slide; total = $total; black = ($st -eq 3); done = ($st -eq 5) }
+    $slide = 0; try { $slide = [int](CGet (CGet $v 'Slide') 'SlideIndex') } catch { try { $slide = [int](CGet $v 'CurrentShowPosition') } catch {} }
+    $st = 1; try { $st = [int](CGet $v 'State') } catch {}
+    return @{ ok = $true; app = 'songpoint-ppt'; v = 2; running = $true; id = $script:presId; name = $script:presName; slide = $slide; total = $total; black = ($st -eq 3); done = ($st -eq 5) }
   }
-  return @{ ok = $true; app = 'songpoint-ppt'; v = 1; running = $false; id = $script:presId; name = $script:presName; slide = 0; total = $total; black = $false; done = $false }
+  return @{ ok = $true; app = 'songpoint-ppt'; v = 2; running = $false; id = $script:presId; name = $script:presName; slide = 0; total = $total; black = $false; done = $false }
 }
 function Close-Pres {
-  try { $v = Get-View; if ($v) { $v.Exit() } } catch {}
-  try { if ($script:pres) { $script:pres.Close() } } catch {}
+  try { $v = Get-View; if ($v) { [void](CCall $v 'Exit') } } catch {}
+  try { if ($script:pres) { [void](CCall $script:pres 'Close') } } catch {}
   $script:pres = $null; $script:presId = ''; $script:presName = ''
 }
+function Ppt-Exe {
+  try { $p = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\powerpnt.exe' -ErrorAction Stop).'(default)'; if ($p -and (Test-Path $p)) { return $p } } catch {}
+  try { $p = Join-Path (CGet $script:ppt 'Path') 'POWERPNT.EXE'; if (Test-Path $p) { return $p } } catch {}
+  return $null
+}
 function Open-Show([string]$id, [string]$name, [byte[]]$body) {
-  $ext = [IO.Path]::GetExtension($name).ToLower(); if ($ext -notin @('.pptx', '.ppt', '.ppsx', '.pps')) { $ext = '.pptx' }
+  if (-not $name) { $name = 'Slides.pptx' }
+  $ext = [IO.Path]::GetExtension($name); if ($ext) { $ext = $ext.ToLower() }
+  if ($ext -notin @('.pptx', '.ppt', '.ppsx', '.pps')) { $ext = '.pptx' }
   $safe = ($id -replace '[^\w-]', '')
   if (-not $safe) { throw 'No file id' }
   $path = Join-Path $Dir ($safe + $ext)
@@ -52,44 +73,41 @@ function Open-Show([string]$id, [string]$name, [byte[]]$body) {
   }
   if ($script:presId -ne $safe -or -not $script:pres) {
     Close-Pres
-    $app = Get-Ppt
-    try { $app.Visible = -1 } catch {}
-    $p = $null
-    try { $p = $app.Presentations.Open($path, -1, 0, -1) } catch { Write-Host "  Open: $($_.Exception.Message)" }   # read-only, in a window
+    Get-Ppt
+    try { CSet $script:ppt 'Visible' -1 } catch {}
+    $p = Find-Pres $path
     if (-not $p) {
-      # PowerPoint put it in Protected View (a read-only safety mode): take it out, the file came from SongPoint
-      try { if ($app.ProtectedViewWindows.Count -gt 0) { $p = $app.ProtectedViewWindows.Item($app.ProtectedViewWindows.Count).Edit() } } catch { Write-Host "  Protected View: $($_.Exception.Message)" }
+      try { $p = CCall (CGet $script:ppt 'Presentations') 'Open' @($path, -1, 0, -1) } catch { Write-Host "  Open: $($_.Exception.InnerException.Message) $($_.Exception.Message)" }   # read-only, in a window
     }
     if (-not $p) {
-      # last try: find it among the open presentations
-      try { foreach ($x in $app.Presentations) { if ($x.FullName -eq $path) { $p = $x } } } catch {}
+      # Protected View (PowerPoint's read-only safety mode): take it out, the file came from SongPoint
+      try { $pv = CItems (CGet $script:ppt 'ProtectedViewWindows'); if ($pv.Count) { $p = CCall $pv[$pv.Count - 1] 'Edit' } } catch { Write-Host "  Protected View: $($_.Exception.Message)" }
     }
+    if (-not $p) { $p = Find-Pres $path }
     if (-not $p) {
-      # another way in: ask Windows to start the slideshow (POWERPNT /S), then pick it up from the running PowerPoint
+      # another way in: start the slideshow the way a double-click does (POWERPNT /S), then pick it up
       Write-Host '  Trying PowerPoint /S...'
       try {
-        $exe = Join-Path $app.Path 'POWERPNT.EXE'
-        if (Test-Path $exe) { Start-Process -FilePath $exe -ArgumentList '/S', ('"' + $path + '"') } else { Start-Process -FilePath $path -Verb Show }
-        for ($i = 0; $i -lt 40 -and -not $p; $i++) {
-          Start-Sleep -Milliseconds 500
-          try { foreach ($x in $app.Presentations) { if ($x.FullName -eq $path) { $p = $x } } } catch {}
-        }
+        $exe = Ppt-Exe
+        if ($exe) { Start-Process -FilePath $exe -ArgumentList '/S', ('"' + $path + '"') } else { Start-Process -FilePath $path -Verb Show }
+        for ($i = 0; $i -lt 40 -and -not $p; $i++) { Start-Sleep -Milliseconds 500; Get-Ppt; $p = Find-Pres $path }
       } catch { Write-Host "  /S: $($_.Exception.Message)" }
     }
     if (-not $p) { throw "PowerPoint couldn't open the file (see the helper window for details): $path" }
     $script:pres = $p; $script:presId = $safe; $script:presName = $name
-    try { if ($p.Windows.Count -gt 0) { $p.Windows.Item(1).WindowState = 2 } } catch {}   # keep the editing window out of the way
+    try { $w = CItems (CGet $p 'Windows'); if ($w.Count) { CSet $w[0] 'WindowState' 2 } } catch {}   # keep the editing window out of the way
   }
   $v = Get-View
-  if ($v) { try { $v.GotoSlide(1) } catch {} ; try { $v.State = 1 } catch {} }
+  if ($v) { try { [void](CCall $v 'GotoSlide' @(1)) } catch {}; try { CSet $v 'State' 1 } catch {} }
   else {
-    $ss = $script:pres.SlideShowSettings
+    $ss = CGet $script:pres 'SlideShowSettings'
     if (-not $ss) { throw 'PowerPoint opened the file but would not start the slideshow.' }
-    $ss.ShowType = 1                       # full screen (on PowerPoint's slide show monitor)
-    $ss.StartingSlide = 1; $ss.EndingSlide = $script:pres.Slides.Count; $ss.RangeType = 2
-    $null = $ss.Run()
+    try { CSet $ss 'ShowType' 1 } catch {}               # full screen (on PowerPoint's slide show monitor)
+    try { CSet $ss 'RangeType' 1 } catch {}              # all slides
+    [void](CCall $ss 'Run')
   }
-  try { $script:pres.SlideShowWindow.Activate() } catch {}
+  try { [void](CCall (CGet $script:pres 'SlideShowWindow') 'Activate') } catch {}
+  Write-Host "  Slideshow started"
   return Get-State
 }
 
@@ -154,9 +172,9 @@ while ($true) {
       switch ($req.path) {
         '/status' { $res = Get-State }
         '/open'   { $res = Open-Show $req.query['id'] $req.query['name'] $req.body; Write-Host "  Showing: $($req.query['name'])" }
-        '/next'   { $v = Get-View; if ($v) { $v.Next() }; $res = Get-State }
-        '/prev'   { $v = Get-View; if ($v) { $v.Previous() }; $res = Get-State }
-        '/black'  { $v = Get-View; if ($v) { if ($v.State -eq 3) { $v.State = 1 } else { $v.State = 3 } }; $res = Get-State }
+        '/next'   { $v = Get-View; if ($v) { [void](CCall $v 'Next') }; $res = Get-State }
+        '/prev'   { $v = Get-View; if ($v) { [void](CCall $v 'Previous') }; $res = Get-State }
+        '/black'  { $v = Get-View; if ($v) { if ([int](CGet $v 'State') -eq 3) { CSet $v 'State' 1 } else { CSet $v 'State' 3 } }; $res = Get-State }
         '/end'    { Close-Pres; $res = Get-State }
         default   { $res = @{ ok = $false; error = 'Unknown request' } }
       }
