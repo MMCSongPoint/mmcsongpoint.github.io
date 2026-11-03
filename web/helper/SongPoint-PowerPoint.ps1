@@ -5,7 +5,9 @@
 $ErrorActionPreference = 'Stop'
 $Port = 47321
 $Allowed = @('https://mmcsongpoint.github.io', 'http://localhost:8090')
-$Dir = Join-Path $env:TEMP 'SongPoint slides'
+# Saved under Documents (not the Temp folder, which PowerPoint can treat as unsafe and open in Protected View)
+$Docs = [Environment]::GetFolderPath('MyDocuments'); if (-not $Docs) { $Docs = $env:TEMP }
+$Dir = Join-Path $Docs 'SongPoint slides'
 New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 
 $script:ppt = $null; $script:pres = $null; $script:presId = ''; $script:presName = ''
@@ -44,13 +46,26 @@ function Open-Show([string]$id, [string]$name, [byte[]]$body) {
   if ($script:presId -ne $safe -or -not $script:pres) {
     Close-Pres
     $app = Get-Ppt
-    $script:pres = $app.Presentations.Open($path, -1, 0, 0)   # read-only, no editing window
-    $script:presId = $safe; $script:presName = $name
+    try { $app.Visible = -1 } catch {}
+    $p = $null
+    try { $p = $app.Presentations.Open($path, -1, 0, -1) } catch { Write-Host "  Open: $($_.Exception.Message)" }   # read-only, in a window
+    if (-not $p) {
+      # PowerPoint put it in Protected View (a read-only safety mode): take it out, the file came from SongPoint
+      try { if ($app.ProtectedViewWindows.Count -gt 0) { $p = $app.ProtectedViewWindows.Item($app.ProtectedViewWindows.Count).Edit() } } catch { Write-Host "  Protected View: $($_.Exception.Message)" }
+    }
+    if (-not $p) {
+      # last try: find it among the open presentations
+      try { foreach ($x in $app.Presentations) { if ($x.FullName -eq $path) { $p = $x } } } catch {}
+    }
+    if (-not $p) { throw "PowerPoint couldn't open the file (it may be blocked by PowerPoint's Protected View or File Block settings): $path" }
+    $script:pres = $p; $script:presId = $safe; $script:presName = $name
+    try { if ($p.Windows.Count -gt 0) { $p.Windows.Item(1).WindowState = 2 } } catch {}   # keep the editing window out of the way
   }
   $v = Get-View
   if ($v) { try { $v.GotoSlide(1) } catch {} ; try { $v.State = 1 } catch {} }
   else {
     $ss = $script:pres.SlideShowSettings
+    if (-not $ss) { throw 'PowerPoint opened the file but would not start the slideshow.' }
     $ss.ShowType = 1                       # full screen (on PowerPoint's slide show monitor)
     $ss.StartingSlide = 1; $ss.EndingSlide = $script:pres.Slides.Count; $ss.RangeType = 2
     $null = $ss.Run()
