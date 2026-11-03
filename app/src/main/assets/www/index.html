@@ -113,7 +113,7 @@
   .rmsongs button.now { border-color: var(--accent-text); box-shadow: inset 3px 0 0 var(--accent-text); } .rmsongs button span { color: var(--muted); margin-right: 8px; }
   .rmaddrow { display: block; width: 100%; text-align: left; background: none; border: none; border-top: 1px solid var(--line); padding: 10px 4px; color: var(--text); font-size: 15px; }
   .closelist { list-style: none; margin: 0; padding: 0; }
-  .closelist li { padding: 12px 6px; border-top: 1px solid var(--line); font-size: 16px; }
+  .closelist li { padding: 6px 6px; min-height: 48px; border-top: 1px solid var(--line); font-size: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .closelist li:first-child { border-top: none; }
   /* Turned off for now (the presenter covers it): Build PowerPoint, the PowerPoints menu item. Song list export /
      import aren't needed now that lists live on the server. Remove a selector here to bring it back. */
@@ -4746,7 +4746,19 @@ $('#rmAddList').addEventListener('click', async e => {
   $('#rmAddBox').classList.remove('show');
   rmSend({ t: 'add', song: s2.key, where }); toast(`Added: ${s2.title}`, 2000);
 });
-$('#dClosing').onclick = () => { closeDrawer(); $('#closingList').innerHTML = (window.CLOSING_SONGS || []).map(c => `<li>${esc(c.title)}</li>`).join(''); openPanel('closingPanel'); };
+// a closing song's sheet music: a song in the library with the same title (or the part in brackets, or one that starts with it)
+function closingMatch(title) {
+  const names = [title, title.replace(/\s*\([^)]*\)\s*/g, ' '), ...(title.match(/\(([^)]*)\)/g) || []).map(x => x.slice(1, -1))].map(normalize).filter(x => x.length > 2);
+  const withMusic = songs.filter(hasMusic), best = list => list.sort((a, b) => (b.sheets.length ? 1 : 0) - (a.sheets.length ? 1 : 0))[0];
+  for (const n of names) { const m = best(withMusic.filter(x => x.nTitle === n)); if (m) return m; }
+  const n = normalize(title.replace(/\s*\([^)]*\)\s*/g, ' '));
+  return n.split(' ').length >= 3 ? best(withMusic.filter(x => x.nTitle.startsWith(n + ' '))) : null;
+}
+function renderClosing() {
+  $('#closingList').innerHTML = (window.CLOSING_SONGS || []).map(c => { const m = closingMatch(c.title); return `<li><span>${esc(c.title)}</span>${m ? `<button class="dl sm" data-k="${esc(m.key)}" aria-label="Sheet music for ${esc(c.title)}">${ICON_MUSIC}</button>` : ''}</li>`; }).join('');
+}
+$('#dClosing').onclick = () => { closeDrawer(); renderClosing(); openPanel('closingPanel'); };
+$('#closingList').addEventListener('click', e => { const b = e.target.closest('[data-k]'); const s2 = b && songIndex.get(b.dataset.k); if (s2) openViewer(s2); });
 $('#dFavs').onclick = () => { closeDrawer(); openSongsPanel('fav'); };
 
 // ------------------------------------------------------------------ song "more" menu (favorite, save offline)
