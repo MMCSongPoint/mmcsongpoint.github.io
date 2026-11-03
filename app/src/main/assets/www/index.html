@@ -2970,7 +2970,7 @@ function prRender() {
   $('#prNextMsg').textContent = nextMsg; $('#prNextMsg').style.display = nextMsg ? '' : 'none';
   $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<img src="${u}" data-i="${i}" class="${i === pr.slide ? 'now' : ''}" alt="Slide ${i + 1}">`).join('') : '';
   const nowThumb = $('#prThumbs .now'); if (nowThumb) nowThumb.scrollIntoView({ block: 'nearest' });
-  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'live' ? 'animations (Google)' : 'still pictures'}</u>`}</small>` : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
+  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'live' ? 'Google Slides' : 'still pictures'}</u>`}</small>` : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
   $('#prPos').dataset.ppt = '';
   if (prIsPpt(s)) {
     const st = pr.ppt;
@@ -3065,7 +3065,8 @@ $('#prSongs').addEventListener('click', e => {
     const it = pr.songs[+b.dataset.i], modes = [...(pptHelper ? ['ppt'] : []), 'live', 'pics'];
     if (it.mode === 'ppt' && pr.songs[pr.si] === it) pptEnd();
     it.mode = modes[(modes.indexOf(it.mode) + 1) % modes.length]; it.live = it.mode === 'live'; it.modeAuto = false;
-    toast(it.mode === 'ppt' ? 'Plays in PowerPoint on the projector' : it.mode === 'live' ? 'Plays in Google Slides\' player (animations; musicians can\'t follow the slide)' : 'Still pictures, stepped from here', 3000);
+    if (it.mode === 'ppt') pptPrefetch(it);
+    toast(it.mode === 'ppt' ? 'Plays in PowerPoint on the projector' : it.mode === 'live' ? 'Plays in Google Slides (animations; musicians can\'t follow the slide)' : 'Still pictures, stepped from here', 3000);
     if (it.live) prLiveId(it).then(() => { if (pr && pr.songs[pr.si] === it) prShowSong(pr.si, 0); else prRender(); }); else { if (pr.songs[pr.si] === it) prShowSong(pr.si, 0); else prRender(); }
     return;
   }
@@ -3119,11 +3120,18 @@ const pptPing = () => pptCall('/status');
 function pptAutoModes() {
   if (!pr || !pptHelper) return;
   let changed = false;
-  for (const it of pr.songs) if (it.deck && it.modeAuto && it.mode !== 'ppt') { it.mode = 'ppt'; it.live = false; changed = true; }
+  for (const it of pr.songs) if (it.deck && it.modeAuto && it.mode !== 'ppt') { it.mode = 'ppt'; it.live = false; changed = true; pptPrefetch(it); }
   if (changed) { const cur = pr.songs[pr.si]; if (cur && cur.deck && cur.mode === 'ppt') prShowSong(pr.si, 0); else prRender(); }
 }
 setInterval(() => { if (pr && !pr.pptOpen) pptPing().then(() => { if (pr) { pptAutoModes(); prRender(); } }); }, 5000);   // notice a helper started later
 const prIsPpt = s => !!(s && s.deck && s.mode === 'ppt' && pptHelper);
+// get a deck's PowerPoint file from the server ahead of time, so stepping onto it only has to start PowerPoint
+function pptPrefetch(item) {
+  if (!item || !item.deck || item.pdf || item.pptFile) return item && item.pptFile;
+  item.pptFile = api('deckFile', { id: prFile(item).id }).then(f => { if (!f.ok) throw new Error(f.error); return f; });
+  item.pptFile.catch(() => { item.pptFile = null; });
+  return item.pptFile;
+}
 async function pptStart(item) {
   const id = prFile(item).id, q = `/open?id=${encodeURIComponent(id)}&name=${encodeURIComponent((item.title || 'Slides').replace(/\.(pptx?|pdf)$/i, '') + '.pptx')}`;
   if (pr) { pr.pptBusy = true; pr.pptError = ''; prRender(); }
@@ -3132,7 +3140,7 @@ async function pptStart(item) {
   if (r && r.need === 'file') {
     if (pr) { pr.pptBusy = true; prRender(); }
     toast('Opening it in PowerPoint…', 4000);
-    const f = await api('deckFile', { id }).catch(() => ({}));
+    const f = await (pptPrefetch(item) || Promise.resolve({})).catch(e => ({ ok: false, error: e.message }));
     if (!f.ok) { toast(f.error || 'Couldn\'t get the PowerPoint file', 5000); return null; }
     const bytes = Uint8Array.from(atob(f.data), c => c.charCodeAt(0));
     r = await pptCall(q, bytes);
@@ -3178,9 +3186,10 @@ function prInsertDeck(item) {
   if (!pr) return;
   const at = pr.si + 1; pr.songs.splice(at, 0, item);
   const pdf = /\.pdf$/i.test(item.title) || item.pdf;
-  // Google Slides links play in Google's player; PowerPoint files in PowerPoint (with the helper). Tap the label to change.
-  item.mode = pdf ? 'pics' : item.google ? 'live' : pptHelper ? 'ppt' : item.live ? 'live' : 'pics'; item.live = item.mode === 'live';
-  item.modeAuto = !pdf && !item.google;   // not picked by hand: switches to PowerPoint as soon as the helper is found
+  // PowerPoint (with the helper) by default, Google Slides' player without it; PDFs as pictures. Tap the label to change.
+  item.mode = pdf ? 'pics' : pptHelper ? 'ppt' : item.live ? 'live' : 'pics'; item.live = item.mode === 'live';
+  item.modeAuto = !pdf;
+  if (item.mode === 'ppt') pptPrefetch(item);   // not picked by hand: switches to PowerPoint as soon as the helper is found
   if (item.modeAuto && !pptHelper) pptPing().then(() => { if (pptHelper) pptAutoModes(); });
   if (item.live) prLiveId(item).then(() => prRender());
   prDeck(item).then(d => { if (d && d.title && item.title === 'Speaker slides') { item.title = d.title; prRender(); } }).catch(e => toast(e.message || 'Couldn\'t open those slides', 5000));
