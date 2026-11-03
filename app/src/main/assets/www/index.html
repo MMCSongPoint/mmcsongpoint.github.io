@@ -2196,7 +2196,9 @@ async function perfPollLoop(me) {
         if (r.ok) me.relayOk = Date.now();
         if (r.state) perfApply(r.state);
       }
-      const due = me.role === 'host' || !me.connected || Date.now() - (me.lastPoll || 0) > 15000;
+      // messages: the host always; a follower while it's setting up a direct link; on the server route every 3 s (its
+      // state comes from perfState above, so the fast loop stays one quick request)
+      const due = me.role === 'host' || (!me.connected && !me.relay) || Date.now() - (me.lastPoll || 0) > (me.connected ? 15000 : 3000);
       if (due) {
         me.lastPoll = Date.now();
         const r = await api('perfPoll', { code: me.code, peer: me.peer });
@@ -2205,7 +2207,7 @@ async function perfPollLoop(me) {
         for (const m of r.msgs || []) await (me.role === 'host' ? perfHostMsg(me, m) : perfGuestMsg(me, m));
       }
     } catch {}
-    await pause(me.role === 'host' ? 2500 : me.relay && !me.connected ? 1200 : 1500);
+    await pause(me.role === 'host' ? 2500 : me.relay && !me.connected ? 400 : 1500);
   }
 }
 // ---- host
@@ -2300,11 +2302,27 @@ function perfSync() {
   const wait = Math.max(0, 80 - (Date.now() - perfSyncLast));
   if (!wait) go(); else perfSyncT = setTimeout(go, wait);
 }
-let perfRelayT = null;
+// Followers on the server route read the leader's state from the server. A new song / slide / blank goes up straight
+// away (scrolling waits a moment), and only one upload runs at a time: if more changes come meanwhile, the newest
+// goes up as soon as the last one finishes.
+let perfRelayT = null, perfRelayBusy = false, perfRelayAgain = false, perfRelayKey = '';
 function perfRelayPush(now = false) {
   if (!perf || perf.role !== 'host' || !perf.relayers.size) return;
+  const st = perfState(), key = [st.song, st.slideNo, st.slideIdx, st.blank, st.group, st.view, st.mode, st.keyP, st.off].join('|');
+  if (key !== perfRelayKey) now = true;   // a real change, not just scrolling
   clearTimeout(perfRelayT);
-  perfRelayT = setTimeout(() => { if (perf && perf.role === 'host') api('perfState', { code: perf.code, state: perfState() }).catch(() => {}); }, now ? 0 : 700);
+  perfRelayT = setTimeout(perfRelayUpload, now ? 0 : 500);
+}
+async function perfRelayUpload() {
+  if (!perf || perf.role !== 'host') return;
+  if (perfRelayBusy) { perfRelayAgain = true; return; }
+  perfRelayBusy = true;
+  try {
+    const st = perfState(); perfRelayKey = [st.song, st.slideNo, st.slideIdx, st.blank, st.group, st.view, st.mode, st.keyP, st.off].join('|');
+    await api('perfState', { code: perf.code, state: st });
+  } catch {}
+  perfRelayBusy = false;
+  if (perfRelayAgain) { perfRelayAgain = false; perfRelayUpload(); }
 }
 async function perfStop(silent = false) {
   const me = perf; if (!me) return;
@@ -2373,8 +2391,25 @@ function perfApply(st) {
   perf.seq = st.seq; perf.last = st;
   if (perf.following) perfShow(st);
 }
+// Get every song in the leader's list ready on this device (chords, and the slides when "View Slides" is on), so a
+// song change doesn't wait on the network.
+let perfPrefetchSig = '';
+function perfPrefetch(st) {
+  const keys = [st.song, ...(st.list || [])].filter(Boolean), sig = keys.join(',') + '|' + (viewSlides ? 1 : 0);
+  if (sig === perfPrefetchSig) return; perfPrefetchSig = sig;
+  (async () => {
+    const order = [...new Set(keys)].map(k => songIndex.get(k)).filter(Boolean);
+    const at = order.findIndex(s => s.key === st.song); if (at > 0) order.push(...order.splice(0, at));   // current song first, then what comes next
+    for (const s of order) {
+      if (perfPrefetchSig !== sig || !perf) return;
+      try { if (s.chords && s.chords.length) await loadChordText(s.chords[0]); } catch {}
+      try { if (viewSlides && st.presenter && prFile(s)) await prDeck(s); } catch {}
+    }
+  })();
+}
 function perfShow(st) {
   if (!st || st.closed) return;
+  perfPrefetch(st);
   perfSlideView(st); setTimeout(() => { if (perf && perf.last === st) perfSlideView(st); }, 0);
   const s = songIndex.get(st.song);
   if (!s) { if (perf.missing !== st.song) { perf.missing = st.song; toast('The leader\'s song isn\'t in your library yet. Pull down to refresh.', 4000); } return; }
