@@ -99,6 +99,7 @@
   .rmnow.blank img { opacity: .18; } .rmnow .rmbadge { position: absolute; top: 8px; left: 8px; background: #c0392b; color: #fff; font-weight: 700; font-size: 12px; padding: 3px 8px; border-radius: 6px; }
   .rminfo { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 8px 2px; }
   .rminfo b { font-size: 15px; } .rminfo small { color: var(--muted); font-size: 12.5px; }
+  .rmnow .rmload { color: #aaa; font-size: 14px; padding: 16px; text-align: center; }
   .rmnext { display: flex; gap: 10px; align-items: center; margin: 4px 0 10px; color: var(--muted); font-size: 12.5px; }
   .rmnext .th { width: 96px; aspect-ratio: 4 / 3; background: #000; border-radius: 6px; overflow: hidden; flex: none; display: grid; place-items: center; }
   .rmnext .th img { width: 100%; height: 100%; object-fit: contain; }
@@ -268,7 +269,9 @@
   .prside { min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
   .prlbl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8c7c84; }
   .prnext { background: #000; border-radius: 8px; aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden; }
-  .prnext img { max-width: 100%; max-height: 100%; }
+  .prnext img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+  .prnext { position: relative; }
+  .prnext .prmsg { position: absolute; }
   .prthumbs { flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
   .prthumbs img { width: 100%; border-radius: 4px; border: 2px solid transparent; cursor: pointer; background: #000; }
   .prthumbs img.now { border-color: var(--accent-text); }
@@ -862,7 +865,7 @@
       <input type="file" id="prFile" accept=".pptx,.ppt,.pdf,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden></div>
     <div class="prmain">
       <div class="prstage"><img id="prCur" alt=""><div class="prmsg" id="prMsg"></div></div>
-      <div class="prnav"><button class="pbtn ghost" id="prPrev">◀ Previous</button><span id="prPos"></span><button class="pbtn" id="prNext">Next ▶</button></div>
+      <div class="prnav"><button class="pbtn" id="prPrev">◀ Previous</button><span id="prPos"></span><button class="pbtn" id="prNext">Next ▶</button></div>
     </div>
     <div class="prside"><div class="prlbl">Next</div><div class="prnext"><img id="prNextImg" alt=""><div class="prmsg sm" id="prNextMsg"></div></div><div class="prlbl">This song</div><div class="prthumbs" id="prThumbs"></div></div>
   </div>
@@ -2891,7 +2894,13 @@ let pr = null;   // { songs, si, slide, decks: Map(fileId -> { imgs, texts } | P
 const prChannel = 'BroadcastChannel' in window ? new BroadcastChannel('songpoint-projector') : null;
 let prPdfLib = null;
 async function prPdf() {
-  if (!prPdfLib) { prPdfLib = await import('./vendor/pdf.min.mjs'); prPdfLib.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdf.worker.min.mjs', location.href).href; }
+  if (!prPdfLib) {
+    // the web app ships pdf.js; the Android app doesn't, so it borrows the web app's copy
+    let base = new URL('./vendor/', location.href).href;
+    try { prPdfLib = await import('./vendor/pdf.min.mjs'); }
+    catch { base = 'https://mmcsongpoint.github.io/vendor/'; prPdfLib = await import(base + 'pdf.min.mjs'); }
+    prPdfLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.mjs';
+  }
   return prPdfLib;
 }
 const prFile = s => s && s.slides && s.slides[0];
@@ -4642,10 +4651,39 @@ async function openRemote() {
   es.onerror = () => { if (es.readyState === 2 && rm === me) setTimeout(() => { if (rm === me) openRemote(); }, 3000); };
 }
 const rmItem = key => !key ? null : key.startsWith('deck:') ? deckItem(key.slice(5), '') : songIndex.get(key);
-async function rmImg(key, idx, el) {
-  const it = rmItem(key); if (!it || !prFile(it) || idx < 0) { el.innerHTML = ''; return; }
-  const want = key + '|' + idx; el.dataset.want = want;
-  try { const d = await prDeck(it); if (el.dataset.want === want) el.innerHTML = d && d.imgs[idx] ? `<img src="${d.imgs[idx]}" alt="">` : ''; } catch { if (el.dataset.want === want) el.innerHTML = ''; }
+// The phone draws only the slides it shows, small, instead of the whole deck at projector size.
+const rmDocs = new Map();   // file id -> Promise<{ doc, pages: Map(idx -> dataURL) }>
+function rmDoc(f) {
+  if (rmDocs.has(f.id)) return rmDocs.get(f.id);
+  const p = (async () => {
+    const r = await api('slideDeck', { id: f.id });
+    if (!r.ok) throw new Error(r.error || 'Couldn\'t open the slides');
+    const lib = await prPdf(), bytes = Uint8Array.from(atob(r.pdf), c => c.charCodeAt(0));
+    return { doc: await lib.getDocument({ data: bytes }).promise, pages: new Map() };
+  })();
+  rmDocs.set(f.id, p); p.catch(() => rmDocs.delete(f.id));
+  return p;
+}
+async function rmPage(f, idx) {
+  const d = await rmDoc(f); if (idx >= d.doc.numPages) return '';
+  if (!d.pages.has(idx)) d.pages.set(idx, (async () => {
+    const page = await d.doc.getPage(idx + 1), base = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: 800 / base.width });
+    const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    const u = c.toDataURL('image/jpeg', 0.85); c.width = c.height = 0; return u;
+  })());
+  const u = d.pages.get(idx); u.catch(() => d.pages.delete(idx)); return u;
+}
+async function rmImg(key, idx, el, big) {
+  const it = rmItem(key); if (!it || !prFile(it) || idx < 0) { el.innerHTML = ''; delete el.dataset.want; return; }
+  const want = key + '|' + idx; if (el.dataset.want === want && el.querySelector('img')) return; el.dataset.want = want;
+  if (big && !el.querySelector('img')) el.innerHTML = '<span class="rmload">Loading slide…</span>';
+  try {
+    const f = prFile(it), cached = deckCache.get(f.id);
+    const src = cached && !cached.then ? cached.imgs[idx] : await rmPage(f, idx);
+    if (el.dataset.want === want) el.innerHTML = src ? `<img src="${src}" alt="">` : '';
+  } catch (e) { if (el.dataset.want === want) el.innerHTML = big ? `<span class="rmload">Couldn't load this slide${e && e.message ? ': ' + esc(e.message) : ''}</span>` : ''; }
 }
 function rmRender() {
   const st = rm && rm.st; if (!st) return;
@@ -4653,7 +4691,7 @@ function rmRender() {
     <div class="rmnow" id="rmNow"><div id="rmNowImg" style="width:100%;height:100%;display:grid;place-items:center"></div></div>
     <div class="rminfo"><div><b id="rmTitle"></b><br><small id="rmPos"></small></div></div>
     <div class="rmnext"><div class="th" id="rmNextImg"></div><div id="rmNextTxt"></div></div>
-    <div class="rmctl"><button class="pbtn ghost" id="rmPrev">◀</button><button class="pbtn ghost" id="rmBlank">Black</button><button class="pbtn" id="rmNext">Next ▶</button></div>
+    <div class="rmctl"><button class="pbtn" id="rmPrev">◀ Prev</button><button class="pbtn ghost" id="rmBlank">Black</button><button class="pbtn" id="rmNext">Next ▶</button></div>
     <div class="rmsongs" id="rmSongs"></div>
     <button class="pbtn ghost" id="rmAdd" style="width:100%;margin-top:4px">＋ Add a song</button>
     <p class="m" style="font-size:12.5px;color:var(--muted)">Tapping a song jumps there with the screen black, until you tap <b>Show</b>.</p>`;
@@ -4663,7 +4701,7 @@ function rmRender() {
   $('#rmNow').classList.toggle('blank', !!st.blank);
   $('#rmNow').querySelector('.rmbadge')?.remove();
   if (st.blank) $('#rmNow').insertAdjacentHTML('beforeend', '<span class="rmbadge">SCREEN BLACK</span>');
-  rmImg(st.deckId ? 'deck:' + st.deckId : st.song, st.liveDeck ? -1 : (st.slideIdx ?? st.slideNo ?? 0), $('#rmNowImg'));
+  rmImg(st.deckId ? 'deck:' + st.deckId : st.song, st.liveDeck ? -1 : (st.slideIdx ?? st.slideNo ?? 0), $('#rmNowImg'), true);
   if (st.nextIdx >= 0) { $('#rmNextTxt').textContent = 'Next slide'; rmImg(st.deckId ? 'deck:' + st.deckId : st.song, st.nextIdx, $('#rmNextImg')); }
   else { const nk = (st.list || [])[si + 1]; $('#rmNextTxt').textContent = nk ? `Next: ${titles[si + 1] || (rmItem(nk) || {}).title || ''}` : 'Next: black screen (end)'; rmImg(nk, nk ? 0 : -1, $('#rmNextImg')); }
   $('#rmBlank').textContent = st.blank ? 'Show' : 'Black'; $('#rmBlank').classList.toggle('on', !!st.blank);
