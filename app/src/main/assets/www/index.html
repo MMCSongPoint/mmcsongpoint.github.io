@@ -3064,7 +3064,7 @@ $('#prSongs').addEventListener('click', e => {
   if (e.target.closest('[data-live]')) {   // animations on / still pictures
     const it = pr.songs[+b.dataset.i], modes = [...(pptHelper ? ['ppt'] : []), 'live', 'pics'];
     if (it.mode === 'ppt' && pr.songs[pr.si] === it) pptEnd();
-    it.mode = modes[(modes.indexOf(it.mode) + 1) % modes.length]; it.live = it.mode === 'live';
+    it.mode = modes[(modes.indexOf(it.mode) + 1) % modes.length]; it.live = it.mode === 'live'; it.modeAuto = false;
     toast(it.mode === 'ppt' ? 'Plays in PowerPoint on the projector' : it.mode === 'live' ? 'Plays in Google Slides\' player (animations; musicians can\'t follow the slide)' : 'Still pictures, stepped from here', 3000);
     if (it.live) prLiveId(it).then(() => { if (pr && pr.songs[pr.si] === it) prShowSong(pr.si, 0); else prRender(); }); else { if (pr.songs[pr.si] === it) prShowSong(pr.si, 0); else prRender(); }
     return;
@@ -3115,7 +3115,14 @@ async function pptCall(path, body) {
   } catch { if (path === '/status') pptHelper = null; return null; }
 }
 const pptPing = () => pptCall('/status');
-setInterval(() => { if (pr && !pr.pptOpen) pptPing().then(() => { if (pr) prRender(); }); }, 15000);   // notice a helper started later
+// speaker decks whose mode wasn't picked by hand play in PowerPoint whenever the helper is running
+function pptAutoModes() {
+  if (!pr || !pptHelper) return;
+  let changed = false;
+  for (const it of pr.songs) if (it.deck && it.modeAuto && it.mode !== 'ppt') { it.mode = 'ppt'; it.live = false; changed = true; }
+  if (changed) { const cur = pr.songs[pr.si]; if (cur && cur.deck && cur.mode === 'ppt') prShowSong(pr.si, 0); else prRender(); }
+}
+setInterval(() => { if (pr && !pr.pptOpen) pptPing().then(() => { if (pr) { pptAutoModes(); prRender(); } }); }, 5000);   // notice a helper started later
 const prIsPpt = s => !!(s && s.deck && s.mode === 'ppt' && pptHelper);
 async function pptStart(item) {
   const id = prFile(item).id, q = `/open?id=${encodeURIComponent(id)}&name=${encodeURIComponent((item.title || 'Slides').replace(/\.(pptx?|pdf)$/i, '') + '.pptx')}`;
@@ -3172,6 +3179,8 @@ function prInsertDeck(item) {
   const at = pr.si + 1; pr.songs.splice(at, 0, item);
   const pdf = /\.pdf$/i.test(item.title) || item.pdf;
   item.mode = pdf ? 'pics' : pptHelper ? 'ppt' : item.live ? 'live' : 'pics'; item.live = item.mode === 'live';
+  item.modeAuto = !pdf;   // not picked by hand: switches to PowerPoint as soon as the helper is found
+  if (!pdf && !pptHelper) pptPing().then(() => { if (pptHelper) pptAutoModes(); });
   if (item.live) prLiveId(item).then(() => prRender());
   prDeck(item).then(d => { if (d && d.title && item.title === 'Speaker slides') { item.title = d.title; prRender(); } }).catch(e => toast(e.message || 'Couldn\'t open those slides', 5000));
   prRender(); toast(`Added after “${pr.songs[at - 1] ? pr.songs[at - 1].title : ''}”. Drag it to move it.`, 3000);
