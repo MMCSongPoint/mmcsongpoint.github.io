@@ -83,7 +83,11 @@
   .chip.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight: 600; }
   .meta-bar { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; margin: 10px 2px 10px; gap: 8px; }
   .meta-bar .stwrap { flex: 1; display: flex; align-items: center; gap: 2px; min-width: 0; }
-  .meta-bar #dlTabBtn { width: 30px; height: 30px; }
+  .meta-bar #dlTabBtn { width: 30px; height: 30px; flex: none; }
+  .meta-bar #status { max-width: 7.5em; line-height: 1.2; }
+  @media (max-width: 520px) { .meta-bar #status { max-width: 3.6em; } }
+  .meta-bar .stwrap { flex: 1 0 auto; }
+  .meta-bar select { min-width: 0; flex: 0 1 auto; text-overflow: ellipsis; }
   .rvbar { padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
   .rvnow b { display: block; font-size: 15px; } .rvnow small { color: var(--muted); font-size: 12.5px; }
   .rvctl { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; } .rvctl .pbtn { padding: 8px 12px; }
