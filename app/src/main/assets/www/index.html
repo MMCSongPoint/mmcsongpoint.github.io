@@ -2803,14 +2803,27 @@ $('#prBlank').onclick = () => { if (!pr) return; pr.blank = !pr.blank; prRender(
 // goes full screen with the press of "Open projector window" when it can, otherwise with your next key or click in
 // the presenter (Next, a clicker, a foot pedal…).
 let prWin = null, prFull = false, prSeen = false;   // prSeen: a projector window said hello (e.g. after the presenter reloaded)
+// Which screen is the projector: any screen other than the one this window is on. The browser asks once to "manage
+// windows on all your displays" (Chrome / Edge). Returns { screen } or { why } (why it can't place the window).
 async function prOtherScreen(ask) {
+  if (!('getScreenDetails' in window)) return { why: 'nosupport' };
   try {
-    if (!('getScreenDetails' in window)) return null;
-    if (!ask) { const q = await navigator.permissions.query({ name: 'window-management' }); if (q.state !== 'granted') return null; }
+    const q = await navigator.permissions.query({ name: 'window-management' });
+    if (q.state === 'denied') return { why: 'denied' };
+    if (q.state !== 'granted' && !ask) return { why: 'prompt' };
+  } catch {}
+  try {
     const sd = await window.getScreenDetails();
-    return sd.screens.find(x => x !== sd.currentScreen && !x.isPrimary) || sd.screens.find(x => x !== sd.currentScreen) || null;
-  } catch { return null; }
+    if (sd.screens.length < 2) return { why: 'onescreen' };
+    return { screen: sd.screens.find(x => x !== sd.currentScreen && !x.isPrimary) || sd.screens.find(x => x !== sd.currentScreen) || null, why: '' };
+  } catch { return { why: 'denied' }; }
 }
+const PR_WHY = {
+  nosupport: 'This browser can\'t place windows on another screen. Drag the window to the projector (Chrome and Edge can do it for you).',
+  denied: 'The browser isn\'t allowed to use your other screen. Click the icon left of the web address › Site settings › allow "Window management", then try again. For now, drag the window over.',
+  onescreen: 'Only one screen found. If the projector shows the same picture as this screen, press Windows+P and choose "Extend", then try again.'
+};
+let prTarget = null;   // the projector screen's position, for going full screen there
 const prPlace = x => x ? `,left=${x.availLeft},top=${x.availTop},width=${x.availWidth},height=${x.availHeight}` : ',width=960,height=540';
 function prProjOpen() { return !!(prWin && !prWin.closed) || prSeen; }
 function prProjLabel() { $('#prProj').textContent = prProjOpen() ? 'End Slideshow' : 'Start Slideshow'; }
@@ -2821,21 +2834,24 @@ function prCloseProj() {
 }
 $('#prProj').onclick = async () => {
   if (prProjOpen()) return prCloseProj();
-  const known = await prOtherScreen(false);   // already allowed: no prompt, so the click still counts
-  prFull = false;
-  const w = window.open('projector.html', 'songpoint-projector', 'popup,fullscreen' + prPlace(known));
-  if (!w) return toast('Allow pop-ups for this site, then try again', 4000);
-  prWin = w; prProjLabel();
-  if (!known) {   // first time: ask, then move the window over to the projector
-    const x = await prOtherScreen(true);
-    if (x) try { w.moveTo(x.availLeft, x.availTop); w.resizeTo(x.availWidth, x.availHeight); } catch {}
+  let o = await prOtherScreen(false);                 // already allowed: no prompt, so this click can still open the window
+  if (o.why === 'prompt') {                           // first time: the browser asks now
+    o = await prOtherScreen(true);
+    if (o.screen) toast('Thanks. Press Start Slideshow again if the window doesn\'t open by itself.', 4000);
   }
+  prTarget = o.screen ? { left: o.screen.availLeft, top: o.screen.availTop } : null;
+  prFull = false;
+  const w = window.open('projector.html', 'songpoint-projector', 'popup,fullscreen' + prPlace(o.screen));
+  if (!w) return toast(o.screen ? 'Press Start Slideshow again to open it on the projector' : 'Allow pop-ups for this site, then try again', 4500);
+  prWin = w; prProjLabel();
+  if (o.screen) try { w.moveTo(o.screen.availLeft, o.screen.availTop); w.resizeTo(o.screen.availWidth, o.screen.availHeight); } catch {}
+  else if (PR_WHY[o.why]) toast(PR_WHY[o.why], 9000);
   setTimeout(prSend, 600);
 };
 // any key or click in the presenter while the projector isn't full screen yet: hand it the go-ahead
 function prNudgeFull() {
   if (!pr || prFull || !prWin || prWin.closed) return;
-  try { prWin.postMessage({ t: 'full' }, { targetOrigin: location.origin, delegate: 'fullscreen' }); } catch {}
+  try { prWin.postMessage({ t: 'full', target: prTarget }, { targetOrigin: location.origin, delegate: 'fullscreen' }); } catch {}
 }
 document.addEventListener('keydown', prNudgeFull, true);
 document.addEventListener('pointerdown', e => { if (!(e.target.closest && e.target.closest('#prProj'))) prNudgeFull(); }, true);
