@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 28 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 29 }); }
 
 function doPost(e) {
   var d;
@@ -163,6 +163,7 @@ function handle_(d) {
   if (a === 'slideDeck') return slideDeck_(d);
   if (a === 'slideUpload') return slideUpload_(me, d);
   if (a === 'slideLive') return slideLive_(d);
+  if (a === 'deckFile') return deckFile_(d);
   if (a === 'chordUpload') return chordUpload_(me, d);
   if (a === 'listsGet') return listsGet_(me);
   if (a === 'listSave') return listSave_(me, d);
@@ -946,6 +947,21 @@ function slideLive_(d) {
   var conv = converted_(src.getId()), f = DriveApp.getFileById(conv);
   try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
   return { ok: true, id: conv };
+}
+// A speaker's deck as a PowerPoint file, for the PowerPoint helper on the projector computer: the uploaded .pptx / .ppt
+// itself, or a Google Slides deck exported as .pptx.
+function deckFile_(d) {
+  var src;
+  try { src = DriveApp.getFileById(String(d.id || '')); } catch (e) { return { ok: false, error: 'Can\'t open those slides.' }; }
+  if (src.getMimeType() === 'application/vnd.google-apps.presentation') {
+    var r = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + src.getId() + '/export?mimeType=' +
+      encodeURIComponent('application/vnd.openxmlformats-officedocument.presentationml.presentation'), { headers: auth_(), muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) return { ok: false, error: 'Couldn\'t export those Google Slides as PowerPoint.' };
+    return { ok: true, name: src.getName() + '.pptx', data: Utilities.base64Encode(r.getBlob().getBytes()) };
+  }
+  if (!/\.pptx?$/i.test(src.getName())) return { ok: false, error: 'Not a PowerPoint.' };
+  if (src.getSize() > 35 * 1024 * 1024) return { ok: false, error: 'That PowerPoint is too big.' };
+  return { ok: true, name: src.getName(), data: Utilities.base64Encode(src.getBlob().getBytes()) };
 }
 // A speaker's slides (PowerPoint .pptx / .ppt or a PDF) uploaded from the presenter: kept in "Speaker Slides".
 function slideUpload_(me, d) {

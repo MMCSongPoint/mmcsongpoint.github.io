@@ -966,6 +966,7 @@
   <button class="act" id="recordsBtn">Usage records (delete entries)</button>
   <button class="act" id="checkBtn">Library check (missing files)</button>
   <button class="act" id="mp3Btn">MP3 review (flag problems)</button>
+  <a class="act" id="pptHelperBtn" href="helper/SongPoint-PowerPoint-helper.zip" download style="display:block;text-decoration:none;color:inherit">PowerPoint helper for the projector computer (download)</a>
   <button class="act" id="changePwBtn">Change password</button>
   <button class="act" id="signOutBtn">Sign out</button>
   <h4 style="margin-top:12px">Song library</h4>
@@ -2442,7 +2443,7 @@ function perfState() {
   if (pr) {   // presenting: musicians follow the song (and the words on the projector); their key and scrolling stay their own
     const s = pr.songs[pr.si];
     return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
-      deckId: s.deck ? prFile(s).id : '', deckTitle: s.deck ? s.title : '',
+      deckId: s.deck ? prFile(s).id : '', deckTitle: s.deck ? s.title : '', liveDeck: prIsLive(s) ? 1 : 0,
       view: 'arranged', slideNo: pr.slide, slideIdx: pr.deck && pr.deck.order ? pr.deck.order[pr.slide] : pr.slide, blank: pr.blank ? 1 : 0, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || ''),
       slideSection: pr.blank ? '' : ((pr.deck && pr.deck.sections && pr.deck.sections[pr.slide]) || '') });
   }
@@ -2840,6 +2841,7 @@ async function presentList(list) {
   const songsIn = list.filter(Boolean);
   if (!songsIn.length) return;
   pr = { songs: songsIn, si: 0, slide: 0, blank: false, deck: null };
+  pptPing().then(() => prRender && pr && prRender());
   $('#presenter').classList.add('show');
   if (N && N.keepScreenOn) N.keepScreenOn(true);
   prShowSong(0, 0);
@@ -2893,6 +2895,7 @@ async function prShowSong(si, slide) {
   if (!pr) return;
   const target = pr.songs[Math.max(0, Math.min(si, pr.songs.length - 1))];
   if (target && target.deck && target.live && !target.liveId) await prLiveId(target);
+  if (pr.pptOpen && !(prIsPpt(target) && prFile(target).id === pr.pptOpen)) pptEnd();
   pr.liveFocus = prIsLive(target);
   if (pr.liveFocus) { try { if (prWin && !prWin.closed) prWin.focus(); } catch {} }
   pr.si = Math.max(0, Math.min(si, pr.songs.length - 1)); pr.slide = slide; pr.deck = null;
@@ -2906,6 +2909,7 @@ async function prShowSong(si, slide) {
     if (pr.slide < 0) pr.slide = Math.max(0, pr.deck.imgs.length - 1);   // came back from the next song: its last slide
     pr.slide = Math.min(pr.slide, Math.max(0, pr.deck.imgs.length - 1));
   } catch (e) { if (pr && pr.si === want) { pr.deck = { imgs: [], texts: [], error: e.message }; } }
+  if (pr && pr.si === want && prIsPpt(s)) { pr.slide = 0; prRender(); await pptStart(s); }
   prRender();
 }
 function prStep(d) {
@@ -2915,19 +2919,23 @@ function prStep(d) {
     if (pr.endBlank && d > 0) return toast('End of the song list', 1500);
     pr.blank = false; pr.endBlank = false; return prRender();
   }
-  const live = prIsLive(pr.songs[pr.si]);
+  const live = prIsLive(pr.songs[pr.si]), pp = prIsPpt(pr.songs[pr.si]) && pr.pptOpen && pr.ppt;
+  if (pp && pr.ppt.running && !(d > 0 && pr.ppt.done) && !(d < 0 && pr.ppt.slide <= 1)) {   // PowerPoint steps itself (animations too)
+    pptCall(d > 0 ? '/next' : '/prev', '').then(st => { if (st && pr) { pr.ppt = st; prRender(); } }); return;
+  }
   if (d > 0) {
-    if (!live && pr.deck && pr.slide < n - 1) { pr.slide++; return prRender(); }
+    if (!live && !pp && pr.deck && pr.slide < n - 1) { pr.slide++; return prRender(); }
     if (pr.si < pr.songs.length - 1) return prShowSong(pr.si + 1, 0);
     pr.blank = true; pr.endBlank = true; return prRender();   // after the very last slide: a black screen
   }
-  if (!live && pr.deck && pr.slide > 0) { pr.slide--; return prRender(); }
+  if (!live && !pp && pr.deck && pr.slide > 0) { pr.slide--; return prRender(); }
   if (pr.si > 0) return prShowSong(pr.si - 1, prIsLive(pr.songs[pr.si - 1]) ? 0 : -1);
 }
 function prSend() {
   if (!prChannel || !pr) return;
   const s = pr.songs[pr.si], img = pr.deck && pr.deck.imgs[pr.slide];
   if (!pr.blank && prIsLive(s)) return prChannel.postMessage({ t: 'live', url: liveUrl(s.liveId), focus: !!pr.liveFocus });
+  if (prIsPpt(s) && pr.pptOpen) return prChannel.postMessage({ t: 'blank' });   // PowerPoint's own show covers the projector
   if (pr.blank) prChannel.postMessage({ t: 'blank' });
   else if (img) prChannel.postMessage({ t: 'slide', img });
   else if (pr.deck) prChannel.postMessage({ t: 'title', text: s.title });
@@ -2960,7 +2968,14 @@ function prRender() {
   $('#prNextMsg').textContent = nextMsg; $('#prNextMsg').style.display = nextMsg ? '' : 'none';
   $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<img src="${u}" data-i="${i}" class="${i === pr.slide ? 'now' : ''}" alt="Slide ${i + 1}">`).join('') : '';
   const nowThumb = $('#prThumbs .now'); if (nowThumb) nowThumb.scrollIntoView({ block: 'nearest' });
-  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.deck ? `<small>speaker slides${/\.pdf$/i.test(x.title) ? '' : ` · <u data-live="1" title="Tap to switch">${x.live ? 'animations on' : 'still pictures'}</u>`}</small>` : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
+  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'live' ? 'animations (Google)' : 'still pictures'}</u>`}</small>` : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
+  $('#prPos').dataset.ppt = '';
+  if (prIsPpt(s)) {
+    const st = pr.ppt;
+    $('#prPos').dataset.ppt = st ? JSON.stringify([st.slide, st.total, st.running, st.done]) : '';
+    $('#prPos').textContent = !pr.pptOpen ? 'Opening in PowerPoint…' : !st || !st.running ? 'PowerPoint show ended · press Next to go on' :
+      `In PowerPoint · slide ${st.slide} of ${st.total}${st.black ? ' · black screen' : ''}${st.done ? ' · end of the show (Next goes on)' : ''}`;
+  }
   if (prIsLive(s)) {
     $('#prCur').style.display = 'none'; $('#prMsg').style.display = '';
     $('#prMsg').innerHTML = `<b style="font-size:20px;color:#fff">${esc(s.title)}</b><br>Playing live on the projector, with animations.<br>The clicker and arrow keys now go to the projector window${prWin && !prWin.closed ? '' : ' (click the projector screen once if they don\'t)'}.<br><br>When the speaker is done, press <b>Next</b> here.<br><br><button class="pbtn ghost" id="prLiveFocus">Give the clicker to the projector</button>`;
@@ -2970,6 +2985,7 @@ function prRender() {
 }
 function prExit() {
   if (!pr) return;
+  pptEnd(); clearInterval(pptTimer);
   prCloseProj();
   pr = null; $('#presenter').classList.remove('show');
   if (N && N.keepScreenOn) N.keepScreenOn(false);
@@ -2982,7 +2998,8 @@ $('#prOrder').onclick = () => {
   prOrderMode = prOrderMode === 'chords' ? 'slides' : 'chords'; store.set('prOrder', prOrderMode);
   if (pr) prShowSong(pr.si, 0);
 };
-$('#prBlank').onclick = () => { if (!pr) return; pr.blank = !pr.blank; prRender(); };
+$('#prBlank').onclick = () => {
+  if (pr && prIsPpt(pr.songs[pr.si]) && pr.pptOpen) { pptCall('/black', '').then(st => { if (st && pr) { pr.ppt = st; pr.blank = !!st.black; prRender(); } }); return; } if (!pr) return; pr.blank = !pr.blank; prRender(); };
 // The projector window opens on the other screen (the projector), filling it. Chrome/Edge ask once to "manage
 // windows on all your displays". Browsers only allow full screen right after a click or key press, so the projector
 // goes full screen with the press of "Open projector window" when it can, otherwise with your next key or click in
@@ -3043,7 +3060,10 @@ document.addEventListener('pointerdown', e => { if (!(e.target.closest && e.targ
 $('#prSongs').addEventListener('click', e => {
   const b = e.target.closest('[data-i]'); if (!b || !pr) return;
   if (e.target.closest('[data-live]')) {   // animations on / still pictures
-    const it = pr.songs[+b.dataset.i]; it.live = !it.live;
+    const it = pr.songs[+b.dataset.i], modes = [...(pptHelper ? ['ppt'] : []), 'live', 'pics'];
+    if (it.mode === 'ppt' && pr.songs[pr.si] === it) pptEnd();
+    it.mode = modes[(modes.indexOf(it.mode) + 1) % modes.length]; it.live = it.mode === 'live';
+    toast(it.mode === 'ppt' ? 'Plays in PowerPoint on the projector' : it.mode === 'live' ? 'Plays in Google Slides\' player (animations; musicians can\'t follow the slide)' : 'Still pictures, stepped from here', 3000);
     if (it.live) prLiveId(it).then(() => { if (pr && pr.songs[pr.si] === it) prShowSong(pr.si, 0); else prRender(); }); else { if (pr.songs[pr.si] === it) prShowSong(pr.si, 0); else prRender(); }
     return;
   }
@@ -3079,6 +3099,51 @@ $('#prSongs').addEventListener('click', e => {
   box.addEventListener('dragend', () => { clear(); from = -1; });
 })();
 // ---- a speaker's slides: a PowerPoint / PDF file, or a Google Slides link. Shown as pictures (no animations).
+// ---- PowerPoint helper (a small program on the projector computer, see Settings): plays a speaker's deck in real
+// PowerPoint. The presenter's Next / Previous / Blank (and the clicker) drive it; the slide it's on goes to the
+// musicians' "View Slides" too.
+const PPT_URL = 'http://127.0.0.1:47321';
+let pptHelper = null, pptTimer = null;
+async function pptCall(path, body) {
+  try {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), body ? 60000 : 2500);
+    const r = await fetch(PPT_URL + path, { method: path === '/status' ? 'GET' : 'POST', body, signal: ctl.signal });
+    clearTimeout(t); const j = await r.json(); if (j && j.app) pptHelper = j; return j;
+  } catch { if (path === '/status') pptHelper = null; return null; }
+}
+const pptPing = () => pptCall('/status');
+setInterval(() => { if (pr && !pr.pptOpen) pptPing().then(() => { if (pr) prRender(); }); }, 15000);   // notice a helper started later
+const prIsPpt = s => !!(s && s.deck && s.mode === 'ppt' && pptHelper);
+async function pptStart(item) {
+  const id = prFile(item).id, q = `/open?id=${encodeURIComponent(id)}&name=${encodeURIComponent((item.title || 'Slides').replace(/\.(pptx?|pdf)$/i, '') + '.pptx')}`;
+  let r = await pptCall(q, '');
+  if (r && r.need === 'file') {
+    toast('Opening it in PowerPoint…', 4000);
+    const f = await api('deckFile', { id }).catch(() => ({}));
+    if (!f.ok) { toast(f.error || 'Couldn\'t get the PowerPoint file', 5000); return null; }
+    const bytes = Uint8Array.from(atob(f.data), c => c.charCodeAt(0));
+    r = await pptCall(q, bytes);
+  }
+  if (!r || !r.ok) { toast((r && r.error) || 'PowerPoint didn\'t open it. Is the helper running on this computer?', 6000); return null; }
+  if (pr) { pr.ppt = r; pr.pptOpen = id; }
+  pptWatch();
+  return r;
+}
+function pptEnd() { if (pr && pr.pptOpen) { pr.pptOpen = null; pr.ppt = null; pptCall('/end', ''); } }
+// follow PowerPoint: the slide it's on (and black screen) show here and on musicians' devices
+function pptWatch() {
+  clearInterval(pptTimer);
+  pptTimer = setInterval(async () => {
+    const s = pr && pr.songs[pr.si];
+    if (!pr || !prIsPpt(s) || !pr.pptOpen) { clearInterval(pptTimer); return; }
+    const st = await pptCall('/status'); if (!st || !pr) return;
+    pr.ppt = st;
+    let changed = false;
+    if (st.running && st.slide && pr.deck && pr.deck.imgs.length) { const k = Math.min(st.slide - 1, pr.deck.imgs.length - 1); if (k !== pr.slide) { pr.slide = k; changed = true; } }
+    if (!!st.black !== !!pr.blank && !pr.endBlank) { pr.blank = !!st.black; changed = true; }
+    if (changed || $('#prPos').dataset.ppt !== JSON.stringify([st.slide, st.total, st.running, st.done])) prRender();
+  }, 600);
+}
 const deckItem = (id, title, live = false) => ({ key: 'deck:' + id, deck: true, live, title: title || 'Speaker slides', number: '', collection: 'Speaker', chords: [], parts: [], sheets: [], slides: [{ id }] });
 // "Live": the projector plays the deck in Google Slides' own player, so animations and transitions work. The clicker
 // then drives the projector window; Next here moves on when the speaker is done.
@@ -3092,13 +3157,16 @@ const prIsLive = s => !!(s && s.deck && s.live && s.liveId);
 function prInsertDeck(item) {
   if (!pr) return;
   const at = pr.si + 1; pr.songs.splice(at, 0, item);
+  const pdf = /\.pdf$/i.test(item.title) || item.pdf;
+  item.mode = pdf ? 'pics' : pptHelper ? 'ppt' : item.live ? 'live' : 'pics'; item.live = item.mode === 'live';
   if (item.live) prLiveId(item).then(() => prRender());
   prDeck(item).then(d => { if (d && d.title && item.title === 'Speaker slides') { item.title = d.title; prRender(); } }).catch(e => toast(e.message || 'Couldn\'t open those slides', 5000));
   prRender(); toast(`Added after “${pr.songs[at - 1] ? pr.songs[at - 1].title : ''}”. Drag it to move it.`, 3000);
 }
 $('#prMsg').addEventListener('click', e => { if (e.target.id === 'prLiveFocus') { pr.liveFocus = true; try { prWin && prWin.focus(); } catch {} prSend(); } });
 $('#prAdd').onclick = async () => {
-  const c = await choose('Add a speaker\'s slides', 'A PowerPoint (.pptx / .ppt) or PDF file, or a link to Google Slides. PowerPoint and Google Slides play with their animations and transitions (tap “animations on” on the box to show still pictures instead). PDFs show as pictures.',
+  await pptPing();
+  const c = await choose('Add a speaker\'s slides', `A PowerPoint (.pptx / .ppt) or PDF file, or a link to Google Slides. ${pptHelper ? 'The PowerPoint helper is running: decks play in real PowerPoint on the projector (all animations), and your Next / Previous / clicker drive them.' : 'Tip: run the PowerPoint helper on this computer (Settings › PowerPoint helper) to play decks in real PowerPoint with all their animations. Without it they play in Google Slides\' player.'} PDFs show as still pictures. Tap the mode on the box to switch.`,
     [{ label: 'Upload a file', value: 'file', primary: true }, { label: 'Google Slides link', value: 'link' }, { label: 'Cancel', value: 'cancel' }]);
   if (c === 'file') { $('#prFile').value = ''; $('#prFile').click(); }
   else if (c === 'link') {
@@ -3117,7 +3185,7 @@ $('#prFile').onchange = async e => {
     const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(f); });
     const r = await api('slideUpload', { name: f.name, data });
     if (!r.ok) throw new Error(r.error);
-    prInsertDeck(deckItem(r.id, f.name.replace(/\.(pptx?|pdf)$/i, ''), !/\.pdf$/i.test(f.name)));
+    prInsertDeck(Object.assign(deckItem(r.id, f.name.replace(/\.(pptx?|pdf)$/i, ''), !/\.pdf$/i.test(f.name)), { pdf: /\.pdf$/i.test(f.name) }));
   } catch (err) { toast(err.message || 'Couldn\'t upload that file', 5000); }
   busy(false);
 };
@@ -3132,7 +3200,7 @@ if (prChannel) prChannel.onmessage = e => {
 function prKey(key) {
   if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(key)) prStep(1);
   else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(key)) prStep(-1);
-  else if (key === 'b' || key === 'B' || key === '.') { pr.blank = !pr.blank; prRender(); }
+  else if (key === 'b' || key === 'B' || key === '.') { if (prIsPpt(pr.songs[pr.si]) && pr.pptOpen) return $('#prBlank').onclick(); pr.blank = !pr.blank; prRender(); }
 }
 document.addEventListener('keydown', e => {
   if (!pr || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('#choiceBox.show')) return;
@@ -3154,6 +3222,7 @@ function perfSlideView(st) {
   const s = st.deckId ? deckItem(st.deckId, st.deckTitle) : songIndex.get(st.song), msg = t => { box.querySelector('img').style.display = 'none'; const m = box.querySelector('.spmsg'); m.textContent = t; m.style.display = ''; };
   const key = [st.song, st.slideIdx, st.blank].join('|'); if (key === pipKey) return; pipKey = key;
   if (st.blank) return msg('Screen is blank');
+  if (st.liveDeck) return msg(`${st.deckTitle || 'The speaker\'s slides'} are on the main screen`);
   if (!s || !prFile(s)) return msg(s ? `No slides for “${s.title}”` : '');
   if (!deckCache.has(prFile(s).id)) msg('Getting the slides…');
   prDeck(s).then(d => {

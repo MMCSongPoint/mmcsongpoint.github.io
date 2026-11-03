@@ -1,0 +1,16 @@
+SongPoint PowerPoint helper
+===========================
+Lets SongPoint's presenter play a speaker's PowerPoint (or Google Slides) in real PowerPoint on the projector,
+with all animations, transitions and video. The presenter's Next / Previous / Blank (and your clicker) drive it,
+and musicians following with "View Slides" see the same slide.
+
+Set up (once, on the computer that runs the projector; it needs Microsoft PowerPoint):
+ 1. Unzip this folder somewhere that stays put (e.g. Documents\SongPoint helper).
+ 2. Double-click "Start SongPoint PowerPoint helper.cmd". A small window opens and says it is running.
+    (If Windows asks whether to run it, choose "More info" > "Run anyway".)
+ 3. Leave that window open while presenting (minimize it). Close it to stop.
+ 4. In PowerPoint, Slide Show tab > Monitor: choose the projector (or leave "Automatic").
+ 5. The first time, Chrome may ask to let mmcsongpoint.github.io "access other apps and services on this device":
+    choose Allow.
+
+Tip: put a shortcut to the .cmd file in the Startup folder (Win+R, type shell:startup) so it starts with Windows.
