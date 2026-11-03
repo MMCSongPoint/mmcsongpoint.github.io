@@ -3018,7 +3018,7 @@ async function prShowSong(si, slide) {
     if (pr.slide < 0) pr.slide = Math.max(0, pr.deck.imgs.length - 1);   // came back from the next song: its last slide
     pr.slide = Math.min(pr.slide, Math.max(0, pr.deck.imgs.length - 1));
   } catch (e) { if (pr && pr.si === want) { pr.deck = { imgs: [], texts: [], error: e.message }; } }
-  if (pr && pr.si === want && prIsPpt(s)) { pr.slide = 0; prRender(); await pptStart(s); }
+  if (pr && pr.si === want && prIsPpt(s)) { const atEnd = slide < 0; pr.slide = 0; prRender(); await pptStart(s, atEnd); }
   prRender();
 }
 function prStep(d) {
@@ -3240,8 +3240,8 @@ function pptPrefetch(item) {
   item.pptFile.catch(() => { item.pptFile = null; });
   return item.pptFile;
 }
-async function pptStart(item) {
-  const id = prFile(item).id, q = `/open?id=${encodeURIComponent(id)}&name=${encodeURIComponent((item.title || 'Slides').replace(/\.(pptx?|pdf)$/i, '') + '.pptx')}`;
+async function pptStart(item, atEnd) {
+  const id = prFile(item).id, q = `/open?id=${encodeURIComponent(id)}&name=${encodeURIComponent((item.title || 'Slides').replace(/\.(pptx?|pdf)$/i, '') + '.pptx')}${atEnd ? '&at=last' : ''}`;
   if (pr) { pr.pptBusy = true; pr.pptError = ''; prRender(); }
   let r = await pptCall(q, '');
   if (pr) pr.pptBusy = false;
@@ -3261,6 +3261,7 @@ async function pptStart(item) {
     return null;
   }
   if (pr) pr.pptError = '';
+  if (atEnd && (r.v || 0) < 3) toast('To start on the last slide when going back, download the PowerPoint helper again (Settings) and restart it.', 6000);
   if (pr) { pr.ppt = r; pr.pptOpen = id; }
   pptWatch();
   return r;

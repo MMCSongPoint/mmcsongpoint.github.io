@@ -49,9 +49,9 @@ function Get-State {
   if ($v) {
     $slide = 0; try { $slide = [int](CGet (CGet $v 'Slide') 'SlideIndex') } catch { try { $slide = [int](CGet $v 'CurrentShowPosition') } catch {} }
     $st = 1; try { $st = [int](CGet $v 'State') } catch {}
-    return @{ ok = $true; app = 'songpoint-ppt'; v = 2; running = $true; id = $script:presId; name = $script:presName; slide = $slide; total = $total; black = ($st -eq 3); done = ($st -eq 5) }
+    return @{ ok = $true; app = 'songpoint-ppt'; v = 3; running = $true; id = $script:presId; name = $script:presName; slide = $slide; total = $total; black = ($st -eq 3); done = ($st -eq 5) }
   }
-  return @{ ok = $true; app = 'songpoint-ppt'; v = 2; running = $false; id = $script:presId; name = $script:presName; slide = 0; total = $total; black = $false; done = $false }
+  return @{ ok = $true; app = 'songpoint-ppt'; v = 3; running = $false; id = $script:presId; name = $script:presName; slide = 0; total = $total; black = $false; done = $false }
 }
 function Close-Pres {
   try { $v = Get-View; if ($v) { [void](CCall $v 'Exit') } } catch {}
@@ -63,7 +63,7 @@ function Ppt-Exe {
   try { $p = Join-Path (CGet $script:ppt 'Path') 'POWERPNT.EXE'; if (Test-Path $p) { return $p } } catch {}
   return $null
 }
-function Open-Show([string]$id, [string]$name, [byte[]]$body) {
+function Open-Show([string]$id, [string]$name, [byte[]]$body, [string]$at) {
   if (-not $name) { $name = 'Slides.pptx' }
   $ext = [IO.Path]::GetExtension($name); if ($ext) { $ext = $ext.ToLower() }
   if ($ext -notin @('.pptx', '.ppt', '.ppsx', '.pps')) { $ext = '.pptx' }
@@ -115,6 +115,9 @@ function Open-Show([string]$id, [string]$name, [byte[]]$body) {
     [void](CCall $ss 'Run')
   }
   try { [void](CCall (CGet $script:pres 'SlideShowWindow') 'Activate') } catch {}
+  if ($at -eq 'last') {   # stepping back into it from the next song: start on its last slide
+    try { $t = [int](CGet (CGet $script:pres 'Slides') 'Count'); $v = Get-View; if ($v -and $t -gt 1) { [void](CCall $v 'GotoSlide' @($t)) } } catch { Log "  Last slide: $($_.Exception.Message)" }
+  }
   Log "  Slideshow started"
   return Get-State
 }
@@ -182,7 +185,7 @@ while ($true) {
     try {
       switch ($req.path) {
         '/status' { $res = Get-State }
-        '/open'   { $res = Open-Show $req.query['id'] $req.query['name'] $req.body; Log "  Showing: $($req.query['name'])" }
+        '/open'   { $res = Open-Show $req.query['id'] $req.query['name'] $req.body $req.query['at']; Log "  Showing: $($req.query['name'])" }
         '/next'   { $v = Get-View; if ($v) { [void](CCall $v 'Next') }; $res = Get-State }
         '/prev'   { $v = Get-View; if ($v) { [void](CCall $v 'Previous') }; $res = Get-State }
         '/black'  { $v = Get-View; if ($v) { if ([int](CGet $v 'State') -eq 3) { CSet $v 'State' 1 } else { CSet $v 'State' 3 } }; $res = Get-State }
