@@ -94,6 +94,19 @@
   .rvrow { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-top: 1px solid var(--line); cursor: pointer; }
   .rvrow.now { background: var(--row); } .rvrow .t { flex: 1; min-width: 0; } .rvrow .t div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rvrow .t small { color: var(--muted); font-size: 12px; } .rvrow .fl { color: #e05a4a; font-weight: 700; font-size: 13px; white-space: nowrap; }
+  .rmnow { position: relative; background: #000; border-radius: 12px; aspect-ratio: 4 / 3; display: grid; place-items: center; overflow: hidden; }
+  .rmnow img { width: 100%; height: 100%; object-fit: contain; } .rmnow .rmmsg { color: #aaa; font-size: 14px; padding: 16px; text-align: center; }
+  .rmnow.blank img { opacity: .18; } .rmnow .rmbadge { position: absolute; top: 8px; left: 8px; background: #c0392b; color: #fff; font-weight: 700; font-size: 12px; padding: 3px 8px; border-radius: 6px; }
+  .rminfo { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 8px 2px; }
+  .rminfo b { font-size: 15px; } .rminfo small { color: var(--muted); font-size: 12.5px; }
+  .rmnext { display: flex; gap: 10px; align-items: center; margin: 4px 0 10px; color: var(--muted); font-size: 12.5px; }
+  .rmnext .th { width: 96px; aspect-ratio: 4 / 3; background: #000; border-radius: 6px; overflow: hidden; flex: none; display: grid; place-items: center; }
+  .rmnext .th img { width: 100%; height: 100%; object-fit: contain; }
+  .rmctl { display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 8px; margin: 6px 0 14px; }
+  .rmctl button { height: 64px; font-size: 18px; border-radius: 14px; } #rmBlank.on { background: #c0392b; color: #fff; }
+  .rmsongs button { display: block; width: 100%; text-align: left; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; margin-bottom: 6px; font-size: 15px; }
+  .rmsongs button.now { border-color: var(--accent-text); box-shadow: inset 3px 0 0 var(--accent-text); } .rmsongs button span { color: var(--muted); margin-right: 8px; }
+  .rmaddrow { display: block; width: 100%; text-align: left; background: none; border: none; border-top: 1px solid var(--line); padding: 10px 4px; color: var(--text); font-size: 15px; }
   .closelist { list-style: none; margin: 0; padding: 0; }
   .closelist li { padding: 12px 6px; border-top: 1px solid var(--line); font-size: 16px; }
   .closelist li:first-child { border-top: none; }
@@ -467,7 +480,7 @@
   body.songspanel .player, body.overpanel .player { z-index: 76; }
   body.overpanel .panel .pbody { padding-bottom: 210px; }
   body.guest #newNoteBtn, body.guest #noteEdit, body.guest #noteShare, body.guest #noteCopy, body.guest #noteDelete,
-  body.guest #notePresent, body.guest #noteSlides, body.guest #changePwBtn, body.guest #rowMenu [data-m=chords],
+  body.guest #dRemote, body.guest #notePresent, body.guest #noteSlides, body.guest #changePwBtn, body.guest #rowMenu [data-m=chords],
   body.guest #rowMenu [data-m=live], body.guest .chart [data-c=arrange], body.guest .chart [data-c=savekey] { display: none !important; }
   body.overviewer .player { z-index: 82; }
   body.overviewer .player.show ~ .viewer .vbody, body.overviewer .vbody { padding-bottom: 0; }
@@ -862,6 +875,7 @@
   <button class="ditem" id="dNotes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg>Song Lists</button>
   <button class="ditem" id="dSlides"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4M8 21h8M7 9h6M7 12h10"/></svg>PowerPoints</button>
   <button class="ditem" id="dPerform"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>Join a performance</button>
+  <button class="ditem" id="dRemote"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10.5 7.5 13.5 9.5 10.5 11.5z"/><path d="M10 16h4"/></svg>Remote control</button>
   <button class="ditem" id="dClosing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Closing Songs</button>
   <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
   <button class="ditem" id="dOffline"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Offline songs<small id="dOffCount"></small></button>
@@ -870,6 +884,24 @@
 
 <!-- Song row "more" menu -->
 <div class="rowmenu" id="rowMenu" role="menu"></div>
+
+<!-- Remote control (phone): control your own presentation running on another device -->
+<div class="panel" id="remotePanel">
+  <div class="phead">
+    <button class="icon" data-close="remotePanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2 id="rmHead">Remote control</h2>
+    <button class="icon" id="rmRefresh" aria-label="Look again"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+  </div>
+  <div class="pbody" id="rmBody"></div>
+</div>
+<div class="wheelbox" id="rmAddBox">
+  <div class="wheel" style="width:min(420px,94vw)">
+    <h3>Add a song</h3>
+    <input id="rmAddQ" type="search" placeholder="Title or hymn number" style="width:100%;margin:6px 0 8px">
+    <div id="rmAddList" style="max-height:50vh;overflow:auto"></div>
+    <div class="row2"><button class="pbtn ghost" id="rmAddClose">Close</button></div>
+  </div>
+</div>
 
 <!-- MP3 review (admins): play through the MP3s and flag problems; flags are saved to the server (MP3 Issues folder) -->
 <div class="panel" id="mp3Panel">
@@ -2300,6 +2332,7 @@ async function perfHostStart(fromPresenter = false) {
   const r = await api('perfHost', { presenter: fromPresenter ? 1 : 0 }).catch(() => ({}));
   if (!r.ok) return toast(r.error || 'Couldn\'t start a session', 4000);
   perf = { role: 'host', code: r.code, peer: r.peer, sid: r.sid || '', peers: new Map(), relayers: new Set(), seq: 0 };
+  rtdbCmdListen(perf);
   renderPerfBar(); perfSync(); perfPollLoop(perf);
 }
 // ---- Listening session: the leader plays an MP3; everyone who joins hears the same song, in their own part (Soprano,
@@ -2423,12 +2456,44 @@ async function perfHostMsg(me, m) {
       await api('perfSend', { code: me.code, to: m.from, msg: { type: 'answer', sdp: pc.localDescription } });
     } catch {}
   } else if (m.type === 'relay') { me.relayers.add(m.from); me.names = me.names || {}; me.names[m.from] = m.name; renderPerfBar(); perfRelayPush(true); }
-  else if (m.type === 'remote') perfRemoteAdd(m);
+  else if (m.type === 'remote') remoteCmd(m.cmd || {});
   else if (m.type === 'stream') { (me.streamers = me.streamers || new Set()).add(m.from); renderPerfBar(); }   // following through Firebase (counted only)
   else if (m.type === 'bye') { const e = me.peers.get(m.from); if (e) try { e.pc.close(); } catch {} me.peers.delete(m.from); me.relayers.delete(m.from); me.streamers && me.streamers.delete(m.from); renderPerfBar(); }
 }
 // A song sent from the leader's phone: into the running presentation (or the leader's song list), next or at the end.
 // A song already coming up later is moved instead of added twice.
+// ---- remote control from a phone (same user): commands arrive through Firebase (/s/<sid>/cmd), or the server
+function rtdbCmdListen(me) {
+  if (!rtdbOn(me) || !window.EventSource) return;
+  try { me.cmdEs && me.cmdEs.close(); } catch {}
+  const es = new EventSource(rtdbUrl(me, '/cmd')); me.cmdEs = es; let first = true;
+  es.addEventListener('put', e => {
+    if (perf !== me) { try { es.close(); } catch {} return; }
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (first) { first = false; if (m && m.data && m.data.n) me.lastCmd = m.data.n; return; }   // what was there before: already done
+    if (m && m.path === '/' && m.data) remoteCmd(m.data);
+  });
+  es.onerror = () => { if (es.readyState === 2 && perf === me && me.cmdEs === es) setTimeout(() => rtdbCmdListen(me), 3000); };
+}
+function remoteCmd(c) {
+  if (!perf || perf.role !== 'host' || !c || !c.t) return;
+  if (c.n) { if (perf.lastCmd === c.n) return; perf.lastCmd = c.n; }
+  if (c.t === 'add') return perfRemoteAdd({ cmd: c });
+  if (!pr) return;
+  const ppt = prIsPpt(pr.songs[pr.si]) && pr.pptOpen;
+  const setBlank = on => {
+    if (ppt) { if (!!(pr.ppt && pr.ppt.black) !== on) $('#prBlank').onclick(); return; }
+    pr.blank = on; pr.endBlank = false; prRender();
+  };
+  if (c.t === 'next') prStep(1);
+  else if (c.t === 'prev') prStep(-1);
+  else if (c.t === 'blank') setBlank(true);
+  else if (c.t === 'unblank') setBlank(false);
+  else if (c.t === 'goto') {   // jump to another song: the screen goes (and stays) black until "Show"
+    const si = Math.max(0, Math.min(pr.songs.length - 1, +c.si || 0));
+    pr.blank = true; pr.endBlank = false; prShowSong(si, 0);
+  }
+}
 function perfRemoteAdd(m) {
   const c = m.cmd || {}, s = songIndex.get(c.song); if (!s) return toast('A song was sent from your phone, but it isn\'t in this device\'s library. Pull down to refresh.', 4500);
   const place = (list, cur) => {
@@ -2468,6 +2533,9 @@ function perfState() {
     const s = pr.songs[pr.si];
     return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
       keyP: !s.deck && keyOverrides.has(s.key) ? keyOverrides.get(s.key) : null,
+      si: pr.si, titles: pr.songs.map(x => (x.number ? x.number + '. ' : '') + x.title), count: pr.deck ? pr.deck.imgs.length : 0,
+      nextIdx: pr.deck && pr.slide + 1 < pr.deck.imgs.length ? (pr.deck.order ? pr.deck.order[pr.slide + 1] : pr.slide + 1) : -1,
+      firstIdx: pr.deck && pr.deck.order ? pr.deck.order[0] : 0,
       deckId: s.deck ? prFile(s).id : '', deckTitle: s.deck ? s.title : '', liveDeck: prIsLive(s) ? 1 : 0,
       view: 'arranged', slideNo: pr.slide, slideIdx: pr.deck && pr.deck.order ? pr.deck.order[pr.slide] : pr.slide, blank: pr.blank ? 1 : 0, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || ''),
       slideSection: pr.blank ? '' : ((pr.deck && pr.deck.sections && pr.deck.sections[pr.slide]) || '') });
@@ -4554,6 +4622,87 @@ document.addEventListener('keydown', e => {
 });
 // leaving the panel stops the review player
 new MutationObserver(() => { if (!$('#mp3Panel').classList.contains('show') && !rvAudio.paused) rvAudio.pause(); }).observe($('#mp3Panel'), { attributes: true, attributeFilter: ['class'] });
+// ---- remote control (phone side)
+let rm = null;   // { code, sid, es, st }
+function rmMsg(html) { $('#rmBody').innerHTML = `<div class="vmsg">${html}</div>`; }
+async function openRemote() {
+  closeDrawer(); openPanel('remotePanel'); rmMsg('Looking for your presentation…');
+  try { rm && rm.es && rm.es.close(); } catch {}
+  rm = null;
+  if (!navigator.onLine) return rmMsg('Connect to the internet to use the remote.');
+  const r = await api('perfMine').catch(() => ({}));
+  const x = r.ok && r.session;
+  if (!x) return rmMsg('Nothing is being presented from your account right now.<br><br>Start <b>Present</b> on the computer, then tap ↻ above.');
+  if (!x.presenter) return rmMsg(`You're leading (code ${esc(x.code)}) on another device, but not presenting slides.<br><br>The remote works with <b>Present</b>.`);
+  rm = { code: x.code, sid: x.sid || '', st: null };
+  $('#rmHead').textContent = `Remote · ${x.code}`;
+  if (!rtdbOn(rm)) return rmMsg('The remote needs the fast connection (Firebase), which isn\'t set up.');
+  const me = rm, es = new EventSource(rtdbUrl(rm, '/state')); rm.es = es;
+  es.addEventListener('put', e => { try { const m = JSON.parse(e.data); if (rm !== me) return es.close(); if (m.path === '/') { if (!m.data) { rmMsg('The presentation has ended.'); return es.close(); } me.st = m.data; rmRender(); } } catch {} });
+  es.onerror = () => { if (es.readyState === 2 && rm === me) setTimeout(() => { if (rm === me) openRemote(); }, 3000); };
+}
+const rmItem = key => !key ? null : key.startsWith('deck:') ? deckItem(key.slice(5), '') : songIndex.get(key);
+async function rmImg(key, idx, el) {
+  const it = rmItem(key); if (!it || !prFile(it) || idx < 0) { el.innerHTML = ''; return; }
+  const want = key + '|' + idx; el.dataset.want = want;
+  try { const d = await prDeck(it); if (el.dataset.want === want) el.innerHTML = d && d.imgs[idx] ? `<img src="${d.imgs[idx]}" alt="">` : ''; } catch { if (el.dataset.want === want) el.innerHTML = ''; }
+}
+function rmRender() {
+  const st = rm && rm.st; if (!st) return;
+  if (!$('#rmNow')) $('#rmBody').innerHTML = `
+    <div class="rmnow" id="rmNow"><div id="rmNowImg" style="width:100%;height:100%;display:grid;place-items:center"></div></div>
+    <div class="rminfo"><div><b id="rmTitle"></b><br><small id="rmPos"></small></div></div>
+    <div class="rmnext"><div class="th" id="rmNextImg"></div><div id="rmNextTxt"></div></div>
+    <div class="rmctl"><button class="pbtn ghost" id="rmPrev">◀</button><button class="pbtn ghost" id="rmBlank">Black</button><button class="pbtn" id="rmNext">Next ▶</button></div>
+    <div class="rmsongs" id="rmSongs"></div>
+    <button class="pbtn ghost" id="rmAdd" style="width:100%;margin-top:4px">＋ Add a song</button>
+    <p class="m" style="font-size:12.5px;color:var(--muted)">Tapping a song jumps there with the screen black, until you tap <b>Show</b>.</p>`;
+  const titles = st.titles || [], si = st.si ?? Math.max(0, (st.list || []).indexOf(st.song));
+  $('#rmTitle').textContent = titles[si] || (rmItem(st.song) || {}).title || '';
+  $('#rmPos').textContent = st.liveDeck ? 'Speaker slides playing in Google Slides' : st.count ? `Slide ${(st.slideNo || 0) + 1} of ${st.count}` : 'No slides';
+  $('#rmNow').classList.toggle('blank', !!st.blank);
+  $('#rmNow').querySelector('.rmbadge')?.remove();
+  if (st.blank) $('#rmNow').insertAdjacentHTML('beforeend', '<span class="rmbadge">SCREEN BLACK</span>');
+  rmImg(st.deckId ? 'deck:' + st.deckId : st.song, st.liveDeck ? -1 : (st.slideIdx ?? st.slideNo ?? 0), $('#rmNowImg'));
+  if (st.nextIdx >= 0) { $('#rmNextTxt').textContent = 'Next slide'; rmImg(st.deckId ? 'deck:' + st.deckId : st.song, st.nextIdx, $('#rmNextImg')); }
+  else { const nk = (st.list || [])[si + 1]; $('#rmNextTxt').textContent = nk ? `Next: ${titles[si + 1] || (rmItem(nk) || {}).title || ''}` : 'Next: black screen (end)'; rmImg(nk, nk ? 0 : -1, $('#rmNextImg')); }
+  $('#rmBlank').textContent = st.blank ? 'Show' : 'Black'; $('#rmBlank').classList.toggle('on', !!st.blank);
+  $('#rmSongs').innerHTML = (st.list || []).map((k, i) => `<button class="${i === si ? 'now' : ''}" data-si="${i}"><span>${i + 1}</span>${esc(titles[i] || (rmItem(k) || {}).title || 'Slides')}</button>`).join('');
+}
+async function rmSend(cmd) {
+  if (!rm) return;
+  cmd = Object.assign({ n: Math.random().toString(36).slice(2), at: Date.now() }, cmd);
+  if (navigator.vibrate) navigator.vibrate(12);
+  let ok = false;
+  if (rtdbOn(rm)) try { ok = (await fetch(rtdbUrl(rm, '/cmd'), { method: 'PUT', body: JSON.stringify(cmd) })).ok; } catch {}
+  if (!ok) { const r = await api('perfRemote', { code: rm.code, cmd }).catch(() => ({})); ok = !!r.ok; if (r.ended) return rmMsg('The presentation has ended.'); }
+  if (!ok) toast('Couldn\'t reach the presentation. Check your connection.', 3000);
+}
+$('#rmBody').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || !rm || !rm.st) return;
+  if (b.id === 'rmNext') rmSend({ t: 'next' });
+  else if (b.id === 'rmPrev') rmSend({ t: 'prev' });
+  else if (b.id === 'rmBlank') rmSend({ t: rm.st.blank ? 'unblank' : 'blank' });
+  else if (b.id === 'rmAdd') { $('#rmAddQ').value = ''; rmAddList(); $('#rmAddBox').classList.add('show'); setTimeout(() => $('#rmAddQ').focus(), 50); }
+  else if (b.dataset.si != null) rmSend({ t: 'goto', si: +b.dataset.si });
+});
+$('#rmRefresh').onclick = openRemote;
+$('#dRemote').onclick = openRemote;
+new MutationObserver(() => { if (!$('#remotePanel').classList.contains('show') && rm) { try { rm.es && rm.es.close(); } catch {} rm = null; } }).observe($('#remotePanel'), { attributes: true, attributeFilter: ['class'] });
+function rmAddList() {
+  const q = $('#rmAddQ').value.trim(), list = q ? runSearch(q).map(r => r.s) : songs.slice().sort((a, b) => a.nTitle.localeCompare(b.nTitle));
+  $('#rmAddList').innerHTML = list.slice(0, 40).map(s2 => `<button class="rmaddrow" data-k="${esc(s2.key)}">${esc((s2.number ? s2.number + '. ' : '') + s2.title)} <small style="color:var(--muted)">${esc(s2.collection)}</small></button>`).join('') || '<div class="vmsg">No matches</div>';
+}
+$('#rmAddQ').addEventListener('input', rmAddList);
+$('#rmAddClose').onclick = () => $('#rmAddBox').classList.remove('show');
+$('#rmAddList').addEventListener('click', async e => {
+  const b = e.target.closest('[data-k]'); if (!b) return;
+  const s2 = songIndex.get(b.dataset.k); if (!s2) return;
+  const where = await choose(`Add “${s2.title}”`, 'To the presentation on your other device.', [{ label: 'Play next', value: 'next', primary: true }, { label: 'Add to the end', value: 'end' }, { label: 'Cancel', value: 'cancel' }]);
+  if (where !== 'next' && where !== 'end') return;
+  $('#rmAddBox').classList.remove('show');
+  rmSend({ t: 'add', song: s2.key, where }); toast(`Added: ${s2.title}`, 2000);
+});
 $('#dClosing').onclick = () => { closeDrawer(); $('#closingList').innerHTML = (window.CLOSING_SONGS || []).map(c => `<li>${esc(c.title)}</li>`).join(''); openPanel('closingPanel'); };
 $('#dFavs').onclick = () => { closeDrawer(); openSongsPanel('fav'); };
 

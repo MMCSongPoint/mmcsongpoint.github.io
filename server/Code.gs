@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 29 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 30 }); }
 
 function doPost(e) {
   var d;
@@ -811,7 +811,7 @@ function perfMine_(me) {
   var code = pc_().get('pu:' + me.username), s = code && perfSession_(code);
   if (!s || s.user !== me.username) return { ok: true, session: null };
   var st = pc_().get('pst:' + code); st = st ? JSON.parse(st) : null;
-  return { ok: true, session: { code: code, presenter: !!(s.presenter || (st && st.presenter)), song: st ? st.song || '' : '', list: st ? st.list || [] : [], at: s.at } };
+  return { ok: true, session: { code: code, sid: s.sid || '', presenter: !!(s.presenter || (st && st.presenter)), song: st ? st.song || '' : '', list: st ? st.list || [] : [], at: s.at } };
 }
 // A command from the same person's other device (or an admin) to the host: { t: 'add', song, where: 'next'|'end' }
 function perfRemote_(me, d) {
@@ -819,8 +819,11 @@ function perfRemote_(me, d) {
   if (!s) return { ok: false, ended: true, error: 'That session has ended.' };
   if (s.user !== me.username && !me.admin) return { ok: false, error: 'Only the person running the session can change its list.' };
   var cmd = d.cmd || {};
-  if (cmd.t !== 'add' || !cmd.song) return { ok: false, error: 'Unknown request.' };
-  return perfSend_({ code: code, to: s.hostPeer, msg: { type: 'remote', cmd: { t: 'add', song: String(cmd.song), where: cmd.where === 'end' ? 'end' : 'next' }, by: me.name || me.username } });
+  if (cmd.t === 'add' && cmd.song) return perfSend_({ code: code, to: s.hostPeer, msg: { type: 'remote', cmd: { t: 'add', song: String(cmd.song), where: cmd.where === 'end' ? 'end' : 'next' }, by: me.name || me.username } });
+  // remote control of a presentation from a phone: next / prev / blank / unblank / goto
+  if (['next', 'prev', 'blank', 'unblank', 'goto'].indexOf(cmd.t) >= 0)
+    return perfSend_({ code: code, to: s.hostPeer, msg: { type: 'remote', cmd: { t: cmd.t, si: Number(cmd.si) || 0, n: String(cmd.n || '') }, by: me.name || me.username } });
+  return { ok: false, error: 'Unknown request.' };
 }
 function perfEnd_(d) { var code = String(d.code || ''); pc_().removeAll(['ps:' + code, 'pst:' + code]); return { ok: true }; }
 
