@@ -3178,9 +3178,10 @@ function prInsertDeck(item) {
   if (!pr) return;
   const at = pr.si + 1; pr.songs.splice(at, 0, item);
   const pdf = /\.pdf$/i.test(item.title) || item.pdf;
-  item.mode = pdf ? 'pics' : pptHelper ? 'ppt' : item.live ? 'live' : 'pics'; item.live = item.mode === 'live';
-  item.modeAuto = !pdf;   // not picked by hand: switches to PowerPoint as soon as the helper is found
-  if (!pdf && !pptHelper) pptPing().then(() => { if (pptHelper) pptAutoModes(); });
+  // Google Slides links play in Google's player; PowerPoint files in PowerPoint (with the helper). Tap the label to change.
+  item.mode = pdf ? 'pics' : item.google ? 'live' : pptHelper ? 'ppt' : item.live ? 'live' : 'pics'; item.live = item.mode === 'live';
+  item.modeAuto = !pdf && !item.google;   // not picked by hand: switches to PowerPoint as soon as the helper is found
+  if (item.modeAuto && !pptHelper) pptPing().then(() => { if (pptHelper) pptAutoModes(); });
   if (item.live) prLiveId(item).then(() => prRender());
   prDeck(item).then(d => { if (d && d.title && item.title === 'Speaker slides') { item.title = d.title; prRender(); } }).catch(e => toast(e.message || 'Couldn\'t open those slides', 5000));
   prRender(); toast(`Added after “${pr.songs[at - 1] ? pr.songs[at - 1].title : ''}”. Drag it to move it.`, 3000);
@@ -3195,7 +3196,7 @@ $('#prAdd').onclick = async () => {
     const url = prompt('Paste the Google Slides (or Google Drive) link:', ''); if (!url) return;
     const m = url.match(/\/(?:presentation\/d|file\/d)\/([\w-]{20,})/) || url.match(/[?&]id=([\w-]{20,})/) || url.trim().match(/^([\w-]{25,})$/);
     if (!m) return toast('That doesn\'t look like a Google Slides link', 4000);
-    prInsertDeck(deckItem(m[1], '', true));
+    prInsertDeck(Object.assign(deckItem(m[1], '', true), { google: true }));
   }
 };
 $('#prFile').onchange = async e => {
