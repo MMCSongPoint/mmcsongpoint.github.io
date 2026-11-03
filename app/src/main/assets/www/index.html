@@ -161,6 +161,9 @@
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .vbody { background: #0b0809; } }
   .pages { width: 100%; margin: 0 auto; }
   .pages img { display: block; width: 100%; height: auto; background: #fff; margin: 0 auto 8px; }
+  /* wide screens (computers, tablets sideways): each page fits the screen's height; zoom makes it bigger from there */
+  .pages.fit { width: max-content !important; min-width: 100%; }
+  .pages.fit img { width: auto; max-width: none; height: calc(var(--fit-h, 80vh) * var(--z, 1)); }
   .vmsg { padding: 60px 20px; text-align: center; color: var(--muted); }
   .viewer.chordmode .vbody { background: var(--bg); }
   .viewer.chordmode .zoom, .viewer.chordmode #vDownload { display: none; }
@@ -2954,7 +2957,7 @@ function openViewer(s, keepOpen = false, list = null, mode = null) {
   $('#vTabs').innerHTML = groups.length > 1 ? groups.map((g, i) => `<button class="pp${i ? '' : ' now'}" data-g="${esc(g)}">${esc(g)}</button>`).join('') : '';
   const wantChords = (viewerMode === 'chords' || !s.sheets.length) && s.chords.length;
   showSheetGroup(wantChords ? 'Chords' : groups[0]);
-  $('#viewer').classList.add('show'); updatePlayerMode();
+  $('#viewer').classList.add('show'); updatePlayerMode(); requestAnimationFrame(fitPages);
   if (perf && perf.role === 'guest' && viewSlides) { pipKey = ''; perfSlideView(perf.last); }   // back in the viewer: slides again
   if (N && N.keepScreenOn) N.keepScreenOn(true);
 }
@@ -2966,7 +2969,7 @@ function showSheetGroup(label) {
   if (isChords) return showChords(viewing.chords[(+(label.split(' ')[1]) || 1) - 1]);
   const pages = viewing.sheets.filter(x => x.label === label);
   const box = $('#vPages'); box.innerHTML = '';
-  $('#vBody').scrollTo(0, 0);
+  $('#vBody').scrollTo(0, 0); fitPages();
   for (const x of pages) {
     if (x.ext === 'pdf') {
       const holder = document.createElement('div'); box.appendChild(holder);
@@ -3038,13 +3041,22 @@ function openViewerButtons() {
 }
 
 // Pinch / double-tap / buttons to zoom, keeping the spot under your fingers in place.
+// Wide screen: fit each page to the height of the viewer (the whole page shows); narrow screen: fit to the width.
+function fitPages() {
+  const body = $('#vBody'), pages = $('#vPages'); if (!body || !pages) return;
+  const wide = body.clientWidth > body.clientHeight * 1.05 && !$('#viewer').classList.contains('chordmode');
+  pages.classList.toggle('fit', wide);
+  pages.style.setProperty('--fit-h', Math.max(200, body.clientHeight - 8) + 'px');
+  pages.style.setProperty('--z', zoom);
+}
+window.addEventListener('resize', fitPages);
 function setZoom(z, cx, cy) {
   const body = $('#vBody'), pages = $('#vPages');
   z = Math.min(4, Math.max(1, z));
   const r = body.getBoundingClientRect();
   cx = cx ?? r.width / 2; cy = cy ?? r.height / 2;
   const fx = (body.scrollLeft + cx) / (pages.offsetWidth || 1), fy = (body.scrollTop + cy) / (pages.offsetHeight || 1);
-  zoom = z; pages.style.width = (z * 100) + '%';
+  zoom = z; pages.style.width = (z * 100) + '%'; fitPages();
   body.scrollLeft = fx * pages.offsetWidth - cx; body.scrollTop = fy * pages.offsetHeight - cy;
 }
 $('#zIn').onclick = () => setZoom(zoom * 1.5);
