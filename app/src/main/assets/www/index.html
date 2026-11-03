@@ -86,6 +86,9 @@
   .closelist { list-style: none; margin: 0; padding: 0; }
   .closelist li { padding: 12px 6px; border-top: 1px solid var(--line); font-size: 16px; }
   .closelist li:first-child { border-top: none; }
+  /* Turned off for now (the presenter covers it): Build PowerPoint, the PowerPoints menu item. Song list export /
+     import aren't needed now that lists live on the server. Remove a selector here to bring it back. */
+  #noteSlides, #dSlides, #listIO { display: none !important; }
   .song.known { box-shadow: inset 4px 0 0 #3fa463; }   /* songs we know well */
   #rowMenu .ic.known { color: #3fa463; font-weight: 900; }
   .meta-bar select { font-size: 13px; padding: 5px 8px; border-radius: 999px; background: transparent; color: var(--muted); }
@@ -650,7 +653,7 @@
   </div>
   <div class="pbody">
     <div id="notesList"></div>
-    <div class="row2" style="margin-top:20px">
+    <div class="row2" id="listIO" style="margin-top:20px">
       <button class="pbtn ghost" id="exportBtn">Export song lists</button>
       <button class="pbtn ghost" id="importBtn">Import song lists</button>
       <input type="file" id="importFile" accept="application/json,.json,text/plain" hidden>
