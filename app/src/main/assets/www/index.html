@@ -243,6 +243,7 @@
   .perfbar button { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 8px; height: 30px; padding: 0 10px; font-weight: 700; font-size: 13px; }
   .perfbar button.on { background: #fff; color: var(--accent); }
   .perfbar button { display: inline-flex; align-items: center; gap: 6px; }
+  #listenBtn.on { color: var(--accent-text); }
   @media (max-width: 640px) { .perfbar { flex-wrap: wrap; } .perfbar .ptxt { flex-basis: 100%; } }
   /* "View Slides": the slide on the projector fills the screen below the following bar (for singers on stage) */
   .slidepip { display: none; position: fixed; left: 0; right: 0; bottom: 0; top: 0; z-index: 60; background: #000; place-items: center; overflow: hidden; }
@@ -586,6 +587,7 @@
       <button class="icon" id="miniBtn" title="Minimize player" aria-label="Minimize player"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></button>
       <div class="extras">
         <button class="icon sm" id="musicBtn" title="Sheet music" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M10 17.5a1.5 1.5 0 1 1-1.5-1.5H10v-6l4-1"/></svg></button>
+        <button class="icon" id="listenBtn" title="Listen together (everyone in their own part)" aria-label="Listen together"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14.2c2.6.1 4.4 1.8 5 4.6"/></svg></button>
         <button class="icon" id="loopBtn" title="Repeat: off" aria-label="Repeat: off"><span class="lp">⟲</span><span class="lpn" id="loopN"></span></button>
         <select id="rate" title="Speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="0.85">0.85×</option><option value="1" selected>1×</option><option value="1.15">1.15×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option><option value="2">2×</option></select>
       </div>
@@ -1729,6 +1731,7 @@ function playTrack(song, part, keepTime = false, autoplay = true) {
 $('#playerParts').addEventListener('click', e => {
   const b = e.target.closest('.pp'); if (!b || !now) return;
   const p = now.song.parts.find(x => x.id === b.dataset.id);
+  if (listenGuest() && p) { listenPart = p.part; store.set('listenPart', listenPart); toast(`Your part: ${p.part}`, 1500); if (p !== now.part) { audio.pause(); playTrack(now.song, p, false, false); } listenSync(); return; }
   if (p && p !== now.part) playTrack(now.song, p, true);   // switch part, keep position
 });
 function step(d) {
@@ -1737,7 +1740,15 @@ function step(d) {
   if (!next) return toast(d > 0 ? 'End of the list' : 'Start of the list');
   playTrack(next, pickPart(next, myPart || now.part.part));
 }
-function togglePlay() { if (!now) return; audio.paused ? audio.play().catch(() => {}) : audio.pause(); }
+function togglePlay() {
+  if (!now) return;
+  if (listenHosting() && audio.paused) return listenScheduledPlay();
+  if (listenGuest()) {   // a follower's own play/pause: stop following (and pause), or follow again
+    if (!audio.paused) { perf.following = false; audio.pause(); renderPerfBar(); toast('Paused. Tap ▶ to play along with the leader again.', 3000); return; }
+    perf.following = true; renderPerfBar(); listenApply(perf.last && perf.last.listen ? perf.last : perf.ls); if (!perf.ls.playing) toast('Waiting for the leader to press play…', 2000); return;
+  }
+  audio.paused ? audio.play().catch(() => {}) : audio.pause();
+}
 window.togglePlay = togglePlay;
 function notifyNative() {
   if (!N || !now) return;
@@ -1802,6 +1813,14 @@ audio.addEventListener('timeupdate', () => {
 $('#seek').addEventListener('input', () => { seeking = true; });
 $('#seek').addEventListener('change', e => { if (audio.duration) audio.currentTime = e.target.value / 1000 * audio.duration; seeking = false; });
 $('#toggleBtn').onclick = togglePlay;
+$('#listenBtn').onclick = async () => {
+  if (listenHosting()) { const c = await choose(`Listening session ${perf.code}`, 'Others join with this code and pick their part.', [{ label: 'End session', value: 'end' }, { label: 'Keep going', value: 'k', primary: true }]); if (c === 'end') perfStop(); return; }
+  if (listenGuest()) { const c = await choose(`Listening with ${perf.hostName}`, 'Pick your part with the part buttons in the player.', [{ label: 'Leave', value: 'leave' }, { label: 'Keep listening', value: 'k', primary: true }]); if (c === 'leave') perfLeave(); return; }
+  const c = await choose('Listen together', 'Start a session: others join with a code, each hears this song in their own part (Soprano, Alto, Tenor, Bass…), and your Play starts everyone at once. Or join someone else\'s.',
+    [{ label: 'Start a session', value: 'host', primary: true }, ...(isGuest() ? [] : []), { label: 'Join one', value: 'join' }, { label: 'Cancel', value: 'cancel' }]);
+  if (c === 'host') { if (isGuest()) return toast('The guest account can join a session but not start one'); listenStart(); }
+  else if (c === 'join') openPerfJoin();
+};
 // ✕ in the player: stop and hide it
 function closePlayer() {
   audio.pause(); audio.removeAttribute('src'); try { audio.load(); } catch {}
@@ -2223,6 +2242,90 @@ async function perfHostStart(fromPresenter = false) {
   perf = { role: 'host', code: r.code, peer: r.peer, sid: r.sid || '', peers: new Map(), relayers: new Set(), seq: 0 };
   renderPerfBar(); perfSync(); perfPollLoop(perf);
 }
+// ---- Listening session: the leader plays an MP3; everyone who joins hears the same song, in their own part (Soprano,
+// Alto, Tenor, Bass…), in time. All devices share one clock (Firebase's), so a press of Play starts everyone together.
+let clockOffset = 0;
+const srvNow = () => Date.now() + clockOffset;
+async function clockSync(me) {
+  if (!rtdbOn(me)) return;
+  let best = null;
+  for (let i = 0; i < 5 && perf === me; i++) {
+    const t0 = Date.now();
+    try {
+      const r = await fetch(rtdbUrl(me, '/clk/' + me.peer), { method: 'PUT', body: '{".sv":"timestamp"}' }), ts = await r.json(), t1 = Date.now();
+      if (typeof ts === 'number' && (!best || t1 - t0 < best.rtt)) best = { rtt: t1 - t0, off: ts - (t0 + t1) / 2 };
+    } catch {}
+  }
+  if (best) clockOffset = best.off;
+}
+const listenHosting = () => !!(perf && perf.role === 'host' && perf.listen);
+const listenGuest = () => !!(perf && perf.role === 'guest' && perf.ls);
+async function listenStart() {
+  if (!now) return toast('Play a song first');
+  if (!navigator.onLine) return toast('Connect to the internet to start');
+  const r = await api('perfHost', { listen: 1 }).catch(() => ({}));
+  if (!r.ok) return toast(r.error || 'Couldn\'t start a session', 4000);
+  if (perf) await (perf.role === 'host' ? perfStop() : perfLeave());
+  perf = { role: 'host', listen: true, code: r.code, peer: r.peer, sid: r.sid || '', peers: new Map(), relayers: new Set(), seq: 0 };
+  listenSnap(); renderPerfBar(); perfSync(); perfPollLoop(perf);
+  const me = perf; setTimeout(() => clockSync(me).then(() => { if (perf === me && !me.lsWait) { listenSnap(); perfSync(); } }), 900);
+  choose(`Listening session ${r.code}`, `Others join with code ${r.code} (Menu › Perform › Follow someone, or the 👥 button in their player). Each picks their part. When you press Play, everyone starts together.`, [{ label: 'OK', value: 'ok', primary: true }]);
+}
+// what followers need: playing or not, where (pos, in seconds) at what moment (at, shared clock), and the speed
+function listenSnap(playAt) {
+  if (!listenHosting()) return;
+  perf.ls = { playing: !!playAt || !audio.paused, pos: +(audio.currentTime || 0).toFixed(3), at: Math.round(playAt || srvNow()), rate: audio.playbackRate || 1 };
+}
+// Leader presses Play: everyone (the leader too) starts 1.5 s from now, at the same moment.
+function listenScheduledPlay() {
+  const me = perf, at = srvNow() + 1500;
+  me.ls = { playing: true, pos: +(audio.currentTime || 0).toFixed(3), at: Math.round(at), rate: audio.playbackRate || 1 };
+  me.lsWait = true; perfSync(); toast('Starting together…', 1400);
+  setTimeout(() => { if (perf === me) { me.lsWait = false; audio.play().catch(() => {}); } }, Math.max(0, at - srvNow()));
+}
+['play', 'pause', 'seeked', 'ratechange'].forEach(ev => audio.addEventListener(ev, () => {
+  if (!listenHosting() || perf.lsWait) return;
+  listenSnap(); perfSync();
+}));
+// Follower
+let listenPart = store.get('listenPart', ''), listenT = null, listenMissing = '';
+function listenApply(st) {
+  const s = songIndex.get(st.song);
+  perf.ls = st;
+  if (!s || !s.parts.length) { if (listenMissing !== st.song) { listenMissing = st.song; toast('The leader\'s song isn\'t in your library yet. Pull down to refresh.', 4000); } return; }
+  const part = pickPart(s, listenPart);
+  if (!now || now.part !== part) { queue = [s]; audio.pause(); playTrack(s, part, false, false); }
+  listenSync();
+}
+function listenSync() {
+  const st = perf && perf.ls; clearTimeout(listenT);
+  if (!st || !now || !perf.following) return;
+  if (!st.playing) {
+    if (!audio.paused) audio.pause();
+    if (audio.readyState > 0 && Math.abs(audio.currentTime - st.pos) > 0.25) audio.currentTime = st.pos;
+    return;
+  }
+  if (audio.readyState < 1) { audio.addEventListener('loadedmetadata', listenSync, { once: true }); return; }
+  const wait = st.at - srvNow();
+  if (wait > 40) {                                   // a scheduled start: be ready at the spot, then go on the moment
+    if (!audio.paused) audio.pause();
+    if (Math.abs(audio.currentTime - st.pos) > 0.05) audio.currentTime = st.pos;
+    audio.playbackRate = st.rate;
+    listenT = setTimeout(() => { if (perf && perf.ls === st) { audio.play().catch(listenBlocked); setTimeout(listenSync, 400); } }, wait);
+    return;
+  }
+  const target = st.pos + (srvNow() - st.at) / 1000 * st.rate;
+  if (isFinite(audio.duration) && target >= audio.duration - 0.2) { if (!audio.paused) audio.pause(); return; }
+  if (audio.paused) { audio.currentTime = target + 0.15 * st.rate; audio.playbackRate = st.rate; audio.play().catch(listenBlocked); return; }
+  const diff = audio.currentTime - target;
+  if (Math.abs(diff) > 0.35) { audio.currentTime = target + 0.04; audio.playbackRate = st.rate; }
+  else if (Math.abs(diff) > 0.025) audio.playbackRate = st.rate * (1 - Math.max(-0.06, Math.min(0.06, diff * 0.8)));   // nudge back in step
+  else audio.playbackRate = st.rate;
+}
+function listenBlocked() { toast('Tap ▶ once to let this device play along', 4000); }
+setInterval(() => { if (listenGuest() && perf.following && perf.ls.playing) listenSync(); }, 400);
+// first tap (Join): let this device play sound later without another tap
+function unlockAudio() { if (audio.getAttribute('src')) return; try { audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='; const p = audio.play(); if (p) p.then(() => audio.pause()).catch(() => {}); } catch {} }
 async function perfHostMsg(me, m) {
   if (m.type === 'offer' && window.RTCPeerConnection) {
     const old = me.peers.get(m.from); if (old) try { old.pc.close(); } catch {}
@@ -2282,6 +2385,7 @@ function perfAnchor() {
 }
 function perfState() {
   const st = { t: 'state', seq: ++perf.seq, host: userName(), beat: Date.now() };
+  if (perf.listen) return Object.assign(st, { listen: 1, song: now ? now.song.key : '', list: queue.map(x => x.key).slice(0, 60) }, perf.ls || {});
   if (pr) {   // presenting: musicians follow the song (and the words on the projector); their key and scrolling stay their own
     const s = pr.songs[pr.si];
     return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
@@ -2331,7 +2435,7 @@ const rtdbLive = me => rtdbOn(me) && Date.now() - (me.streamOk || 0) < 12000;
 let perfRelayT = null, perfRelayBusy = false, perfRelayAgain = false, perfRelayKey = '';
 function perfRelayPush(now = false) {
   if (!perf || perf.role !== 'host' || !(perf.relayers.size || rtdbOn(perf))) return;
-  const st = perfState(), key = [st.song, st.slideNo, st.slideIdx, st.blank, st.group, st.view, st.mode, st.keyP, st.off].join('|');
+  const st = perfState(), key = [st.song, st.slideNo, st.slideIdx, st.blank, st.group, st.view, st.mode, st.keyP, st.off, st.playing, st.at, st.pos, st.rate].join('|');
   if (key !== perfRelayKey) now = true;   // a real change, not just scrolling
   clearTimeout(perfRelayT);
   perfRelayT = setTimeout(perfRelayUpload, now ? 0 : 500);
@@ -2341,7 +2445,7 @@ async function perfRelayUpload() {
   if (perfRelayBusy) { perfRelayAgain = true; return; }
   perfRelayBusy = true;
   try {
-    const st = perfState(); perfRelayKey = [st.song, st.slideNo, st.slideIdx, st.blank, st.group, st.view, st.mode, st.keyP, st.off].join('|');
+    const st = perfState(); perfRelayKey = [st.song, st.slideNo, st.slideIdx, st.blank, st.group, st.view, st.mode, st.keyP, st.off, st.playing, st.at, st.pos, st.rate].join('|');
     let fast = false;
     if (rtdbOn(perf)) fast = await rtdbPut(perf, st);
     if (perf && perf.relayers.size && (!fast || !rtdbOn(perf))) await api('perfState', { code: perf.code, state: st });
@@ -2364,11 +2468,12 @@ async function perfStop(silent = false) {
 // ---- guest
 async function perfJoin(code) {
   if (!navigator.onLine) return toast('Connect to the internet to join');
+  unlockAudio();
   const r = await api('perfJoin', { code }).catch(() => ({}));
   if (!r.ok) return toast(r.error || 'Couldn\'t join', 4500);
   if (perf) await perfLeave();
   perf = { role: 'guest', code: r.code, peer: r.peer, hostPeer: r.hostPeer, hostName: r.host, sid: r.sid || '', following: true, relay: !window.RTCPeerConnection, connected: false, seq: -1 };
-  rtdbStream(perf);
+  rtdbStream(perf); clockSync(perf);
   loadArrangements(true);
   toast(`Joined ${r.host}'s session. Waiting for the leader…`, 3000);
   renderPerfBar(); perfPollLoop(perf);
@@ -2406,6 +2511,7 @@ async function perfLeave(msg) {
   if (me.role === 'guest') {
     try { me.pc && me.pc.close(); } catch {}
     try { me.es && me.es.close(); } catch {}
+    if (me.ls) { clearTimeout(listenT); audio.playbackRate = +$('#rate').value || 1; }
     if (!msg) api('perfSend', { code: me.code, to: me.hostPeer, msg: { type: 'bye', from: me.peer } }).catch(() => {});
   }
   if (msg) toast(msg, 3500);
@@ -2438,6 +2544,7 @@ function perfPrefetch(st) {
 }
 function perfShow(st) {
   if (!st || st.closed) return;
+  if (st.listen) return listenApply(st);
   perfPrefetch(st);
   perfSlideView(st); setTimeout(() => { if (perf && perf.last === st) perfSlideView(st); }, 0);
   const s = songIndex.get(st.song);
@@ -2525,6 +2632,7 @@ function perfFollow() {
 function renderPerfBar() {
   if (pr) setTimeout(() => { if (pr) $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : ''; });
   const bar = $('#perfBar'), pill = $('#perfPill');
+  $('#listenBtn').classList.toggle('on', !!(perf && (perf.listen || perf.ls)));
   $('#vPerform').classList.toggle('on', !!perf);
   $('#viewer').classList.toggle('following', !!perf && perf.role === 'guest' && perf.following);
   if (!perf || perf.role !== 'guest') $('#slidePip').classList.remove('show');
@@ -2546,7 +2654,7 @@ function renderPerfBar() {
   }
   bar.innerHTML = `<span class="ptxt">${text}</span>${btns}`;
   bar.classList.add('show');
-  pill.textContent = perf.role === 'host' ? `● Leading · ${perf.code}` : `● Following ${perf.hostName}`;
+  pill.textContent = perf.role === 'host' ? `● ${perf.listen ? 'Listening session' : 'Leading'} · ${perf.code}` : `● ${perf.ls ? 'Listening with' : 'Following'} ${perf.hostName}`;
   pill.classList.toggle('show', !viewing);
 }
 $('#perfBar').addEventListener('click', async e => {
@@ -2597,6 +2705,7 @@ setInterval(() => { if (perf && perf.role === 'host' && (perf.relayers.size || r
 $('#perfPill').onclick = () => {
   if (!perf) return;
   if (perf.role === 'guest') { perfFollow(); if (!viewing) toast('Waiting for the leader to open a song…'); }
+  else if (perf.listen) choose(`Listening session ${perf.code}`, 'Others join with this code and pick their part.', [{ label: 'End session', value: 'end' }, { label: 'Keep going', value: 'k', primary: true }]).then(c => { if (c === 'end') perfStop(); });
   else toast('Open a song to lead. To end the session, tap End at the top of a song.', 3500);
 };
 function openPerfJoin() { $('#perfCode').value = ''; $('#perfBox').classList.add('show'); setTimeout(() => $('#perfCode').focus(), 50); }
