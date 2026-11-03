@@ -27,6 +27,10 @@ window.HYMNAL_CONFIG = {
   // SongPoint server: accounts, song-list log, PowerPoint builder (Google Sheet "SongPoint Log" via its Apps Script web app).
   logUrl: "https://script.google.com/macros/s/AKfycby1iDryxk6b9SMzWLGpgASr-wnzV1VuCdvAu6IsZjETKKe0Uus_5UNRLRrC2qvsSwE5/exec",
 
+  // Firebase Realtime Database (worship team account): followers get the leader's slide / song changes through it in
+  // a fraction of a second when the Wi-Fi won't let devices connect to each other. Empty = use the Apps Script server.
+  rtdb: "",
+
   // Tab order (folders not listed come last, A-Z).
   collectionOrder: ["Misc", "SFP", "Zions Praises", "Christian Hymnal"],
 

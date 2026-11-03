@@ -2189,7 +2189,7 @@ function waitIce(pc) {
 async function perfPollLoop(me) {
   while (perf === me) {
     try {
-      if (me.role === 'guest' && me.relay && !me.connected) {
+      if (me.role === 'guest' && me.relay && !me.connected && !rtdbLive(me)) {
         const r = await api('perfState', { code: me.code });
         if (perf !== me) return;
         if (r.ended) return perfLeave('The leader ended the session');
@@ -2217,7 +2217,7 @@ async function perfHostStart(fromPresenter = false) {
   if (!window.RTCPeerConnection) toast('This device can only lead through the server (slower)', 3500);
   const r = await api('perfHost', { presenter: fromPresenter ? 1 : 0 }).catch(() => ({}));
   if (!r.ok) return toast(r.error || 'Couldn\'t start a session', 4000);
-  perf = { role: 'host', code: r.code, peer: r.peer, peers: new Map(), relayers: new Set(), seq: 0 };
+  perf = { role: 'host', code: r.code, peer: r.peer, sid: r.sid || '', peers: new Map(), relayers: new Set(), seq: 0 };
   renderPerfBar(); perfSync(); perfPollLoop(perf);
 }
 async function perfHostMsg(me, m) {
@@ -2240,7 +2240,8 @@ async function perfHostMsg(me, m) {
     } catch {}
   } else if (m.type === 'relay') { me.relayers.add(m.from); me.names = me.names || {}; me.names[m.from] = m.name; renderPerfBar(); perfRelayPush(true); }
   else if (m.type === 'remote') perfRemoteAdd(m);
-  else if (m.type === 'bye') { const e = me.peers.get(m.from); if (e) try { e.pc.close(); } catch {} me.peers.delete(m.from); me.relayers.delete(m.from); renderPerfBar(); }
+  else if (m.type === 'stream') { (me.streamers = me.streamers || new Set()).add(m.from); renderPerfBar(); }   // following through Firebase (counted only)
+  else if (m.type === 'bye') { const e = me.peers.get(m.from); if (e) try { e.pc.close(); } catch {} me.peers.delete(m.from); me.relayers.delete(m.from); me.streamers && me.streamers.delete(m.from); renderPerfBar(); }
 }
 // A song sent from the leader's phone: into the running presentation (or the leader's song list), next or at the end.
 // A song already coming up later is moved instead of added twice.
@@ -2302,12 +2303,31 @@ function perfSync() {
   const wait = Math.max(0, 80 - (Date.now() - perfSyncLast));
   if (!wait) go(); else perfSyncT = setTimeout(go, wait);
 }
+// ---- Firebase Realtime Database: the fast route. The leader writes its state to /s/<session id>; followers keep a
+// stream open to it (EventSource) and get each change in a fraction of a second, whatever the Wi-Fi allows.
+const rtdbOn = me => !!(CFG.rtdb && me && me.sid);
+const rtdbUrl = (me, path = '') => `${CFG.rtdb.replace(/\/+$/, '')}/s/${me.sid}${path}.json`;
+async function rtdbPut(me, st) {
+  try { const r = await fetch(rtdbUrl(me), { method: 'PUT', body: JSON.stringify({ state: st, at: Date.now() }) }); return r.ok; } catch { return false; }
+}
+function rtdbStream(me) {
+  if (!rtdbOn(me) || perf !== me || !window.EventSource) return;
+  try { me.es && me.es.close(); } catch {}
+  const es = new EventSource(rtdbUrl(me, '/state')); me.es = es;
+  const alive = () => { if (perf === me && me.es === es) { me.streamOk = Date.now(); } };
+  const take = e => { alive(); try { const m = JSON.parse(e.data); if (m && m.path === '/' && m.data && perf === me) perfApply(m.data); else if (m && m.path === '/' && m.data === null && me.seq >= 0) perfLeave('The leader ended the session'); } catch {} };
+  es.addEventListener('put', take); es.addEventListener('patch', alive); es.addEventListener('keep-alive', alive);
+  es.onopen = alive;
+  es.addEventListener('cancel', () => { try { es.close(); } catch {} });
+  es.onerror = () => { if (es.readyState === 2 && perf === me && me.es === es) setTimeout(() => rtdbStream(me), 3000); };   // closed: open it again
+}
+const rtdbLive = me => rtdbOn(me) && Date.now() - (me.streamOk || 0) < 12000;
 // Followers on the server route read the leader's state from the server. A new song / slide / blank goes up straight
 // away (scrolling waits a moment), and only one upload runs at a time: if more changes come meanwhile, the newest
 // goes up as soon as the last one finishes.
 let perfRelayT = null, perfRelayBusy = false, perfRelayAgain = false, perfRelayKey = '';
 function perfRelayPush(now = false) {
-  if (!perf || perf.role !== 'host' || !perf.relayers.size) return;
+  if (!perf || perf.role !== 'host' || !(perf.relayers.size || rtdbOn(perf))) return;
   const st = perfState(), key = [st.song, st.slideNo, st.slideIdx, st.blank, st.group, st.view, st.mode, st.keyP, st.off].join('|');
   if (key !== perfRelayKey) now = true;   // a real change, not just scrolling
   clearTimeout(perfRelayT);
@@ -2319,7 +2339,10 @@ async function perfRelayUpload() {
   perfRelayBusy = true;
   try {
     const st = perfState(); perfRelayKey = [st.song, st.slideNo, st.slideIdx, st.blank, st.group, st.view, st.mode, st.keyP, st.off].join('|');
-    await api('perfState', { code: perf.code, state: st });
+    let fast = false;
+    if (rtdbOn(perf)) fast = await rtdbPut(perf, st);
+    if (perf && perf.relayers.size && (!fast || !rtdbOn(perf))) await api('perfState', { code: perf.code, state: st });
+    else if (perf && perf.relayers.size) api('perfState', { code: perf.code, state: st }).catch(() => {});   // older apps still read it here
   } catch {}
   perfRelayBusy = false;
   if (perfRelayAgain) { perfRelayAgain = false; perfRelayUpload(); }
@@ -2331,6 +2354,7 @@ async function perfStop(silent = false) {
     const bye = JSON.stringify({ t: 'end' });
     for (const e of me.peers.values()) { try { e.dc && e.dc.send(bye); } catch {} try { e.pc.close(); } catch {} }
     if (!silent) api('perfEnd', { code: me.code }).catch(() => {});
+    if (rtdbOn(me)) fetch(rtdbUrl(me), { method: 'DELETE' }).catch(() => {});
   }
   renderPerfBar();
 }
@@ -2340,7 +2364,8 @@ async function perfJoin(code) {
   const r = await api('perfJoin', { code }).catch(() => ({}));
   if (!r.ok) return toast(r.error || 'Couldn\'t join', 4500);
   if (perf) await perfLeave();
-  perf = { role: 'guest', code: r.code, peer: r.peer, hostPeer: r.hostPeer, hostName: r.host, following: true, relay: !window.RTCPeerConnection, connected: false, seq: -1 };
+  perf = { role: 'guest', code: r.code, peer: r.peer, hostPeer: r.hostPeer, hostName: r.host, sid: r.sid || '', following: true, relay: !window.RTCPeerConnection, connected: false, seq: -1 };
+  rtdbStream(perf);
   loadArrangements(true);
   toast(`Joined ${r.host}'s session. Waiting for the leader…`, 3000);
   renderPerfBar(); perfPollLoop(perf);
@@ -2367,7 +2392,7 @@ async function perfConnect(me) {
   setTimeout(() => {                                               // no direct connection: follow through the server instead
     if (perf === me && me.pc === pc && !me.connected && !me.relay) {
       me.relay = true; renderPerfBar();
-      api('perfSend', { code: me.code, to: me.hostPeer, msg: { type: 'relay', from: me.peer, name: userName() } }).catch(() => {});
+      api('perfSend', { code: me.code, to: me.hostPeer, msg: { type: rtdbLive(me) ? 'stream' : 'relay', from: me.peer, name: userName() } }).catch(() => {});
     }
   }, 12000);
 }
@@ -2377,6 +2402,7 @@ async function perfLeave(msg) {
   perf = null;
   if (me.role === 'guest') {
     try { me.pc && me.pc.close(); } catch {}
+    try { me.es && me.es.close(); } catch {}
     if (!msg) api('perfSend', { code: me.code, to: me.hostPeer, msg: { type: 'bye', from: me.peer } }).catch(() => {});
   }
   if (msg) toast(msg, 3500);
@@ -2494,7 +2520,7 @@ function perfFollow() {
   if (perf.last) perfShow(perf.last);
 }
 function renderPerfBar() {
-  if (pr) setTimeout(() => { if (pr) $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size ? ` · ${perf.peers.size + perf.relayers.size} following` : ''}` : ''; });
+  if (pr) setTimeout(() => { if (pr) $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : ''; });
   const bar = $('#perfBar'), pill = $('#perfPill');
   $('#vPerform').classList.toggle('on', !!perf);
   $('#viewer').classList.toggle('following', !!perf && perf.role === 'guest' && perf.following);
@@ -2502,12 +2528,12 @@ function renderPerfBar() {
   if (!perf) { bar.innerHTML = ''; bar.classList.remove('show'); pill.classList.remove('show'); return; }
   let text, btns;
   if (perf.role === 'host') {
-    const n = perf.peers.size + perf.relayers.size;
+    const n = perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0);
     const names = [...perf.peers.values()].filter(e => e.dc && e.dc.readyState === 'open').map(e => e.name);
     text = `<b>Leading</b> · code <b class="pcode">${esc(perf.code)}</b> · ${n ? `${n} following${names.length ? ': ' + esc(names.join(', ')) : ''}` : 'waiting for others to join'}`;
     btns = '<button data-p="end">End</button>';
   } else {
-    const how = perf.connected ? (perfOnline() ? '' : ' · lost the leader') : perf.relay ? (perfOnline() ? ' · through the server' : ' · lost the leader') : ' · connecting…';
+    const how = perf.connected ? (perfOnline() ? '' : ' · lost the leader') : rtdbLive(perf) ? (perfOnline() ? '' : ' · lost the leader') : perf.relay ? (perfOnline() ? ' · through the server' : ' · lost the leader') : ' · connecting…';
     text = `<b>Following ${esc(perf.hostName)}</b> · ${esc(perf.code)}${how}`;
     btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow leader</button>')
       + (perf.last && perf.last.presenter ? (viewSlides ? '' : `<button class="${followSlides ? 'on' : ''}" data-p="slides" title="Scroll my chords to the words on the screen">Sync w/ Slides${followSlides ? ' ✓' : ''}</button>`)
@@ -2535,6 +2561,7 @@ const PERF_LOST_MS = 8000, PERF_REDIAL_MS = 20000;
 function perfOnline() {
   if (!perf) return false;
   if (perf.connected) return Date.now() - (perf.pongAt || 0) < PERF_LOST_MS;
+  if (rtdbLive(perf)) return Date.now() - (perf.beatAt || 0) < 15000;
   return perf.relay && Date.now() - (perf.relayOk || 0) < 6000 && Date.now() - (perf.beatAt || 0) < 15000;
 }
 // Start the connection over (and pick the leader's place back up).
@@ -2544,6 +2571,7 @@ function perfReconnect(quiet = false) {
   me.pc = null; me.dc = null; me.connected = false; me.relay = !window.RTCPeerConnection; me.relayOk = 0;
   if (!quiet) me.following = true;
   me.sig = null; me.seq = -1;
+  if (rtdbOn(me) && !rtdbLive(me)) rtdbStream(me);
   if (!quiet) toast('Reconnecting…', 1500);
   renderPerfBar();
   if (window.RTCPeerConnection) perfConnect(me);
@@ -2562,7 +2590,7 @@ setInterval(() => {
   renderPerfBar();
 }, 3000);
 // Leader: keep a heartbeat on the server for followers who couldn't connect directly.
-setInterval(() => { if (perf && perf.role === 'host' && perf.relayers.size) perfRelayPush(true); }, 5000);
+setInterval(() => { if (perf && perf.role === 'host' && (perf.relayers.size || rtdbOn(perf))) perfRelayPush(true); }, 5000);
 $('#perfPill').onclick = () => {
   if (!perf) return;
   if (perf.role === 'guest') { perfFollow(); if (!viewing) toast('Waiting for the leader to open a song…'); }
@@ -2727,7 +2755,7 @@ function prRender() {
   const s = pr.songs[pr.si], deck = pr.deck, n = deck ? deck.imgs.length : 0;
   $('#prTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
   $('#prSub').textContent = ` · song ${pr.si + 1} of ${pr.songs.length}`;
-  $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size ? ` · ${perf.peers.size + perf.relayers.size} following` : ''}` : '';
+  $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : '';
   $('#prBlank').classList.toggle('on', pr.blank);
   prProjLabel();
   $('#prOrder').textContent = prOrderMode === 'chords' ? (deck && deck.how === 'arranged' ? 'Order: Arranged' : 'Order: Chords') : 'Order: PowerPoint';

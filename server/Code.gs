@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 23 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 24 }); }
 
 function doPost(e) {
   var d;
@@ -682,15 +682,16 @@ function perfSession_(code) { var v = pc_().get('ps:' + code); return v ? JSON.p
 function perfHost_(me, d) {
   var c = pc_(), code = '';
   for (var i = 0; i < 30; i++) { code = String(1000 + Math.floor(Math.random() * 9000)); if (!c.get('ps:' + code)) break; }
-  var s = { host: me.name || me.username, user: me.username, presenter: !!(d && d.presenter), hostPeer: 'h' + Utilities.getUuid().slice(0, 8), at: Date.now() };
+  var s = { host: me.name || me.username, user: me.username, presenter: !!(d && d.presenter), hostPeer: 'h' + Utilities.getUuid().slice(0, 8), at: Date.now(),
+    sid: (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '') };   // the session's private channel on Firebase
   c.put('ps:' + code, JSON.stringify(s), 21600);
   c.put('pu:' + me.username, code, 21600);   // so this person's phone can find the session (perfMine)
-  return { ok: true, code: code, peer: s.hostPeer };
+  return { ok: true, code: code, peer: s.hostPeer, sid: s.sid };
 }
 function perfJoin_(d) {
   var code = String(d.code || '').replace(/\D/g, ''), s = perfSession_(code);
   if (!s) return { ok: false, error: 'No session with that code. Check the number on the host\'s screen.' };
-  return { ok: true, code: code, host: s.host, hostPeer: s.hostPeer, peer: 'p' + Utilities.getUuid().slice(0, 8) };
+  return { ok: true, code: code, host: s.host, hostPeer: s.hostPeer, sid: s.sid || '', peer: 'p' + Utilities.getUuid().slice(0, 8) };
 }
 function perfSend_(d) {
   var code = String(d.code || ''), to = String(d.to || ''); if (!perfSession_(code)) return { ok: false, ended: true };
