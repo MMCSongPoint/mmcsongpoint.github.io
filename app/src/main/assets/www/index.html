@@ -613,8 +613,6 @@
     <select id="sort">
       <option value="title">Title A–Z</option>
       <option value="number">Hymn number</option>
-      <option value="recent">Recently added</option>
-      <option value="plays">Most played</option>
     </select>
   </div>
   <div class="list" id="list"></div>
@@ -1411,7 +1409,7 @@ function setSyncLine(text, isErr = false) { const el = $('#syncLine'); el.textCo
 $('#syncBtn').onclick = () => { closeSheet(); sync(true); };
 
 // ------------------------------------------------------------------ search
-let collection = store.get('collection', ''), sortBy = store.get('sort', 'title');
+let collection = store.get('collection', ''), sortBy = store.get('sort', 'title'); if (!['title', 'number'].includes(sortBy)) sortBy = 'title';
 const myPart = '';
 let results = [], sel = -1, lastQ = '';
 $('#sort').value = sortBy;
