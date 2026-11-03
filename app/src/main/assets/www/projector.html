@@ -12,17 +12,30 @@
   #slide.on { opacity: 1; }
   #title { position: fixed; inset: 0; display: none; place-items: center; text-align: center; color: #fff; font: 700 6vw/1.2 system-ui, sans-serif; padding: 5vw; }
   #title.on { display: grid; }
+  #live { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #000; }
+  #live.on { display: block; }
 </style>
 </head>
 <body class="ui">
 <img id="slide" alt="">
 <div id="title"></div>
+<iframe id="live" allow="autoplay; fullscreen" allowfullscreen title="Speaker slides"></iframe>
 <script>
 // Shows whatever the Presenter window (same app, same computer) sends over a BroadcastChannel.
-const ch = new BroadcastChannel('songpoint-projector'), img = document.getElementById('slide'), title = document.getElementById('title');
+const ch = new BroadcastChannel('songpoint-projector'), img = document.getElementById('slide'), title = document.getElementById('title'), live = document.getElementById('live');
+// a speaker's deck playing in Google Slides' own player: the clicker / arrow keys go straight to it
+function showLive(m) {
+  img.classList.remove('on'); title.classList.remove('on');
+  if (live.dataset.url !== m.url) { live.dataset.url = m.url; live.src = m.url; }
+  live.classList.add('on');
+  if (m.focus) { window.focus(); setTimeout(() => { try { live.focus(); live.contentWindow.focus(); } catch (e) {} }, 300); }
+}
+live.addEventListener('load', () => { if (live.classList.contains('on')) try { live.focus(); live.contentWindow.focus(); } catch (e) {} });
 ch.onmessage = e => {
   const m = e.data || {};
-  if (m.t === 'slide') { title.classList.remove('on'); if (img.src !== m.img) img.src = m.img; img.classList.add('on'); }
+  if (m.t !== 'live' && m.t !== 'close') live.classList.remove('on');
+  if (m.t === 'live') showLive(m);
+  else if (m.t === 'slide') { title.classList.remove('on'); if (img.src !== m.img) img.src = m.img; img.classList.add('on'); }
   else if (m.t === 'title') { img.classList.remove('on'); title.textContent = m.text || ''; title.classList.add('on'); }
   else if (m.t === 'blank') { img.classList.remove('on'); title.classList.remove('on'); }
   else if (m.t === 'close') window.close();

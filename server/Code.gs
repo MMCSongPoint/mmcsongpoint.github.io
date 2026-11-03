@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 27 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 28 }); }
 
 function doPost(e) {
   var d;
@@ -162,6 +162,7 @@ function handle_(d) {
   if (a === 'file') return file_(d);
   if (a === 'slideDeck') return slideDeck_(d);
   if (a === 'slideUpload') return slideUpload_(me, d);
+  if (a === 'slideLive') return slideLive_(d);
   if (a === 'chordUpload') return chordUpload_(me, d);
   if (a === 'listsGet') return listsGet_(me);
   if (a === 'listSave') return listSave_(me, d);
@@ -934,6 +935,17 @@ function slideDeck_(d) {
     try { c.put(cacheKey, JSON.stringify(info), 21600); } catch (e) {}
   }
   return { ok: true, title: src.getName().replace(/\.pptx?$/i, ''), texts: info.texts, notes: info.notes, pdf: Utilities.base64Encode(pdf.getBlob().getBytes()) };
+}
+// A speaker's slides played "live" on the projector by Google Slides' own player (animations and transitions kept):
+// a PowerPoint is played from its Google Slides copy, which is made viewable by link so the player can open it.
+function slideLive_(d) {
+  var src;
+  try { src = DriveApp.getFileById(String(d.id || '')); } catch (e) { return { ok: false, error: 'Can\'t open those slides.' }; }
+  if (src.getMimeType() === 'application/vnd.google-apps.presentation') return { ok: true, id: src.getId() };
+  if (!/\.pptx?$/i.test(src.getName())) return { ok: false, error: 'Only PowerPoint and Google Slides can play with animations.' };
+  var conv = converted_(src.getId()), f = DriveApp.getFileById(conv);
+  try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
+  return { ok: true, id: conv };
 }
 // A speaker's slides (PowerPoint .pptx / .ppt or a PDF) uploaded from the presenter: kept in "Speaker Slides".
 function slideUpload_(me, d) {
