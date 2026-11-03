@@ -234,7 +234,12 @@
   .prcode { color: #cbbcc2; font-size: 14px; } .prcode b { color: #fff; font-size: 18px; letter-spacing: .08em; }
   #prBlank.on { background: #fff; color: #000; }
   .prbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr minmax(300px, .55fr); gap: 12px; padding: 12px; }
+  .prleft { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
   .prsongs { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+  .pradd { color: #ddd; border: 1px dashed #4a3a42; background: transparent; }
+  .prsongs button.deck { border-left: 3px solid #4f8fd8; } .prsongs button.deck small { color: #7fb0e8; }
+  .prsongs button.dragging { opacity: .4; } .prsongs button.dropbefore { box-shadow: 0 -3px 0 #e48aae; } .prsongs button.dropafter { box-shadow: 0 3px 0 #e48aae; }
+  .prsongs button .prx { float: right; color: #8c7c84; padding: 0 2px 0 8px; } .prsongs button .prx:hover { color: #fff; }
   .prsongs button { text-align: left; background: #1b1418; color: #ddd; border: 1px solid #2c2228; border-radius: 8px; padding: 9px 10px; font-size: 14px; }
   .prsongs button span { color: #8c7c84; margin-right: 8px; } .prsongs button small { display: block; color: #e0a040; font-size: 11px; margin-top: 2px; }
   .prsongs button.now { background: var(--accent); border-color: var(--accent); color: #fff; } .prsongs button.now span { color: #f3d0de; }
@@ -252,7 +257,7 @@
   .prthumbs { flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
   .prthumbs img { width: 100%; border-radius: 4px; border: 2px solid transparent; cursor: pointer; background: #000; }
   .prthumbs img.now { border-color: var(--accent-text); }
-  @media (max-width: 900px) { .prbody { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; } .prsongs { flex-direction: row; overflow-x: auto; } .prsongs button { white-space: nowrap; } .prside { display: none; } }
+  @media (max-width: 900px) { .prbody { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; } .prleft { flex-direction: row; } .prsongs { flex-direction: row; overflow-x: auto; } .prsongs button { white-space: nowrap; } .prside { display: none; } }
   .perfbar { display: none; align-items: center; gap: 8px; padding: 6px 10px; background: var(--accent); color: #fff; font-size: 13px; }
   .perfbar.show { display: flex; }
   .perfbar .ptxt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -838,7 +843,8 @@
     <button class="pbtn" id="prProj">Start Slideshow</button>
   </div>
   <div class="prbody">
-    <div class="prsongs" id="prSongs"></div>
+    <div class="prleft"><div class="prsongs" id="prSongs"></div><button class="pbtn ghost pradd" id="prAdd">＋ Add slides</button>
+      <input type="file" id="prFile" accept=".pptx,.ppt,.pdf,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden></div>
     <div class="prmain">
       <div class="prstage"><img id="prCur" alt=""><div class="prmsg" id="prMsg"></div></div>
       <div class="prnav"><button class="pbtn ghost" id="prPrev">◀ Previous</button><span id="prPos"></span><button class="pbtn" id="prNext">Next ▶</button></div>
@@ -2436,6 +2442,7 @@ function perfState() {
   if (pr) {   // presenting: musicians follow the song (and the words on the projector); their key and scrolling stay their own
     const s = pr.songs[pr.si];
     return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
+      deckId: s.deck ? prFile(s).id : '', deckTitle: s.deck ? s.title : '',
       view: 'arranged', slideNo: pr.slide, slideIdx: pr.deck && pr.deck.order ? pr.deck.order[pr.slide] : pr.slide, blank: pr.blank ? 1 : 0, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || ''),
       slideSection: pr.blank ? '' : ((pr.deck && pr.deck.sections && pr.deck.sections[pr.slide]) || '') });
   }
@@ -2592,6 +2599,10 @@ function perfPrefetch(st) {
 function perfShow(st) {
   if (!st || st.closed) return;
   if (st.listen) return listenApply(st);
+  if (st.presenter && st.deckId) {   // a speaker's slides are up: musicians keep their place (View Slides shows them)
+    if (perf.deckNote !== st.deckId) { perf.deckNote = st.deckId; if (!viewSlides) toast(`On screen now: ${st.deckTitle || 'speaker slides'}`, 3000); }
+    return;
+  }
   perfPrefetch(st);
   perfSlideView(st); setTimeout(() => { if (perf && perf.last === st) perfSlideView(st); }, 0);
   const s = songIndex.get(st.song);
@@ -2896,8 +2907,15 @@ async function prShowSong(si, slide) {
 function prStep(d) {
   if (!pr) return;
   const n = pr.deck ? pr.deck.imgs.length : 0;
-  if (pr.blank) { pr.blank = false; return prRender(); }
-  if (d > 0) { if (pr.deck && pr.slide < n - 1) { pr.slide++; return prRender(); } if (pr.si < pr.songs.length - 1) return prShowSong(pr.si + 1, 0); return toast('End of the song list', 1500); }
+  if (pr.blank) {
+    if (pr.endBlank && d > 0) return toast('End of the song list', 1500);
+    pr.blank = false; pr.endBlank = false; return prRender();
+  }
+  if (d > 0) {
+    if (pr.deck && pr.slide < n - 1) { pr.slide++; return prRender(); }
+    if (pr.si < pr.songs.length - 1) return prShowSong(pr.si + 1, 0);
+    pr.blank = true; pr.endBlank = true; return prRender();   // after the very last slide: a black screen
+  }
   if (pr.deck && pr.slide > 0) { pr.slide--; return prRender(); }
   if (pr.si > 0) return prShowSong(pr.si - 1, -1);
 }
@@ -2930,13 +2948,13 @@ function prRender() {
   if (!nextImg) {
     const ns = pr.songs[pr.si + 1];
     if (ns) { const f = prFile(ns), d2 = f && deckCache.get(f.id); nextMsg = `Next song: ${ns.title}`; if (d2 && d2.then) d2.then(v => { if (pr && pr.songs[pr.si + 1] === ns && !(pr.deck && pr.deck.imgs[pr.slide + 1])) { $('#prNextImg').src = (v && v.imgs[0]) || ''; $('#prNextImg').style.display = v && v.imgs[0] ? '' : 'none'; } }).catch(() => {}); }
-    else nextMsg = 'End of the song list';
+    else nextMsg = pr.endBlank ? 'End of the song list' : 'Black screen (end of the list)';
   }
   $('#prNextImg').src = nextImg || ''; $('#prNextImg').style.display = nextImg ? '' : 'none';
   $('#prNextMsg').textContent = nextMsg; $('#prNextMsg').style.display = nextMsg ? '' : 'none';
   $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<img src="${u}" data-i="${i}" class="${i === pr.slide ? 'now' : ''}" alt="Slide ${i + 1}">`).join('') : '';
   const nowThumb = $('#prThumbs .now'); if (nowThumb) nowThumb.scrollIntoView({ block: 'nearest' });
-  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}" data-i="${i}"><span>${i + 1}</span>${esc((x.number ? x.number + '. ' : '') + x.title)}${prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
+  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.deck ? '<small>speaker slides</small>' : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
   prSend(); perfSync();
 }
 function prExit() {
@@ -3011,7 +3029,71 @@ function prNudgeFull() {
 }
 document.addEventListener('keydown', prNudgeFull, true);
 document.addEventListener('pointerdown', e => { if (!(e.target.closest && e.target.closest('#prProj'))) prNudgeFull(); }, true);
-$('#prSongs').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) prShowSong(+b.dataset.i, 0); });
+$('#prSongs').addEventListener('click', e => {
+  const b = e.target.closest('[data-i]'); if (!b || !pr) return;
+  if (e.target.closest('[data-x]')) {   // take a speaker's slides out of the presentation
+    const i = +b.dataset.i, cur = pr.songs[pr.si];
+    pr.songs.splice(i, 1);
+    if (!pr.songs.length) return prExit();
+    if (i === pr.si) return prShowSong(Math.min(i, pr.songs.length - 1), 0);
+    pr.si = pr.songs.indexOf(cur); return prRender();
+  }
+  prShowSong(+b.dataset.i, 0);
+});
+// drag a box up or down to change the order (songs and speakers' slides)
+(() => {
+  const box = $('#prSongs'); let from = -1;
+  const clear = () => box.querySelectorAll('.dropbefore, .dropafter, .dragging').forEach(x => x.classList.remove('dropbefore', 'dropafter', 'dragging'));
+  box.addEventListener('dragstart', e => { const b = e.target.closest('[data-i]'); if (!b) return; from = +b.dataset.i; b.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(from)); } catch {} });
+  box.addEventListener('dragover', e => {
+    const b = e.target.closest('[data-i]'); if (from < 0 || !b) return; e.preventDefault();
+    const r = b.getBoundingClientRect(), after = window.matchMedia('(max-width: 900px)').matches ? e.clientX > r.left + r.width / 2 : e.clientY > r.top + r.height / 2;
+    box.querySelectorAll('.dropbefore, .dropafter').forEach(x => x.classList.remove('dropbefore', 'dropafter'));
+    b.classList.add(after ? 'dropafter' : 'dropbefore');
+  });
+  box.addEventListener('drop', e => {
+    const b = e.target.closest('[data-i]'); e.preventDefault();
+    if (!pr || from < 0 || !b) { clear(); from = -1; return; }
+    let to = +b.dataset.i + (b.classList.contains('dropafter') ? 1 : 0);
+    const cur = pr.songs[pr.si], [item] = pr.songs.splice(from, 1);
+    if (to > from) to--;
+    pr.songs.splice(to, 0, item); pr.si = pr.songs.indexOf(cur);
+    clear(); from = -1; prRender();
+  });
+  box.addEventListener('dragend', () => { clear(); from = -1; });
+})();
+// ---- a speaker's slides: a PowerPoint / PDF file, or a Google Slides link. Shown as pictures (no animations).
+const deckItem = (id, title) => ({ key: 'deck:' + id, deck: true, title: title || 'Speaker slides', number: '', collection: 'Speaker', chords: [], parts: [], sheets: [], slides: [{ id }] });
+function prInsertDeck(item) {
+  if (!pr) return;
+  const at = pr.si + 1; pr.songs.splice(at, 0, item);
+  prDeck(item).then(d => { if (d && d.title && item.title === 'Speaker slides') { item.title = d.title; prRender(); } }).catch(e => toast(e.message || 'Couldn\'t open those slides', 5000));
+  prRender(); toast(`Added after “${pr.songs[at - 1] ? pr.songs[at - 1].title : ''}”. Drag it to move it.`, 3000);
+}
+$('#prAdd').onclick = async () => {
+  const c = await choose('Add a speaker\'s slides', 'A PowerPoint (.pptx / .ppt) or PDF file, or a link to Google Slides. Slides show as still pictures: animations and transitions don\'t carry over.',
+    [{ label: 'Upload a file', value: 'file', primary: true }, { label: 'Google Slides link', value: 'link' }, { label: 'Cancel', value: 'cancel' }]);
+  if (c === 'file') { $('#prFile').value = ''; $('#prFile').click(); }
+  else if (c === 'link') {
+    const url = prompt('Paste the Google Slides (or Google Drive) link:', ''); if (!url) return;
+    const m = url.match(/\/(?:presentation\/d|file\/d)\/([\w-]{20,})/) || url.match(/[?&]id=([\w-]{20,})/) || url.trim().match(/^([\w-]{25,})$/);
+    if (!m) return toast('That doesn\'t look like a Google Slides link', 4000);
+    prInsertDeck(deckItem(m[1]));
+  }
+};
+$('#prFile').onchange = async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+  if (!/\.(pptx?|pdf)$/i.test(f.name)) return toast('Use a PowerPoint (.pptx or .ppt) or a PDF');
+  if (f.size > 35 * 1048576) return toast('That file is too big (over 35 MB). Try saving it as a PDF, or share it as Google Slides.', 6000);
+  busy(true, 'Uploading the slides…', f.name);
+  try {
+    const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(f); });
+    const r = await api('slideUpload', { name: f.name, data });
+    if (!r.ok) throw new Error(r.error);
+    prInsertDeck(deckItem(r.id, f.name.replace(/\.(pptx?|pdf)$/i, '')));
+  } catch (err) { toast(err.message || 'Couldn\'t upload that file', 5000); }
+  busy(false);
+};
 $('#prThumbs').addEventListener('click', e => { const im = e.target.closest('[data-i]'); if (im && pr) { pr.slide = +im.dataset.i; pr.blank = false; prRender(); } });
 if (prChannel) prChannel.onmessage = e => {
   const m = e.data || {};
@@ -3042,7 +3124,7 @@ function perfSlideView(st) {
   box.classList.toggle('show', !!on);
   if (!on) { pipKey = ''; return; }
   placeSlidePip();
-  const s = songIndex.get(st.song), msg = t => { box.querySelector('img').style.display = 'none'; const m = box.querySelector('.spmsg'); m.textContent = t; m.style.display = ''; };
+  const s = st.deckId ? deckItem(st.deckId, st.deckTitle) : songIndex.get(st.song), msg = t => { box.querySelector('img').style.display = 'none'; const m = box.querySelector('.spmsg'); m.textContent = t; m.style.display = ''; };
   const key = [st.song, st.slideIdx, st.blank].join('|'); if (key === pipKey) return; pipKey = key;
   if (st.blank) return msg('Screen is blank');
   if (!s || !prFile(s)) return msg(s ? `No slides for “${s.title}”` : '');

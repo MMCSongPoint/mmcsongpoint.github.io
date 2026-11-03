@@ -13,7 +13,7 @@ var UHEAD = ['Username', 'Name', 'Admin', 'Salt', 'Hash', 'Must change password'
 var ROUNDS = 2000;
 // A guest account (shared, e.g. for visiting musicians): views songs and follows presentations; nothing else.
 var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSlides', 'finalizeSlides', 'chordUpload',
-  'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log'];
+  'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log', 'slideUpload'];
 var CHORDS_FOLDER = '1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ';   // Chord Pro (one subfolder per book): uploaded chord sheets go here
 var SHARED_SLIDES_FOLDER = '1A_h83VBsar3VD4j2LQ2js8sbdrBAIGQc';   // built PowerPoints are saved here (PowerPoint Presentations)
 
@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 26 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 27 }); }
 
 function doPost(e) {
   var d;
@@ -161,6 +161,7 @@ function handle_(d) {
   if (a === 'getKnown') return { ok: true, known: known_() };
   if (a === 'file') return file_(d);
   if (a === 'slideDeck') return slideDeck_(d);
+  if (a === 'slideUpload') return slideUpload_(me, d);
   if (a === 'chordUpload') return chordUpload_(me, d);
   if (a === 'listsGet') return listsGet_(me);
   if (a === 'listSave') return listSave_(me, d);
@@ -905,7 +906,12 @@ function listDelete_(me, d) {
 // exported once (again only when the PowerPoint changes). The text of each slide lets musicians' chord charts
 // follow along.
 function slideDeck_(d) {
-  var src = DriveApp.getFileById(String(d.id || '')), isSlides = src.getMimeType() === 'application/vnd.google-apps.presentation';
+  var src;
+  try { src = DriveApp.getFileById(String(d.id || '')); }
+  catch (e) { return { ok: false, error: 'Can\'t open those slides. In Google Slides, Share › General access › "Anyone with the link", then try again.' }; }
+  var isSlides = src.getMimeType() === 'application/vnd.google-apps.presentation';
+  if (src.getMimeType() === 'application/pdf' || /\.pdf$/i.test(src.getName()))   // a speaker's PDF: shown as it is
+    return { ok: true, title: src.getName().replace(/\.pdf$/i, ''), texts: [], notes: [], pdf: Utilities.base64Encode(src.getBlob().getBytes()) };
   if (!isSlides && !/\.pptx?$/i.test(src.getName())) return { ok: false, error: 'Not a PowerPoint.' };
   var conv = isSlides ? src.getId() : converted_(src.getId()), convFile = DriveApp.getFileById(conv);
   var folder = folder_('SongPoint slide cache'), name = conv + '.pdf', pdf = null, it = folder.getFilesByName(name);
@@ -927,7 +933,17 @@ function slideDeck_(d) {
     });
     try { c.put(cacheKey, JSON.stringify(info), 21600); } catch (e) {}
   }
-  return { ok: true, texts: info.texts, notes: info.notes, pdf: Utilities.base64Encode(pdf.getBlob().getBytes()) };
+  return { ok: true, title: src.getName().replace(/\.pptx?$/i, ''), texts: info.texts, notes: info.notes, pdf: Utilities.base64Encode(pdf.getBlob().getBytes()) };
+}
+// A speaker's slides (PowerPoint .pptx / .ppt or a PDF) uploaded from the presenter: kept in "Speaker Slides".
+function slideUpload_(me, d) {
+  var name = String(d.name || 'Slides').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 120);
+  if (!/\.(pptx?|pdf)$/i.test(name)) return { ok: false, error: 'Use a PowerPoint (.pptx or .ppt) or a PDF.' };
+  var bytes = Utilities.base64Decode(String(d.data || '')); if (!bytes.length) return { ok: false, error: 'That file is empty.' };
+  var mime = /\.pdf$/i.test(name) ? 'application/pdf' : /\.ppt$/i.test(name) ? 'application/vnd.ms-powerpoint' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+  var f = folder_('Speaker Slides').createFile(Utilities.newBlob(bytes, mime, name));
+  try { f.setDescription('Uploaded in SongPoint by ' + (me.name || me.username) + ' on ' + new Date().toDateString()); } catch (e) {}
+  return { ok: true, id: f.getId(), name: f.getName() };
 }
 
 // ------------------------------------------------------------------ chord sheet uploads
