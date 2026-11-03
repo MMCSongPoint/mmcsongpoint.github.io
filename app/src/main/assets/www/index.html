@@ -83,6 +83,16 @@
   .chip.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight: 600; }
   .meta-bar { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; margin: 10px 2px 10px; gap: 8px; }
   .meta-bar #status { flex: 1; }
+  .rvbar { padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .rvnow b { display: block; font-size: 15px; } .rvnow small { color: var(--muted); font-size: 12.5px; }
+  .rvctl { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; } .rvctl .pbtn { padding: 8px 12px; }
+  .rvflag { background: #c0392b; color: #fff; margin-left: auto; }
+  .rvflags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .rvflags span { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 8px; font-size: 12.5px; display: inline-flex; gap: 6px; align-items: center; }
+  .rvflags span b { color: #e05a4a; cursor: pointer; } .rvflags button { background: none; border: none; color: var(--muted); font-size: 15px; padding: 0 4px; }
+  .rvrow { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-top: 1px solid var(--line); cursor: pointer; }
+  .rvrow.now { background: var(--row); } .rvrow .t { flex: 1; min-width: 0; } .rvrow .t div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rvrow .t small { color: var(--muted); font-size: 12px; } .rvrow .fl { color: #e05a4a; font-weight: 700; font-size: 13px; white-space: nowrap; }
   .closelist { list-style: none; margin: 0; padding: 0; }
   .closelist li { padding: 12px 6px; border-top: 1px solid var(--line); font-size: 16px; }
   .closelist li:first-child { border-top: none; }
@@ -852,6 +862,33 @@
 <!-- Song row "more" menu -->
 <div class="rowmenu" id="rowMenu" role="menu"></div>
 
+<!-- MP3 review (admins): play through the MP3s and flag problems; flags are saved to the server (MP3 Issues folder) -->
+<div class="panel" id="mp3Panel">
+  <div class="phead">
+    <button class="icon" data-close="mp3Panel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>MP3 review</h2>
+  </div>
+  <div class="rvbar" id="rvBar">
+    <div class="rvnow"><b id="rvTitle">Pick an MP3 below</b><small id="rvSub"></small></div>
+    <div class="rvctl">
+      <button class="pbtn ghost" id="rvPrev" title="Previous MP3">⏮</button>
+      <button class="pbtn ghost" id="rvBack" title="Back 5 s (←)">−5s</button>
+      <button class="pbtn" id="rvPlay" title="Play / pause (space)">▶</button>
+      <button class="pbtn ghost" id="rvFwd" title="Forward 5 s (→)">+5s</button>
+      <button class="pbtn ghost" id="rvNext" title="Next MP3">⏭</button>
+      <button class="pbtn rvflag" id="rvFlag" title="Flag a problem here (F)">⚑ Flag</button>
+    </div>
+    <div class="seek"><span id="rvCur">0:00</span><input type="range" id="rvSeek" min="0" max="1000" value="0"><span id="rvLen">0:00</span></div>
+    <div class="rvflags" id="rvFlags"></div>
+  </div>
+  <div class="pbody">
+    <div class="chips" id="rvBooks" style="margin:0 0 8px"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="rvQ" type="search" placeholder="Filter by title or file name" style="flex:1"><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="rvOnly"> Flagged only</label></div>
+    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">Plays straight through the list. Press <b>⚑ Flag</b> (or F) where you hear a problem and type what's wrong. Flags are saved to the server and written to the <b>MP3 Issues</b> folder in Drive (one text file per MP3, plus “_All MP3 issues.txt”).</p>
+    <div id="rvList"></div>
+  </div>
+</div>
+
 <!-- Closing songs: a plain list (known.js) -->
 <div class="panel" id="closingPanel">
   <div class="phead">
@@ -920,6 +957,7 @@
   <button class="act" id="usersBtn">Manage users</button>
   <button class="act" id="recordsBtn">Usage records (delete entries)</button>
   <button class="act" id="checkBtn">Library check (missing files)</button>
+  <button class="act" id="mp3Btn">MP3 review (flag problems)</button>
   <button class="act" id="changePwBtn">Change password</button>
   <button class="act" id="signOutBtn">Sign out</button>
   <h4 style="margin-top:12px">Song library</h4>
@@ -3761,6 +3799,7 @@ function renderWelcome() {
   document.body.classList.toggle('guest', isGuest());
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
+  $('#mp3Btn').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
 }
 function signOut(expired = false) {
@@ -4153,6 +4192,83 @@ $('#drawerClose').onclick = closeDrawer;
 $('#dNotes').onclick = () => { closeDrawer(); renderNotes(); openPanel('notesPanel'); loadLists(); };
 $('#dSlides').onclick = () => { closeDrawer(); openSlides(); };
 $('#dSettings').onclick = () => { closeDrawer(); openSheet(); };
+// ---- MP3 review (admins): listen through the MP3s, flag problems at the moment you hear them
+const rvAudio = new Audio(); rvAudio.preload = 'auto';
+let rvIssues = [], rvBook = '', rvCur = null, rvTracks = [];
+function rvList() {
+  const q = normalize($('#rvQ').value || ''), only = $('#rvOnly').checked, flagged = new Set(rvIssues.map(x => x.fileId));
+  return (library.tracks || []).filter(t => (!rvBook || t.collection === rvBook) && (!only || flagged.has(t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
+    .sort((a, b) => a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.name.localeCompare(b.name));
+}
+function rvRender() {
+  const books = [...new Set((library.tracks || []).map(t => t.collection))];
+  $('#rvBooks').innerHTML = ['', ...books].map(b => `<button class="chip${b === rvBook ? ' on' : ''}" data-b="${esc(b)}">${esc(b || 'All')}</button>`).join('');
+  rvTracks = rvList();
+  const count = id => rvIssues.filter(x => x.fileId === id).length;
+  $('#rvList').innerHTML = rvTracks.slice(0, 600).map((t, i) => `<div class="rvrow${rvCur && rvCur.id === t.id ? ' now' : ''}" data-i="${i}"><div class="t"><div>${esc(t.name)}</div><small>${esc(t.collection)}${t.subfolder ? ' / ' + esc(t.subfolder) : ''}</small></div>${count(t.id) ? `<span class="fl">⚑ ${count(t.id)}</span>` : ''}</div>`).join('')
+    + (rvTracks.length > 600 ? `<p class="m">Showing 600 of ${rvTracks.length}. Pick a book or filter to narrow it down.</p>` : '') + (rvTracks.length ? '' : '<div class="vmsg">No MP3s match.</div>');
+  rvRenderNow();
+}
+function rvRenderNow() {
+  const t = rvCur;
+  $('#rvTitle').textContent = t ? t.name : 'Pick an MP3 below';
+  $('#rvSub').textContent = t ? `${t.collection}${t.subfolder ? ' / ' + t.subfolder : ''}` : '';
+  $('#rvPlay').textContent = rvAudio.paused ? '▶' : '❚❚';
+  const mine = t ? rvIssues.filter(x => x.fileId === t.id).sort((a, b) => a.t - b.t) : [];
+  $('#rvFlags').innerHTML = mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
+}
+async function rvPlay(t, autoplay = true) {
+  rvCur = t; rvAudio.src = sourceFor(t); rvAudio.currentTime = 0;
+  rvAudio.onerror = async () => { if (rvAudio.dataset.relay === t.id || !canRelay()) return toast('Couldn\'t load this MP3'); rvAudio.dataset.relay = t.id; try { rvAudio.src = await relayFile(t.id); if (autoplay) rvAudio.play().catch(() => {}); } catch { toast('Couldn\'t load this MP3'); } };
+  if (!audio.paused) audio.pause();   // the app's own player stops while reviewing
+  if (autoplay) rvAudio.play().catch(() => {});
+  rvRender();
+  const row = document.querySelector('#rvList .rvrow.now'); if (row) row.scrollIntoView({ block: 'nearest' });
+}
+function rvStep(d) { const i = rvTracks.findIndex(t => rvCur && t.id === rvCur.id), n = rvTracks[i + d]; if (n) rvPlay(n); else toast(d > 0 ? 'End of the list' : 'Start of the list'); }
+async function rvFlag() {
+  const t = rvCur; if (!t) return toast('Play an MP3 first');
+  const at = rvAudio.currentTime || 0, was = !rvAudio.paused; rvAudio.pause();
+  const note = prompt(`Flag at ${fmt(at)} in “${t.name}”. What's wrong? (optional)`, '');
+  if (note === null) { if (was) rvAudio.play().catch(() => {}); return; }
+  const s = [...songIndex.values()].find(x => x.parts.some(p => p.id === t.id));
+  try {
+    const r = await api('mp3IssueAdd', { fileId: t.id, file: t.name, folder: t.subfolder || '', book: t.collection, song: s ? (s.number ? s.number + ' ' : '') + s.title : (t.title || ''), part: t.part || '', t: at, note });
+    if (!r.ok) throw new Error(r.error);
+    rvIssues = r.issues; toast(`Flagged at ${fmt(at)}`, 1500);
+  } catch (e) { toast(e.message || 'Couldn\'t save the flag. Check your connection.', 4000); }
+  rvRender(); if (was) rvAudio.play().catch(() => {});
+}
+async function rvLoad() { try { const r = await api('mp3Issues'); if (r.ok) { rvIssues = r.issues; rvRender(); } } catch {} }
+$('#mp3Btn').onclick = () => { closeSheet(); rvRender(); openPanel('mp3Panel'); rvLoad(); };
+$('#rvBooks').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) { rvBook = b.dataset.b; rvRender(); } });
+$('#rvQ').addEventListener('input', () => rvRender());
+$('#rvOnly').onchange = () => rvRender();
+$('#rvList').addEventListener('click', e => { const r = e.target.closest('.rvrow'); if (r) rvPlay(rvTracks[+r.dataset.i]); });
+$('#rvPlay').onclick = () => { if (!rvCur) { if (rvTracks[0]) rvPlay(rvTracks[0]); return; } rvAudio.paused ? rvAudio.play().catch(() => {}) : rvAudio.pause(); };
+$('#rvPrev').onclick = () => rvStep(-1); $('#rvNext').onclick = () => rvStep(1);
+$('#rvBack').onclick = () => { rvAudio.currentTime = Math.max(0, rvAudio.currentTime - 5); };
+$('#rvFwd').onclick = () => { rvAudio.currentTime = Math.min(rvAudio.duration || 0, rvAudio.currentTime + 5); };
+$('#rvFlag').onclick = rvFlag;
+$('#rvFlags').addEventListener('click', async e => {
+  const g = e.target.closest('[data-t]'); if (g) { rvAudio.currentTime = Math.max(0, +g.dataset.t - 2); rvAudio.play().catch(() => {}); return; }
+  const d = e.target.closest('[data-del]'); if (!d) return;
+  try { const r = await api('mp3IssueDelete', { id: d.dataset.del }); if (r.ok) { rvIssues = r.issues; rvRender(); } } catch { toast('Couldn\'t remove it. Check your connection.'); }
+});
+rvAudio.addEventListener('play', rvRenderNow); rvAudio.addEventListener('pause', rvRenderNow);
+rvAudio.addEventListener('ended', () => rvStep(1));   // straight on to the next MP3
+rvAudio.addEventListener('timeupdate', () => { $('#rvCur').textContent = fmt(rvAudio.currentTime); $('#rvLen').textContent = fmt(rvAudio.duration); if (rvAudio.duration && !rvSeeking) $('#rvSeek').value = Math.round(rvAudio.currentTime / rvAudio.duration * 1000); });
+let rvSeeking = false;
+$('#rvSeek').addEventListener('input', () => { rvSeeking = true; if (rvAudio.duration) $('#rvCur').textContent = fmt($('#rvSeek').value / 1000 * rvAudio.duration); });
+$('#rvSeek').addEventListener('change', () => { rvSeeking = false; if (rvAudio.duration) rvAudio.currentTime = $('#rvSeek').value / 1000 * rvAudio.duration; });
+document.addEventListener('keydown', e => {
+  if (!$('#mp3Panel').classList.contains('show') || e.ctrlKey || e.metaKey || e.altKey || (e.target.closest && e.target.closest('input, textarea, select'))) return;
+  if (e.key === ' ') { e.preventDefault(); $('#rvPlay').click(); }
+  else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); rvFlag(); }
+  else if (e.key === 'ArrowLeft') $('#rvBack').click(); else if (e.key === 'ArrowRight') $('#rvFwd').click();
+});
+// leaving the panel stops the review player
+new MutationObserver(() => { if (!$('#mp3Panel').classList.contains('show') && !rvAudio.paused) rvAudio.pause(); }).observe($('#mp3Panel'), { attributes: true, attributeFilter: ['class'] });
 $('#dClosing').onclick = () => { closeDrawer(); $('#closingList').innerHTML = (window.CLOSING_SONGS || []).map(c => `<li>${esc(c.title)}</li>`).join(''); openPanel('closingPanel'); };
 $('#dFavs').onclick = () => { closeDrawer(); openSongsPanel('fav'); };
 

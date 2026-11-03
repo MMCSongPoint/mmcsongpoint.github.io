@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 24 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 25 }); }
 
 function doPost(e) {
   var d;
@@ -190,6 +190,9 @@ function handle_(d) {
   if (a === 'setIgnored') return setIgnored_(me, d);
   if (a === 'setTextDoc') return setTextDoc_(me, d);
   if (a === 'setKnown') return setKnown_(me, d);
+  if (a === 'mp3Issues') return { ok: true, issues: mp3Issues_() };
+  if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);
+  if (a === 'mp3IssueDelete') return mp3IssueDelete_(me, d);
   if (a === 'logRecords') return logRecords_();
   if (a === 'deleteLog') return deleteLog_(me, d);
   return { ok: false, error: 'Unknown action' };
@@ -556,6 +559,63 @@ function setKnown_(me, d) {
     if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
   } finally { lock.releaseLock(); }
   return { ok: true, known: known_() };
+}
+
+// ------------------------------------------------------------------ MP3 review (admins)
+// Flags on MP3s ("at 1:23 the alto drops out"). Kept in the "MP3 Issues" tab, and written out as text files in the
+// "MP3 Issues" folder next to this sheet: one file per MP3, plus "_All MP3 issues.txt", for whoever fixes them.
+var MP3I = 'MP3 Issues', MHEAD = ['ID', 'MP3 file ID', 'MP3 file', 'Folder', 'Book', 'Song', 'Part', 'Seconds', 'Time', 'Note', 'Flagged by', 'When'];
+function mp3Rows_() {
+  var sh = tab_(MP3I, MHEAD), n = sh.getLastRow() - 1;
+  if (n < 1) return [];
+  return sh.getRange(2, 1, n, MHEAD.length).getValues().map(function (r, i) {
+    return { row: i + 2, id: String(r[0]), fileId: String(r[1]), file: String(r[2]), folder: String(r[3]), book: String(r[4]), song: String(r[5]),
+      part: String(r[6]), t: Number(r[7]) || 0, time: String(r[8]), note: String(r[9]), by: String(r[10]), when: r[11] ? new Date(r[11]).toISOString() : '' };
+  }).filter(function (x) { return x.id; });
+}
+function mp3Issues_() { return mp3Rows_().map(function (x) { delete x.row; return x; }); }
+function mmss_(t) { t = Math.max(0, Number(t) || 0); var m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }
+function mp3IssueAdd_(me, d) {
+  var fileId = String(d.fileId || ''); if (!fileId) return { ok: false, error: 'No MP3 given.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var id = Utilities.getUuid().slice(0, 8), t = Math.round((Number(d.t) || 0) * 10) / 10;
+    tab_(MP3I, MHEAD).appendRow([id, fileId, String(d.file || ''), String(d.folder || ''), String(d.book || ''), String(d.song || ''), String(d.part || ''),
+      t, mmss_(t), String(d.note || '').slice(0, 1000), me.name || me.username, new Date()]);
+    mp3IssueFiles_(fileId, String(d.file || ''), String(d.book || ''));
+  } finally { lock.releaseLock(); }
+  return { ok: true, issues: mp3Issues_() };
+}
+function mp3IssueDelete_(me, d) {
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var x = mp3Rows_().filter(function (r) { return r.id === String(d.id || ''); })[0];
+    if (x) { tab_(MP3I, MHEAD).deleteRow(x.row); mp3IssueFiles_(x.fileId, x.file, x.book); }
+  } finally { lock.releaseLock(); }
+  return { ok: true, issues: mp3Issues_() };
+}
+// Rewrite the text file for one MP3 (deleted when it has no flags left) and the summary of all of them.
+function mp3IssueFiles_(fileId, fileName, book) {
+  var folder = folder_('MP3 Issues'), rows = mp3Rows_(), mine = rows.filter(function (r) { return r.fileId === fileId; });
+  mine.sort(function (a, b) { return a.t - b.t; });
+  var name = (book ? book + ' - ' : '') + String(fileName || fileId).replace(/\.mp3$/i, '') + ' - issues.txt';
+  var it = folder.getFilesByName(name), f = it.hasNext() ? it.next() : null;
+  if (!mine.length) { if (f) f.setTrashed(true); }
+  else {
+    var x = mine[0], text = ['MP3: Hymnal Mp3s/' + (x.book ? x.book + '/' : '') + (x.folder ? x.folder + '/' : '') + x.file, 'Drive file ID: ' + fileId,
+      'Song: ' + x.song + (x.book ? ' (' + x.book + ')' : '') + (x.part ? ' · part: ' + x.part : ''), '', 'Issues (time into the track — note — who, when):']
+      .concat(mine.map(function (r) { return '- ' + r.time + ' — ' + (r.note || '(no note)') + ' — ' + r.by + ', ' + String(r.when).slice(0, 10); })).join('\n') + '\n';
+    if (f) f.setContent(text); else folder.createFile(name, text, 'text/plain');
+  }
+  // summary of every flagged MP3
+  var by = {}; rows.forEach(function (r) { (by[r.fileId] = by[r.fileId] || []).push(r); });
+  var all = Object.keys(by).map(function (k) {
+    var l = by[k].sort(function (a, b) { return a.t - b.t; }), x = l[0];
+    return 'Hymnal Mp3s/' + (x.book ? x.book + '/' : '') + (x.folder ? x.folder + '/' : '') + x.file + '  [Drive file ID ' + k + ']\n' + l.map(function (r) { return '  - ' + r.time + ' — ' + (r.note || '(no note)'); }).join('\n');
+  }).sort().join('\n\n');
+  var head = 'MP3 issues flagged in SongPoint (MP3 review). Updated ' + new Date().toString() + '\n' + Object.keys(by).length + ' MP3s, ' + rows.length + ' issues.\n\n';
+  var sit = folder.getFilesByName('_All MP3 issues.txt'), sf = sit.hasNext() ? sit.next() : null;
+  if (sf) sf.setContent(head + all + '\n'); else folder.createFile('_All MP3 issues.txt', head + all + '\n', 'text/plain');
 }
 
 // ------------------------------------------------------------------ usage records (admins)
