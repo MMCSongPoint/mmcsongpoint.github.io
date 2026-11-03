@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 25 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 26 }); }
 
 function doPost(e) {
   var d;
@@ -190,7 +190,8 @@ function handle_(d) {
   if (a === 'setIgnored') return setIgnored_(me, d);
   if (a === 'setTextDoc') return setTextDoc_(me, d);
   if (a === 'setKnown') return setKnown_(me, d);
-  if (a === 'mp3Issues') return { ok: true, issues: mp3Issues_() };
+  if (a === 'mp3Issues') return { ok: true, issues: mp3Issues_(), reviewed: mp3Reviewed_() };
+  if (a === 'mp3Review') return mp3Review_(me, d);
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);
   if (a === 'mp3IssueDelete') return mp3IssueDelete_(me, d);
   if (a === 'logRecords') return logRecords_();
@@ -593,6 +594,29 @@ function mp3IssueDelete_(me, d) {
     if (x) { tab_(MP3I, MHEAD).deleteRow(x.row); mp3IssueFiles_(x.fileId, x.file, x.book); }
   } finally { lock.releaseLock(); }
   return { ok: true, issues: mp3Issues_() };
+}
+// MP3s that were listened to all the way through and sounded good (fileId -> the file's modified time when reviewed,
+// so a replaced file shows up for review again).
+var MP3R = 'MP3 Reviewed', RHEAD = ['MP3 file ID', 'MP3 file', 'Book', 'File modified', 'Reviewed by', 'When'];
+function mp3Reviewed_() {
+  var sh = tab_(MP3R, RHEAD), n = sh.getLastRow() - 1, out = {};
+  if (n < 1) return out;
+  sh.getRange(2, 1, n, 4).getValues().forEach(function (r) { if (r[0]) out[String(r[0])] = r[3] instanceof Date ? r[3].toISOString() : String(r[3] || ''); });
+  return out;
+}
+function mp3Review_(me, d) {
+  var fileId = String(d.fileId || ''); if (!fileId) return { ok: false, error: 'No MP3 given.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(MP3R, RHEAD), n = sh.getLastRow() - 1;
+    var ids = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [], i = ids.indexOf(fileId);
+    if (d.reviewed === false) { if (i >= 0) sh.deleteRow(i + 2); }
+    else {
+      var row = [fileId, String(d.file || ''), String(d.book || ''), String(d.modified || ''), me.name || me.username, new Date()];
+      if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
+    }
+  } finally { lock.releaseLock(); }
+  return { ok: true, reviewed: mp3Reviewed_() };
 }
 // Rewrite the text file for one MP3 (deleted when it has no flags left) and the summary of all of them.
 function mp3IssueFiles_(fileId, fileName, book) {

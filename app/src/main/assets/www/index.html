@@ -884,8 +884,9 @@
   </div>
   <div class="pbody">
     <div class="chips" id="rvBooks" style="margin:0 0 8px"></div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="rvQ" type="search" placeholder="Filter by title or file name" style="flex:1"><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="rvOnly"> Flagged only</label></div>
-    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">Plays straight through the list. Press <b>⚑ Flag</b> (or F) where you hear a problem and type what's wrong. Flags are saved to the server and written to the <b>MP3 Issues</b> folder in Drive (one text file per MP3, plus “_All MP3 issues.txt”).</p>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="rvQ" type="search" placeholder="Filter by title or file name" style="flex:1"><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="rvOnly"> Flagged only</label><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="rvDone"> Reviewed</label></div>
+    <p class="m" id="rvCount" style="margin:0 0 6px;font-size:12.5px;color:var(--muted)"></p>
+    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">Plays straight through the list; at the end of each MP3 it asks whether it sounded good (Yes = reviewed, and it leaves the list). Press <b>⚑ Flag</b> (or F) where you hear a problem and type what's wrong. Flags are saved to the server and written to the <b>MP3 Issues</b> folder in Drive (one text file per MP3, plus “_All MP3 issues.txt”).</p>
     <div id="rvList"></div>
   </div>
 </div>
@@ -4208,16 +4209,20 @@ $('#dSlides').onclick = () => { closeDrawer(); openSlides(); };
 $('#dSettings').onclick = () => { closeDrawer(); openSheet(); };
 // ---- MP3 review (admins): listen through the MP3s, flag problems at the moment you hear them
 const rvAudio = new Audio(); rvAudio.preload = 'auto';
-let rvIssues = [], rvBook = '', rvCur = null, rvTracks = [];
+let rvIssues = [], rvBook = '', rvCur = null, rvTracks = [], rvReviewed = {};
+// reviewed = played to the end and marked "sounded good" (and the file hasn't been replaced since)
+const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id] || t.modified <= rvReviewed[t.id]);
 function rvList() {
-  const q = normalize($('#rvQ').value || ''), only = $('#rvOnly').checked, flagged = new Set(rvIssues.map(x => x.fileId));
-  return (library.tracks || []).filter(t => (!rvBook || t.collection === rvBook) && (!only || flagged.has(t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
+  const q = normalize($('#rvQ').value || ''), only = $('#rvOnly').checked, showDone = $('#rvDone').checked, flagged = new Set(rvIssues.map(x => x.fileId));
+  return (library.tracks || []).filter(t => (!rvBook || t.collection === rvBook) && (!only || flagged.has(t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
     .sort((a, b) => a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.name.localeCompare(b.name));
 }
 function rvRender() {
   const books = [...new Set((library.tracks || []).map(t => t.collection))];
   $('#rvBooks').innerHTML = ['', ...books].map(b => `<button class="chip${b === rvBook ? ' on' : ''}" data-b="${esc(b)}">${esc(b || 'All')}</button>`).join('');
   rvTracks = rvList();
+  const all = library.tracks || [], done = all.filter(rvIsReviewed).length;
+  $('#rvCount').textContent = `${done} of ${all.length} MP3s reviewed${$('#rvDone').checked ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
   const count = id => rvIssues.filter(x => x.fileId === id).length;
   $('#rvList').innerHTML = rvTracks.slice(0, 600).map((t, i) => `<div class="rvrow${rvCur && rvCur.id === t.id ? ' now' : ''}" data-i="${i}"><div class="t"><div>${esc(t.name)}</div><small>${esc(t.collection)}${t.subfolder ? ' / ' + esc(t.subfolder) : ''}</small></div>${count(t.id) ? `<span class="fl">⚑ ${count(t.id)}</span>` : ''}</div>`).join('')
     + (rvTracks.length > 600 ? `<p class="m">Showing 600 of ${rvTracks.length}. Pick a book or filter to narrow it down.</p>` : '') + (rvTracks.length ? '' : '<div class="vmsg">No MP3s match.</div>');
@@ -4229,7 +4234,7 @@ function rvRenderNow() {
   $('#rvSub').textContent = t ? `${t.collection}${t.subfolder ? ' / ' + t.subfolder : ''}` : '';
   $('#rvPlay').textContent = rvAudio.paused ? '▶' : '❚❚';
   const mine = t ? rvIssues.filter(x => x.fileId === t.id).sort((a, b) => a.t - b.t) : [];
-  $('#rvFlags').innerHTML = mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
+  $('#rvFlags').innerHTML = (t && rvIsReviewed(t) ? '<button class="pbtn ghost" id="rvUndo" style="padding:4px 10px">✓ Reviewed · Not reviewed</button>' : '') + mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
 }
 async function rvPlay(t, autoplay = true) {
   rvCur = t; rvAudio.src = sourceFor(t); rvAudio.currentTime = 0;
@@ -4253,7 +4258,28 @@ async function rvFlag() {
   } catch (e) { toast(e.message || 'Couldn\'t save the flag. Check your connection.', 4000); }
   rvRender(); if (was) rvAudio.play().catch(() => {});
 }
-async function rvLoad() { try { const r = await api('mp3Issues'); if (r.ok) { rvIssues = r.issues; rvRender(); } } catch {} }
+async function rvLoad() { try { const r = await api('mp3Issues'); if (r.ok) { rvIssues = r.issues; rvReviewed = r.reviewed || {}; rvRender(); } } catch {} }
+async function rvMark(t, ok) {
+  const before = rvReviewed;
+  rvReviewed = Object.assign({}, rvReviewed); if (ok) rvReviewed[t.id] = t.modified || ''; else delete rvReviewed[t.id];
+  try { const r = await api('mp3Review', { fileId: t.id, file: t.name, book: t.collection, modified: t.modified || '', reviewed: ok }); if (r.ok) rvReviewed = r.reviewed; else throw 0; }
+  catch { rvReviewed = before; toast('Couldn\'t save that. Check your connection.', 4000); }
+}
+// end of an MP3: did it sound good? Yes = reviewed (drops off the list); No = stays. Then on to the next one.
+async function rvEnded() {
+  const t = rvCur; if (!t) return;
+  const i = rvTracks.findIndex(x => x.id === t.id), next = rvTracks[i + 1];
+  const c = await choose('Did it sound good?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }]);
+  if (c === 'yes') { await rvMark(t, true); toast('Marked as reviewed', 1500); }
+  else if (c === 'no' && !rvIssues.some(x => x.fileId === t.id)) {
+    const note = prompt(`What's wrong with “${t.name}”? (optional; it's saved as a flag at the end of the track)`, '');
+    if (note !== null) { try { const r = await api('mp3IssueAdd', { fileId: t.id, file: t.name, folder: t.subfolder || '', book: t.collection, song: t.title || '', part: t.part || '', t: rvAudio.duration || 0, note: note || 'Didn\'t sound right' }); if (r.ok) rvIssues = r.issues; } catch {} }
+  }
+  if (!$('#mp3Panel').classList.contains('show')) return;
+  rvCur = null; rvRender();
+  const n = next && rvTracks.find(x => x.id === next.id) || rvTracks[Math.min(i, rvTracks.length - 1)];
+  if (n && n.id !== t.id) rvPlay(n); else rvRenderNow();
+}
 $('#mp3Btn').onclick = () => { closeSheet(); rvRender(); openPanel('mp3Panel'); rvLoad(); };
 $('#rvBooks').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) { rvBook = b.dataset.b; rvRender(); } });
 $('#rvQ').addEventListener('input', () => rvRender());
@@ -4266,11 +4292,13 @@ $('#rvFwd').onclick = () => { rvAudio.currentTime = Math.min(rvAudio.duration ||
 $('#rvFlag').onclick = rvFlag;
 $('#rvFlags').addEventListener('click', async e => {
   const g = e.target.closest('[data-t]'); if (g) { rvAudio.currentTime = Math.max(0, +g.dataset.t - 2); rvAudio.play().catch(() => {}); return; }
+  if (e.target.closest('#rvUndo') && rvCur) { await rvMark(rvCur, false); rvRender(); return; }
   const d = e.target.closest('[data-del]'); if (!d) return;
   try { const r = await api('mp3IssueDelete', { id: d.dataset.del }); if (r.ok) { rvIssues = r.issues; rvRender(); } } catch { toast('Couldn\'t remove it. Check your connection.'); }
 });
 rvAudio.addEventListener('play', rvRenderNow); rvAudio.addEventListener('pause', rvRenderNow);
-rvAudio.addEventListener('ended', () => rvStep(1));   // straight on to the next MP3
+rvAudio.addEventListener('ended', rvEnded);
+$('#rvDone').onchange = () => rvRender();
 rvAudio.addEventListener('timeupdate', () => { $('#rvCur').textContent = fmt(rvAudio.currentTime); $('#rvLen').textContent = fmt(rvAudio.duration); if (rvAudio.duration && !rvSeeking) $('#rvSeek').value = Math.round(rvAudio.currentTime / rvAudio.duration * 1000); });
 let rvSeeking = false;
 $('#rvSeek').addEventListener('input', () => { rvSeeking = true; if (rvAudio.duration) $('#rvCur').textContent = fmt($('#rvSeek').value / 1000 * rvAudio.duration); });
