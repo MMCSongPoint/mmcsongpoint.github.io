@@ -95,6 +95,13 @@
   .rvflags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .rvflags span { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 8px; font-size: 12.5px; display: inline-flex; gap: 6px; align-items: center; }
   .rvflags span b { color: #e05a4a; cursor: pointer; } .rvflags button { background: none; border: none; color: var(--muted); font-size: 15px; padding: 0 4px; }
+  .kcrow { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; padding: 10px 2px; border-top: 1px solid var(--line); align-items: center; }
+  .kcrow .t b { display: block; font-size: 15px; } .kcrow .t small { color: var(--muted); font-size: 12px; } .kcrow .hard { color: #e0a030; font-weight: 600; }
+  .kcrow .ctl { display: flex; gap: 6px; align-items: center; } .kcrow .ctl select { font-size: 15px; padding: 6px; } .kcrow .ctl .pbtn { padding: 7px 12px; }
+  .kcrow.ok { opacity: .55; } .kcrow.ok .okmark { color: #3aa76d; font-weight: 700; }
+  .kccrop { grid-column: 1 / -1; height: 120px; background: #fff; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: flex-start; cursor: zoom-in; border: 1px solid var(--line); }
+  .kccrop img { height: 100%; width: auto; max-width: 100%; object-fit: contain; object-position: left center; } .kccrop span { color: #777; font-size: 13px; padding: 10px; }
+  .kcbig { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.85); display: none; overflow: auto; padding: 12px; } .kcbig.show { display: block; } .kcbig img { width: 100%; max-width: 1000px; display: block; margin: 0 auto; background: #fff; }
   .rvrow { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-top: 1px solid var(--line); cursor: pointer; }
   .rvrow.now { background: var(--row); } .rvrow .t { flex: 1; min-width: 0; } .rvrow .t div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rvrow .t small { color: var(--muted); font-size: 12px; } .rvrow .fl { color: #e05a4a; font-weight: 700; font-size: 13px; white-space: nowrap; }
@@ -936,6 +943,22 @@
   </div>
 </div>
 
+<!-- Verify keys (admins): the start of each song's sheet music next to the key listed for it -->
+<div class="panel" id="keyPanel">
+  <div class="phead">
+    <button class="icon" data-close="keyPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Verify keys</h2>
+  </div>
+  <div class="pbody">
+    <div class="chips" id="kcBooks" style="margin:0 0 8px"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap"><input id="kcQ" type="search" placeholder="Title or number" style="flex:1;min-width:140px"><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="kcHard"> Hard to read only</label><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="kcDone"> Checked</label></div>
+    <p class="m" id="kcCount" style="margin:0 0 6px;font-size:12.5px;color:var(--muted)"></p>
+    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">The picture is the start of the first line of music. Count the sharps or flats: if the key is right tap <b>✓ Right</b>, otherwise pick the right one. Tap the picture to see the whole page.</p>
+    <div id="kcList"></div>
+  </div>
+</div>
+<div class="kcbig" id="kcBig"><img alt=""></div>
+
 <!-- Closing songs: a plain list (known.js) -->
 <div class="panel" id="closingPanel">
   <div class="phead">
@@ -1005,6 +1028,7 @@
   <button class="act" id="recordsBtn">Usage records (delete entries)</button>
   <button class="act" id="checkBtn">Library check (missing files)</button>
   <button class="act" id="mp3Btn">MP3 review (flag problems)</button>
+  <button class="act" id="keyChkBtn">Verify keys (check against the sheet music)</button>
   <a class="act" id="pptHelperBtn" href="helper/SongPoint-PowerPoint-helper.zip" download style="display:block;text-decoration:none;color:inherit">PowerPoint helper for the projector computer (download)</a>
   <button class="act" id="changePwBtn">Change password</button>
   <button class="act" id="signOutBtn">Sign out</button>
@@ -1212,6 +1236,12 @@ function applyKnown(map) {
   const was = JSON.stringify(knownEdits); knownEdits = map || {}; store.set('knownEdits', knownEdits);
   if (was !== JSON.stringify(knownEdits)) { if (filterBy === 'known') search(); else render(); }
 }
+function applyKeyChecks(map) {
+  keyChecks = map || {}; store.set('keyChecks', keyChecks);
+  for (const s of songs) s.musicKey = (keyChecks[s.key] && keyChecks[s.key].key) || s.keyOrig || '';
+  render();
+}
+async function loadKeyChecks() { try { const r = await api('getKeyChecks'); if (r.ok && JSON.stringify(r.keys) !== JSON.stringify(keyChecks)) applyKeyChecks(r.keys); } catch {} }
 async function loadKnown() { try { const r = await api('getKnown'); if (r.ok) applyKnown(r.known); } catch {} }
 // Verse counts from verses.js (by hymn number for SFP, by title for Misc)
 const verseNumbers = new Map(), verseTitles = new Map();
@@ -1225,8 +1255,12 @@ function versesOf(s) {
 }
 // Keys listed by hymn number (Songs of Faith and Praise)
 const keyNumbers = new Map();
-const keyNumbersScan = new Map(), keyNumbersWeak = new Map(), keyTitles = new Map();   // read from hymnal scans: used when nothing better (keys.js lists, the sheet's file name) gives one
+const keyNumbersScan = new Map(), keyNumbersWeak = new Map(), keyTitles = new Map(), keyHard = new Set(), keyScanBooks = new Set();   // read from hymnal scans: used when nothing better (keys.js lists, the sheet's file name) gives one
 for (const b of window.SONG_KEYS_BY_NUMBER || []) for (const book of [b.book, ...(b.aka || [])]) for (const n in b.keys) (b.scan === 'weak' ? keyNumbersWeak : b.scan ? keyNumbersScan : keyNumbers).set(book + '|' + n, b.keys[n]);
+for (const b of window.SONG_KEYS_BY_NUMBER || []) if (b.scan) for (const book of [b.book, ...(b.aka || [])]) { keyScanBooks.add(book); for (const n of b.verify || []) keyHard.add(book + '|' + n); }
+for (const b of window.SONG_KEYS_BY_TITLE || []) for (const book of [b.book, ...(b.aka || [])]) keyScanBooks.add(book);
+// keys an admin checked against the sheet music (Settings › Verify keys), from the server: song key -> { key, by, at }
+let keyChecks = store.get('keyChecks', {});
 for (const b of window.SONG_KEYS_BY_TITLE || []) for (const book of [b.book, ...(b.aka || [])]) for (const t in b.keys) for (const x of [t, baseTitle(t)]) { const id = book + '|' + normalize(x); if (!keyTitles.has(id)) keyTitles.set(id, b.keys[t]); }
 function buildIndex() {
   songIndex = new Map();
@@ -1269,7 +1303,11 @@ function buildIndex() {
     const listed = (byNum && { key: byNum[0], change: byNum[1] }) || keyList.get(s.collection + '|' + s.nTitle) || keyList.get(s.collection + '|' + normalize(baseTitle(s.title)));
     // from the hymnal scans (Christian Hymnal by number; Zion's Praises by title, then by its OCR'd number)
     const scanned = () => { const id = s.collection + '|'; return (s.number && (keyNumbersScan.get(id + s.number) || [])[0]) || keyTitles.get(id + s.nTitle) || keyTitles.get(id + normalize(baseTitle(s.title))) || (s.number && (keyNumbersWeak.get(id + s.number) || [])[0]) || ''; };
-    s.musicKey = listed ? listed.key : (s.sheets.find(x => x.key) || {}).key || scanned() || '';
+    const fileKey = (s.sheets.find(x => x.key) || {}).key, scan = !listed && !fileKey ? scanned() : '';
+    s.musicKey = listed ? listed.key : fileKey || scan || '';
+    s.keyFrom = listed ? 'list' : fileKey ? 'file' : scan ? 'scan' : '';
+    s.keyOrig = s.musicKey; s.keyHard = !!(s.number && keyHard.has(s.collection + '|' + s.number));
+    if (keyChecks[s.key] && keyChecks[s.key].key) s.musicKey = keyChecks[s.key].key;
     s.keyChange = listed ? listed.change : '';
     s.nAll = [s.nTitle, s.number, ...s.parts.map(p => normalize(p.part))].join(' ');
     s.grams = trigrams(s.nTitle);
@@ -4136,6 +4174,7 @@ function renderWelcome() {
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
   $('#mp3Btn').style.display = isAdmin() ? '' : 'none';
+  $('#keyChkBtn').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
 }
 function signOut(expired = false) {
@@ -4539,17 +4578,19 @@ const rvAudio = new Audio(); rvAudio.preload = 'auto';
 let rvIssues = [], rvBook = '', rvCur = null, rvTracks = [], rvReviewed = {};
 // reviewed = played to the end and marked "sounded good" (and the file hasn't been replaced since)
 const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id] || t.modified <= rvReviewed[t.id]);
+// for now only the songs we know (the green ones) are reviewed
+function rvAll() { const ids = new Set(); for (const s of songs) if (isKnown(s)) for (const p of s.parts) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
 function rvList() {
   const q = normalize($('#rvQ').value || ''), only = $('#rvOnly').checked, showDone = $('#rvDone').checked, flagged = new Set(rvIssues.map(x => x.fileId));
-  return (library.tracks || []).filter(t => (!rvBook || t.collection === rvBook) && (!only || flagged.has(t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
+  return rvAll().filter(t => (!rvBook || t.collection === rvBook) && (!only || flagged.has(t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
     .sort((a, b) => a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.name.localeCompare(b.name));
 }
 function rvRender() {
-  const books = [...new Set((library.tracks || []).map(t => t.collection))];
+  const books = [...new Set(rvAll().map(t => t.collection))];
   $('#rvBooks').innerHTML = ['', ...books].map(b => `<button class="chip${b === rvBook ? ' on' : ''}" data-b="${esc(b)}">${esc(b || 'All')}</button>`).join('');
   rvTracks = rvList();
-  const all = library.tracks || [], done = all.filter(rvIsReviewed).length;
-  $('#rvCount').textContent = `${done} of ${all.length} MP3s reviewed${$('#rvDone').checked ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
+  const all = rvAll(), done = all.filter(rvIsReviewed).length;
+  $('#rvCount').textContent = `${done} of ${all.length} MP3s reviewed (songs we know)${$('#rvDone').checked ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
   const count = id => rvIssues.filter(x => x.fileId === id).length;
   $('#rvList').innerHTML = rvTracks.slice(0, 600).map((t, i) => `<div class="rvrow${rvCur && rvCur.id === t.id ? ' now' : ''}" data-i="${i}"><div class="t"><div>${esc(t.name)}</div><small>${esc(t.collection)}${t.subfolder ? ' / ' + esc(t.subfolder) : ''}</small></div>${count(t.id) ? `<span class="fl">⚑ ${count(t.id)}</span>` : ''}</div>`).join('')
     + (rvTracks.length > 600 ? `<p class="m">Showing 600 of ${rvTracks.length}. Pick a book or filter to narrow it down.</p>` : '') + (rvTracks.length ? '' : '<div class="vmsg">No MP3s match.</div>');
@@ -4638,6 +4679,126 @@ document.addEventListener('keydown', e => {
 });
 // leaving the panel stops the review player
 new MutationObserver(() => { if (!$('#mp3Panel').classList.contains('show') && !rvAudio.paused) rvAudio.pause(); }).observe($('#mp3Panel'), { attributes: true, attributeFilter: ['class'] });
+// ---- Verify keys (admins): the start of each song's sheet music next to its listed key
+const KC_KEYS = [['C', 'no ♯/♭'], ['G', '1♯'], ['D', '2♯'], ['A', '3♯'], ['E', '4♯'], ['B', '5♯'], ['F#', '6♯'], ['F', '1♭'], ['Bb', '2♭'], ['Eb', '3♭'], ['Ab', '4♭'], ['Db', '5♭'], ['Gb', '6♭']];
+const kcSig = k => (KC_KEYS.find(x => x[0] === k) || [])[1] || '';
+let kcBook = '', kcObs = null;
+const kcCache = new Map();   // sheet id -> Promise<{ crop, full }>
+function kcSongs() {
+  return songs.filter(s => s.sheets.length && (keyScanBooks.has(s.collection) || s.keyFrom === 'scan' || keyChecks[s.key]))
+    .sort((a, b) => a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.nTitle.localeCompare(b.nTitle));
+}
+function kcRender() {
+  const all = kcSongs(), books = [...new Set(all.map(s => s.collection))];
+  if (kcBook && !books.includes(kcBook)) kcBook = '';
+  $('#kcBooks').innerHTML = ['', ...books].map(b => `<button class="chip${b === kcBook ? ' on' : ''}" data-b="${esc(b)}">${esc(b || 'All')}</button>`).join('');
+  const q = normalize($('#kcQ').value || ''), hard = $('#kcHard').checked, done = $('#kcDone').checked;
+  const list = all.filter(s => (!kcBook || s.collection === kcBook) && (!hard || s.keyHard) && (!!keyChecks[s.key] === done) && (!q || s.nAll.includes(q)));
+  const checked = all.filter(s => keyChecks[s.key]).length;
+  $('#kcCount').textContent = `${checked} of ${all.length} checked` + (done ? ' · showing the checked ones' : '');
+  const opts = cur => (cur ? '' : '<option value="">Key?</option>') + KC_KEYS.map(([k, n]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${k.replace('b', '♭').replace('#', '♯')} (${n})</option>`).join('');
+  $('#kcList').innerHTML = list.slice(0, 300).map(s => {
+    const c = keyChecks[s.key];
+    return `<div class="kcrow${c ? ' ok' : ''}" data-k="${esc(s.key)}">
+      <div class="t"><b>${esc((s.number ? s.number + '. ' : '') + s.title)}</b><small>${esc(s.collection)} · ${s.keyOrig ? `listed ${esc(s.keyOrig)} (${kcSig(s.keyOrig)})` : 'no key listed'}${s.keyHard ? ' · <span class="hard">⚠ hard to read</span>' : ''}${c ? ` · <span class="okmark">✓ ${esc(c.key)}</span> by ${esc(c.by || '')}` : ''}</small></div>
+      <div class="ctl"><select aria-label="Key">${opts(s.musicKey)}</select>${c ? '<button class="pbtn ghost" data-undo>Undo</button>' : `<button class="pbtn" data-ok${s.musicKey ? '' : ' disabled'}>✓ Right</button>`}</div>
+      <div class="kccrop" data-k="${esc(s.key)}"><span>…</span></div></div>`;
+  }).join('') + (list.length > 300 ? `<p class="m">Showing 300 of ${list.length}. Pick a book or search to narrow it down.</p>` : '') + (list.length ? '' : `<div class="vmsg">${done ? 'Nothing checked yet.' : 'Nothing left to check here.'}</div>`);
+  if (kcObs) kcObs.disconnect();
+  kcObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { kcObs.unobserve(e.target); kcShow(e.target); } }), { root: $('#keyPanel .pbody'), rootMargin: '400px' });
+  document.querySelectorAll('#kcList .kccrop').forEach(el => kcObs.observe(el));
+}
+// a few pictures at a time
+let kcBusy = 0; const kcQueue = [];
+function kcRun(fn) { return new Promise((ok, no) => { kcQueue.push(() => fn().then(ok, no)); kcPump(); }); }
+function kcPump() { while (kcBusy < 3 && kcQueue.length) { kcBusy++; kcQueue.shift()().finally(() => { kcBusy--; kcPump(); }); } }
+async function kcShow(el) {
+  const s = songIndex.get(el.dataset.k); if (!s) return;
+  const x = s.sheets.slice().sort((a, b) => (a.page || 0) - (b.page || 0))[0];
+  try {
+    if (!kcCache.has(x.id)) { const p = kcRun(() => kcLoad(x)); kcCache.set(x.id, p); p.catch(() => kcCache.delete(x.id)); }
+    const r = await kcCache.get(x.id);
+    el.innerHTML = `<img src="${r.crop}" alt="Start of the music">`; el.dataset.full = x.id;
+  } catch (e) { el.innerHTML = `<span>Couldn't load the sheet music${e && e.message ? ' (' + esc(e.message) + ')' : ''}</span>`; }
+}
+// The sheet music's first page, drawn 1400 wide
+async function kcPage(x) {
+  const W = 1400, c = document.createElement('canvas'), ctx = c.getContext('2d');
+  if (x.ext === 'pdf') {
+    let buf;
+    try { const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw 0; buf = await r.arrayBuffer(); }
+    catch { const r = await api('file', { id: x.id }); if (!r.ok) throw new Error(r.error || 'not found'); buf = Uint8Array.from(atob(r.data), ch => ch.charCodeAt(0)).buffer; }
+    const lib = await prPdf(), doc = await lib.getDocument({ data: new Uint8Array(buf) }).promise, page = await doc.getPage(1);
+    const vp = page.getViewport({ scale: W / page.getViewport({ scale: 1 }).width });
+    c.width = W; c.height = Math.round(vp.height); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    return c;
+  }
+  let blob;
+  try { const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw 0; blob = await r.blob(); }
+  catch { blob = await (await fetch(await relayFile(x.id))).blob(); }
+  const bmp = await createImageBitmap(blob);
+  c.width = W; c.height = Math.round(bmp.height * W / bmp.width); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
+  return c;
+}
+// Find the first line of music (the staff lines: long dark rows) and cut out its start: clef, key signature, first bar
+function kcFind(c) {
+  const W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
+  // the left half only: a slightly crooked scan still keeps each staff line within a row or two there
+  const x0 = Math.round(W * .08), x1 = Math.round(W * .5), n = (x1 - x0) / 2, rows = [];
+  for (let y = 0; y < H; y++) {
+    let k = 0; for (let x = x0; x < x1; x += 2) { const i = (y * W + x) * 4; if (d[i] + d[i + 1] + d[i + 2] < 420) k++; }
+    if (k / n > .3) rows.push(y);
+  }
+  const lines = []; for (const y of rows) { const l = lines[lines.length - 1]; if (l && y - l.b <= 2) l.b = y; else lines.push({ a: y, b: y }); }
+  const ys = lines.filter(l => l.b - l.a < 10).map(l => (l.a + l.b) / 2);
+  const staffAt = i => { if (i + 4 >= ys.length) return null; const g = (ys[i + 4] - ys[i]) / 4; if (g < 5 || g > 45) return null; for (let j = 0; j < 4; j++) { const s = ys[i + j + 1] - ys[i + j]; if (s < g * .7 || s > g * 1.3) return null; } return { top: ys[i], bot: ys[i + 4], g, i }; };
+  let st = null; for (let i = 0; i < ys.length && !st; i++) st = staffAt(i);
+  if (!st) return { x: 0, y: 0, w: Math.round(W * .45), h: Math.round(H * .3) };
+  let bot = st.bot; for (let i = st.i + 5; i < ys.length && ys[i] - st.bot < st.g * 12; i++) { const s2 = staffAt(i); if (s2) { bot = s2.bot; break; } }   // the bass staff under it
+  // where the staff starts: the first spot where (nearly) all five lines are drawn, for a stretch
+  const lineYs = [0, 1, 2, 3, 4].map(j => ys[st.i + j]), dark = (x, y) => { for (let dy = -2; dy <= 2; dy++) { const yy = Math.round(y + dy); if (yy < 0 || yy >= H) continue; const i = (yy * W + x) * 4; if (d[i] + d[i + 1] + d[i + 2] < 420) return true; } return false; };
+  const on = x => lineYs.filter(y => dark(x, y)).length >= 4;
+  let left = 0;
+  for (let x = 0; x < W * .6; x++) { if (!on(x)) continue; let k = 0; for (let j = 0; j < 30; j++) if (on(x + j)) k++; if (k >= 24) { left = x; break; } }
+  const g = st.g, x = Math.max(0, Math.round(left - g)), y = Math.max(0, Math.round(st.top - g * 5.5));
+  return { x, y, w: Math.min(W - x, Math.round(g * 30)), h: Math.min(H - y, Math.round(bot + g * 4.5 - y)) };
+}
+async function kcLoad(x) {
+  const c = await kcPage(x), r = kcFind(c), o = document.createElement('canvas');
+  o.width = r.w; o.height = r.h; o.getContext('2d').drawImage(c, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+  const out = { crop: o.toDataURL('image/jpeg', .85), full: c.toDataURL('image/jpeg', .8) };
+  c.width = c.height = o.width = o.height = 0;
+  return out;
+}
+async function kcSave(s, key) {
+  try {
+    const r = await api('setKeyCheck', { song: s.key, key, title: (s.number ? s.number + ' ' : '') + s.title, book: s.collection, was: s.keyOrig || '' });
+    if (!r.ok) throw new Error(r.error);
+    applyKeyChecks(r.keys); return true;
+  } catch (e) { toast(e.message || 'Couldn\'t save that. Check your connection.', 4000); return false; }
+}
+$('#keyChkBtn').onclick = () => { closeSheet(); kcRender(); openPanel('keyPanel'); loadKeyChecks().then(() => { if ($('#keyPanel').classList.contains('show')) kcRender(); }); };
+$('#kcBooks').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) { kcBook = b.dataset.b; kcRender(); } });
+$('#kcQ').addEventListener('input', () => kcRender());
+$('#kcHard').onchange = $('#kcDone').onchange = () => kcRender();
+// right / another key: saved, and the row fades (it leaves the list next time it's drawn)
+async function kcDone(row, key) {
+  const s = songIndex.get(row.dataset.k); if (!s) return;
+  row.querySelectorAll('button, select').forEach(b => b.disabled = true);
+  if (await kcSave(s, key)) { row.classList.add('ok'); row.querySelector('small').insertAdjacentHTML('beforeend', ` · <span class="okmark">✓ ${esc(key || 'not checked')}</span>`); }
+  else row.querySelectorAll('button, select').forEach(b => b.disabled = false);
+}
+$('#kcList').addEventListener('click', e => {
+  const row = e.target.closest('.kcrow'); if (!row) return;
+  if (e.target.closest('[data-ok]')) return kcDone(row, row.querySelector('select').value);
+  if (e.target.closest('[data-undo]')) return kcDone(row, '');
+  const crop = e.target.closest('.kccrop');
+  if (crop && crop.dataset.full) kcCache.get(crop.dataset.full).then(r => { $('#kcBig img').src = r.full; $('#kcBig').classList.add('show'); $('#kcBig').scrollTo(0, 0); }).catch(() => {});
+});
+$('#kcList').addEventListener('change', e => { const sel = e.target.closest('select'); if (sel && sel.value) kcDone(e.target.closest('.kcrow'), sel.value); });
+$('#kcBig').onclick = () => $('#kcBig').classList.remove('show');
 // ---- remote control (phone side)
 let rm = null;   // { code, sid, es, st }
 function rmMsg(html) { $('#rmBody').innerHTML = `<div class="vmsg">${html}</div>`; }
@@ -5407,6 +5568,7 @@ function startApp(fresh = false) {
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
     if (navigator.onLine && auth.token) loadKnown();
+    if (navigator.onLine && auth.token) loadKeyChecks();
     if (navigator.onLine && auth.token) loadArrangements(true);
     if (navigator.onLine && auth.token) loadLists();
     if (navigator.onLine && auth.token) api('me').then(r => { if (r.ok) { auth.user = r.user; saveAuth(); renderWelcome(); } }).catch(() => {});

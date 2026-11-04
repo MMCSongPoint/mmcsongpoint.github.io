@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 30 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 31 }); }
 
 function doPost(e) {
   var d;
@@ -159,6 +159,7 @@ function handle_(d) {
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
   if (a === 'getKnown') return { ok: true, known: known_() };
+  if (a === 'getKeyChecks') return { ok: true, keys: keyChecks_() };
   if (a === 'file') return file_(d);
   if (a === 'slideDeck') return slideDeck_(d);
   if (a === 'slideUpload') return slideUpload_(me, d);
@@ -193,6 +194,7 @@ function handle_(d) {
   if (a === 'setIgnored') return setIgnored_(me, d);
   if (a === 'setTextDoc') return setTextDoc_(me, d);
   if (a === 'setKnown') return setKnown_(me, d);
+  if (a === 'setKeyCheck') return setKeyCheck_(me, d);
   if (a === 'mp3Issues') return { ok: true, issues: mp3Issues_(), reviewed: mp3Reviewed_() };
   if (a === 'mp3Review') return mp3Review_(me, d);
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);
@@ -543,6 +545,31 @@ function setTextDoc_(me, d) {
     if (!d.textDoc && i >= 0) sh.deleteRow(i + 2);
   } finally { lock.releaseLock(); }
   return { ok: true, textDocs: textDocs_() };
+}
+
+/** Keys checked by an admin against the sheet music (Settings › Verify keys): song -> { key, by, at }. */
+var KEYCHK = 'Key Checks', KCHEAD = ['Song', 'Key', 'Title', 'Book', 'Was', 'Checked by', 'When'];
+function keyChecks_() {
+  var sh = tab_(KEYCHK, KCHEAD), n = sh.getLastRow() - 1, out = {};
+  if (n < 1) return out;
+  sh.getRange(2, 1, n, 7).getValues().forEach(function (r) { if (r[0] && r[1]) out[String(r[0])] = { key: String(r[1]), by: String(r[5] || ''), at: r[6] ? new Date(r[6]).toISOString() : '' }; });
+  return out;
+}
+function setKeyCheck_(me, d) {
+  var song = String(d.song || ''); if (!song) return { ok: false, error: 'No song given.' };
+  var key = String(d.key || '');
+  if (key && !/^[A-G][b#]?$/.test(key)) return { ok: false, error: 'That isn\'t a key.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(KEYCHK, KCHEAD), n = sh.getLastRow() - 1;
+    var keys = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [], i = keys.indexOf(song);
+    if (!key) { if (i >= 0) sh.deleteRow(i + 2); }   // "not checked" again
+    else {
+      var row = [song, key, String(d.title || ''), String(d.book || ''), String(d.was || ''), me.name || me.username, new Date()];
+      if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
+    }
+  } finally { lock.releaseLock(); }
+  return { ok: true, keys: keyChecks_() };
 }
 
 /** "Songs we know" changes made in the app (on top of the list built into the app): key -> known yes/no. */
