@@ -1225,7 +1225,9 @@ function versesOf(s) {
 }
 // Keys listed by hymn number (Songs of Faith and Praise)
 const keyNumbers = new Map();
-for (const b of window.SONG_KEYS_BY_NUMBER || []) for (const book of [b.book, ...(b.aka || [])]) for (const n in b.keys) keyNumbers.set(book + '|' + n, b.keys[n]);
+const keyNumbersScan = new Map(), keyNumbersWeak = new Map(), keyTitles = new Map();   // read from hymnal scans: used when nothing better (keys.js lists, the sheet's file name) gives one
+for (const b of window.SONG_KEYS_BY_NUMBER || []) for (const book of [b.book, ...(b.aka || [])]) for (const n in b.keys) (b.scan === 'weak' ? keyNumbersWeak : b.scan ? keyNumbersScan : keyNumbers).set(book + '|' + n, b.keys[n]);
+for (const b of window.SONG_KEYS_BY_TITLE || []) for (const book of [b.book, ...(b.aka || [])]) for (const t in b.keys) for (const x of [t, baseTitle(t)]) { const id = book + '|' + normalize(x); if (!keyTitles.has(id)) keyTitles.set(id, b.keys[t]); }
 function buildIndex() {
   songIndex = new Map();
   const newSong = (key, x) => ({ key, number: x.number, collection: x.collection, subfolder: x.subfolder || '', parts: [], sheets: [], chords: [], slides: [], modified: '' });
@@ -1265,7 +1267,9 @@ function buildIndex() {
     s.nTitle = normalize(s.title);
     const byNum = s.number && keyNumbers.get(s.collection + '|' + s.number);
     const listed = (byNum && { key: byNum[0], change: byNum[1] }) || keyList.get(s.collection + '|' + s.nTitle) || keyList.get(s.collection + '|' + normalize(baseTitle(s.title)));
-    s.musicKey = listed ? listed.key : (s.sheets.find(x => x.key) || {}).key || '';
+    // from the hymnal scans (Christian Hymnal by number; Zion's Praises by title, then by its OCR'd number)
+    const scanned = () => { const id = s.collection + '|'; return (s.number && (keyNumbersScan.get(id + s.number) || [])[0]) || keyTitles.get(id + s.nTitle) || keyTitles.get(id + normalize(baseTitle(s.title))) || (s.number && (keyNumbersWeak.get(id + s.number) || [])[0]) || ''; };
+    s.musicKey = listed ? listed.key : (s.sheets.find(x => x.key) || {}).key || scanned() || '';
     s.keyChange = listed ? listed.change : '';
     s.nAll = [s.nTitle, s.number, ...s.parts.map(p => normalize(p.part))].join(' ');
     s.grams = trigrams(s.nTitle);
