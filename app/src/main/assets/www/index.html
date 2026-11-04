@@ -103,7 +103,7 @@
   .kcrow.ok { opacity: .55; } .kcrow.ok .okmark { color: #3aa76d; font-weight: 700; }
   .kccrop { grid-column: 1 / -1; height: 120px; background: #fff; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: flex-start; cursor: zoom-in; border: 1px solid var(--line); }
   .kccrop img { height: 100%; width: auto; max-width: 100%; object-fit: contain; object-position: left center; } .kccrop span { color: #777; font-size: 13px; padding: 10px; }
-  .kcbig { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.85); display: none; overflow: auto; padding: 12px; } .kcbig.show { display: block; } .kcbig img { width: 100%; max-width: 1000px; display: block; margin: 0 auto; background: #fff; }
+  .kcbig { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.85); display: none; overflow: auto; padding: 12px; } .kcbig.show { display: block; } .kcbig img { width: 100%; max-width: 1000px; display: block; margin: 0 auto 10px; background: #fff; } .kcbig #kcBigClose { position: sticky; top: 0; margin: 0 0 10px auto; display: block; z-index: 1; } .kcbig .vmsg { color: #ddd; }
   .rvrow { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-top: 1px solid var(--line); cursor: pointer; }
   .rvrow.now { background: var(--row); } .rvrow .t { flex: 1; min-width: 0; } .rvrow .t div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rvrow .t small { color: var(--muted); font-size: 12px; } .rvrow .fl { color: #e05a4a; font-weight: 700; font-size: 13px; white-space: nowrap; }
@@ -955,11 +955,11 @@
     <div class="chips" id="kcBooks" style="margin:0 0 8px"></div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap"><input id="kcQ" type="search" placeholder="Title or number" style="flex:1;min-width:140px"><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="kcHard"> Hard to read only</label><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="kcDone"> Checked</label></div>
     <p class="m" id="kcCount" style="margin:0 0 6px;font-size:12.5px;color:var(--muted)"></p>
-    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">The picture is the start of the first line of music. Count the sharps or flats: if the key is right tap <b>✓ Right</b>, otherwise pick the right one. Tap the picture to see the whole page.</p>
+    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">The picture is the start of the first line of music. Count the sharps or flats: if the key is right tap <b>✓ Right</b>, otherwise pick the right one. Tap the picture to see the whole page, or <b>PDF</b> for all of the sheet music.</p>
     <div id="kcList"></div>
   </div>
 </div>
-<div class="kcbig" id="kcBig"><img alt=""></div>
+<div class="kcbig" id="kcBig"><button class="pbtn" id="kcBigClose">✕ Close</button><div id="kcBigBody"></div></div>
 
 <!-- Closing songs: a plain list (known.js) -->
 <div class="panel" id="closingPanel">
@@ -4700,7 +4700,7 @@ const kcSig = k => (KC_KEYS.find(x => x[0] === k) || [])[1] || '';
 let kcBook = '', kcObs = null;
 const kcCache = new Map();   // sheet id -> Promise<{ crop, full }>
 function kcSongs() {
-  return songs.filter(s => s.sheets.length && (keyScanBooks.has(s.collection) || s.keyFrom === 'scan' || keyChecks[s.key]))
+  return songs.filter(s => s.sheets.length && (keyScanBooks.has(s.collection) || /^(sfp|songs of faith and praise)$/i.test(s.collection) || s.keyFrom === 'scan' || keyChecks[s.key]))
     .sort((a, b) => a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.nTitle.localeCompare(b.nTitle));
 }
 function kcRender() {
@@ -4716,7 +4716,7 @@ function kcRender() {
     const c = keyChecks[s.key];
     return `<div class="kcrow${c ? ' ok' : ''}" data-k="${esc(s.key)}">
       <div class="t"><b>${esc((s.number ? s.number + '. ' : '') + s.title)}</b><small>${esc(s.collection)} · ${s.keyOrig ? `listed ${esc(s.keyOrig)} (${kcSig(s.keyOrig)})` : 'no key listed'}${s.keyHard ? ' · <span class="hard">⚠ hard to read</span>' : ''}${c ? ` · <span class="okmark">✓ ${esc(c.key)}</span> by ${esc(c.by || '')}` : ''}</small></div>
-      <div class="ctl"><select aria-label="Key">${opts(s.musicKey)}</select>${c ? '<button class="pbtn ghost" data-undo>Undo</button>' : `<button class="pbtn" data-ok${s.musicKey ? '' : ' disabled'}>✓ Right</button>`}</div>
+      <div class="ctl"><button class="pbtn ghost" data-pdf title="See the sheet music">PDF</button><select aria-label="Key">${opts(s.musicKey)}</select>${c ? '<button class="pbtn ghost" data-undo>Undo</button>' : `<button class="pbtn" data-ok${s.musicKey ? '' : ' disabled'}>✓ Right</button>`}</div>
       <div class="kccrop" data-k="${esc(s.key)}"><span>…</span></div></div>`;
   }).join('') + (list.length > 300 ? `<p class="m">Showing 300 of ${list.length}. Pick a book or search to narrow it down.</p>` : '') + (list.length ? '' : `<div class="vmsg">${done ? 'Nothing checked yet.' : 'Nothing left to check here.'}</div>`);
   if (kcObs) kcObs.disconnect();
@@ -4810,10 +4810,43 @@ $('#kcList').addEventListener('click', e => {
   if (e.target.closest('[data-ok]')) return kcDone(row, row.querySelector('select').value);
   if (e.target.closest('[data-undo]')) return kcDone(row, '');
   const crop = e.target.closest('.kccrop');
-  if (crop && crop.dataset.full) kcCache.get(crop.dataset.full).then(r => { $('#kcBig img').src = r.full; $('#kcBig').classList.add('show'); $('#kcBig').scrollTo(0, 0); }).catch(() => {});
+  if (crop && crop.dataset.full) kcCache.get(crop.dataset.full).then(r => kcBigShow(`<img src="${r.full}" alt="">`)).catch(() => {});
+  if (e.target.closest('[data-pdf]')) kcAll(songIndex.get(row.dataset.k));
 });
 $('#kcList').addEventListener('change', e => { const sel = e.target.closest('select'); if (sel && sel.value) kcDone(e.target.closest('.kcrow'), sel.value); });
-$('#kcBig').onclick = () => $('#kcBig').classList.remove('show');
+function kcBigShow(html) { $('#kcBigBody').innerHTML = html; $('#kcBig').classList.add('show'); $('#kcBig').scrollTo(0, 0); }
+$('#kcBigClose').onclick = () => $('#kcBig').classList.remove('show');
+// every page of the song's sheet music, drawn here (the web app's viewer can't show PDFs itself)
+async function kcAll(s) {
+  if (!s) return;
+  const files = s.sheets.slice().sort((a, b) => a.label.localeCompare(b.label) || (a.page || 0) - (b.page || 0));
+  kcBigShow('<div class="vmsg">Opening the sheet music…</div>');
+  const want = s.key; $('#kcBig').dataset.k = want;
+  const out = [];
+  for (const x of files) {
+    try {
+      if (x.ext === 'pdf') {
+        let buf;
+        try { const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw 0; buf = await r.arrayBuffer(); }
+        catch { const r = await api('file', { id: x.id }); if (!r.ok) throw new Error(r.error || 'not found'); buf = Uint8Array.from(atob(r.data), ch => ch.charCodeAt(0)).buffer; }
+        const lib = await prPdf(), doc = await lib.getDocument({ data: new Uint8Array(buf) }).promise;
+        for (let i = 1; i <= doc.numPages; i++) {
+          const page = await doc.getPage(i), vp = page.getViewport({ scale: 1400 / page.getViewport({ scale: 1 }).width });
+          const c = document.createElement('canvas'); c.width = 1400; c.height = Math.round(vp.height);
+          const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+          await page.render({ canvasContext: ctx, viewport: vp }).promise;
+          out.push(`<img src="${c.toDataURL('image/jpeg', .85)}" alt="">`); c.width = c.height = 0;
+        }
+      } else {
+        let src; try { const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw 0; src = URL.createObjectURL(await r.blob()); } catch { src = await relayFile(x.id); }
+        out.push(`<img src="${src}" alt="">`);
+      }
+    } catch (e) { out.push(`<div class="vmsg">Couldn't open ${esc(x.name)}${e && e.message ? ' (' + esc(e.message) + ')' : ''}</div>`); }
+    if ($('#kcBig').dataset.k !== want || !$('#kcBig').classList.contains('show')) return;
+    $('#kcBigBody').innerHTML = out.join('') + (x === files[files.length - 1] ? '' : '<div class="vmsg">Loading…</div>');
+  }
+  $('#kcBigBody').insertAdjacentHTML('beforeend', files.map(x => `<p style="text-align:center"><a style="color:#ddd" href="https://drive.google.com/file/d/${encodeURIComponent(x.id)}/view" target="_blank" rel="noopener">Open “${esc(x.name)}” in Drive</a></p>`).join(''));
+}
 // ---- remote control (phone side)
 let rm = null;   // { code, sid, es, st }
 function rmMsg(html) { $('#rmBody').innerHTML = `<div class="vmsg">${html}</div>`; }
