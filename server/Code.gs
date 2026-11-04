@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 31 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 32 }); }
 
 function doPost(e) {
   var d;
@@ -160,6 +160,7 @@ function handle_(d) {
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
   if (a === 'getKnown') return { ok: true, known: known_() };
   if (a === 'getKeyChecks') return { ok: true, keys: keyChecks_() };
+  if (a === 'mp3Approved') return { ok: true, reviewed: mp3Reviewed_() };
   if (a === 'file') return file_(d);
   if (a === 'slideDeck') return slideDeck_(d);
   if (a === 'slideUpload') return slideUpload_(me, d);

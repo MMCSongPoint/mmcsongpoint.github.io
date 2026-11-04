@@ -95,6 +95,8 @@
   .rvflags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .rvflags span { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 8px; font-size: 12.5px; display: inline-flex; gap: 6px; align-items: center; }
   .rvflags span b { color: #e05a4a; cursor: pointer; } .rvflags button { background: none; border: none; color: var(--muted); font-size: 15px; padding: 0 4px; }
+  #nowTitle { display: flex; align-items: center; gap: 4px; min-width: 0; } #nowTitle .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #nowTitle .aimark { color: var(--accent); flex: none; }
   .kcrow { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; padding: 10px 2px; border-top: 1px solid var(--line); align-items: center; }
   .kcrow .t b { display: block; font-size: 15px; } .kcrow .t small { color: var(--muted); font-size: 12px; } .kcrow .hard { color: #e0a030; font-weight: 600; }
   .kcrow .ctl { display: flex; gap: 6px; align-items: center; } .kcrow .ctl select { font-size: 15px; padding: 6px; } .kcrow .ctl .pbtn { padding: 7px 12px; }
@@ -1852,7 +1854,7 @@ function playTrack(song, part, keepTime = false, autoplay = true) {
   }
   };
   if (wasPlaying) { fadeTo(0, 40); clearTimeout(switchTimer); switchTimer = setTimeout(load, 45); } else load();
-  $('#nowTitle').textContent = (song.number ? song.number + '. ' : '') + song.title;
+  renderNowTitle();
   verseNo = 1; renderLoop();
   $('#nowSub').textContent = `${part.part} · ${song.collection}` + verseNote();
   applyShift();
@@ -4576,6 +4578,19 @@ $('#dSettings').onclick = () => { closeDrawer(); openSheet(); };
 // ---- MP3 review (admins): listen through the MP3s, flag problems at the moment you hear them
 const rvAudio = new Audio(); rvAudio.preload = 'auto';
 let rvIssues = [], rvBook = '', rvCur = null, rvTracks = [], rvReviewed = {};
+// ✨ by the playing track's name: an AI-generated MP3 (everything but SFP) until it's approved in MP3 review
+let mp3Approved = store.get('mp3Approved', {});
+const SPARKLE = '<svg class="aimark" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-label="AI-generated recording"><title>AI-generated recording (not reviewed yet)</title><path d="M10 2.5l1.8 5.2 5.2 1.8-5.2 1.8L10 16.5l-1.8-5.2L3 9.5l5.2-1.8zM18.5 13l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/></svg>';
+function isAiTrack(part, song) {
+  if (!part || !song || /^(sfp|songs of faith and praise)$/i.test(song.collection)) return false;
+  return !(part.id in mp3Approved && (!part.modified || !mp3Approved[part.id] || part.modified <= mp3Approved[part.id]));
+}
+function renderNowTitle() {
+  if (!now) return;
+  $('#nowTitle').innerHTML = `<span class="tt">${esc((now.song.number ? now.song.number + '. ' : '') + now.song.title)}</span>` + (isAiTrack(now.part, now.song) ? SPARKLE : '');
+}
+function setApproved(map) { mp3Approved = map || {}; store.set('mp3Approved', mp3Approved); renderNowTitle(); }
+async function loadApproved() { try { const r = await api('mp3Approved'); if (r.ok) setApproved(r.reviewed); } catch {} }
 // reviewed = played to the end and marked "sounded good" (and the file hasn't been replaced since)
 const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id] || t.modified <= rvReviewed[t.id]);
 // for now only the songs we know (the green ones) are reviewed
@@ -4626,11 +4641,11 @@ async function rvFlag() {
   } catch (e) { toast(e.message || 'Couldn\'t save the flag. Check your connection.', 4000); }
   rvRender(); if (was) rvAudio.play().catch(() => {});
 }
-async function rvLoad() { try { const r = await api('mp3Issues'); if (r.ok) { rvIssues = r.issues; rvReviewed = r.reviewed || {}; rvRender(); } } catch {} }
+async function rvLoad() { try { const r = await api('mp3Issues'); if (r.ok) { rvIssues = r.issues; rvReviewed = r.reviewed || {}; setApproved(rvReviewed); rvRender(); } } catch {} }
 async function rvMark(t, ok) {
   const before = rvReviewed;
   rvReviewed = Object.assign({}, rvReviewed); if (ok) rvReviewed[t.id] = t.modified || ''; else delete rvReviewed[t.id];
-  try { const r = await api('mp3Review', { fileId: t.id, file: t.name, book: t.collection, modified: t.modified || '', reviewed: ok }); if (r.ok) rvReviewed = r.reviewed; else throw 0; }
+  try { const r = await api('mp3Review', { fileId: t.id, file: t.name, book: t.collection, modified: t.modified || '', reviewed: ok }); if (r.ok) { rvReviewed = r.reviewed; setApproved(rvReviewed); } else throw 0; }
   catch { rvReviewed = before; toast('Couldn\'t save that. Check your connection.', 4000); }
 }
 // end of an MP3: did it sound good? Yes = reviewed (drops off the list); No = stays. Then on to the next one.
@@ -5569,6 +5584,7 @@ function startApp(fresh = false) {
     if (navigator.onLine && auth.token) loadTextDocs();
     if (navigator.onLine && auth.token) loadKnown();
     if (navigator.onLine && auth.token) loadKeyChecks();
+    if (navigator.onLine && auth.token) loadApproved();
     if (navigator.onLine && auth.token) loadArrangements(true);
     if (navigator.onLine && auth.token) loadLists();
     if (navigator.onLine && auth.token) api('me').then(r => { if (r.ok) { auth.user = r.user; saveAuth(); renderWelcome(); } }).catch(() => {});
