@@ -108,9 +108,9 @@ foreach ($d in $decks) {
       $i++
       $s.Export((Join-Path $tmp ('slide-{0:D2}.png' -f $i)), 'PNG', $Width, $h)
       $t = @(); foreach ($sp in $s.Shapes) { try { if ($sp.HasTextFrame -and $sp.TextFrame.HasText) { $x = $sp.TextFrame.TextRange.Text.Trim(); if ($x) { $t += $x } } } catch {} }
-      $texts.Add(($t -join "`n") -replace "`r", "`n")
+      $texts.Add(((($t -join "`n") -replace "`r", "`n")))
       $note = ''; try { $note = $s.NotesPage.Shapes.Placeholders.Item(2).TextFrame.TextRange.Text.Trim() } catch {}
-      $notes.Add($note -replace "`r", "`n")
+      $notes.Add(($note -replace "`r", "`n"))
     }
     $pres.Close(); $pres = $null
     $json = [ordered]@{ name = $title; book = $d.Book; file = $f.Name; updated = $updated; count = $i; width = $Width; height = $h; texts = $texts.ToArray(); notes = $notes.ToArray(); madeBy = 'PowerPoint'; made = (Get-Date).ToUniversalTime().ToString('o') }
