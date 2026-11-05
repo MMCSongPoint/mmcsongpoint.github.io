@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 32 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 36 }); }
 
 function doPost(e) {
   var d;
@@ -196,6 +196,8 @@ function handle_(d) {
   if (a === 'setTextDoc') return setTextDoc_(me, d);
   if (a === 'setKnown') return setKnown_(me, d);
   if (a === 'setKeyCheck') return setKeyCheck_(me, d);
+  if (a === 'slideImagesRun') return slideImagesRun_(Number(d.seconds) || 240, Number(d.part) || 0, Number(d.of) || 1);
+  if (a === 'slideImagesStatus') return slideImagesStatus_();
   if (a === 'mp3Issues') return { ok: true, issues: mp3Issues_(), reviewed: mp3Reviewed_() };
   if (a === 'mp3Review') return mp3Review_(me, d);
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);
@@ -968,6 +970,101 @@ function slideDeck_(d) {
   }
   return { ok: true, title: src.getName().replace(/\.pptx?$/i, ''), texts: info.texts, notes: info.notes, pdf: Utilities.base64Encode(pdf.getBlob().getBytes()) };
 }
+// ------------------------------------------------------------------ slide pictures
+// Each song's PowerPoint (in Song Slides) as ready-made pictures: SongPoint/Slide Images/<song>/slide-01.png …, plus
+// slides.json (each slide's words and speaker note), so presenting doesn't have to convert and draw a PDF.
+// Remade when the PowerPoint changes. Runs a few minutes at a time (slideImagesRun_), from a timer or from the app.
+var SLIDES_SRC = '1Hx53-izNpUViULSykFtNfmP0B_4ZNSf6', SIMG = 'Slide Images', SIHEAD = ['Source ID', 'Source updated', 'Folder ID', 'Name', 'Slides', 'When', 'Problem'];
+function slideSources_() {
+  var out = [], root = DriveApp.getFolderById(SLIDES_SRC);
+  var add = function (folder, book) {
+    var it = folder.getFiles();
+    while (it.hasNext()) { var f = it.next(); if (/\.pptx?$/i.test(f.getName()) && !f.isTrashed()) out.push({ id: f.getId(), name: f.getName(), book: book, updated: f.getLastUpdated().getTime() }); }
+  };
+  add(root, '');
+  var walk = function (folder, book, depth) { var subs = folder.getFolders(); while (subs.hasNext()) { var b = subs.next(); add(b, book || b.getName()); if (depth < 3) walk(b, book || b.getName(), depth + 1); } };
+  walk(root, '', 0);
+  return out;
+}
+function deckInfo_(conv) {
+  var info = { texts: [], notes: [], ids: [] };
+  SlidesApp.openById(conv).getSlides().forEach(function (sl) {
+    var out = [];
+    sl.getPageElements().forEach(function (el) {
+      try { if (el.getPageElementType() === SlidesApp.PageElementType.SHAPE) { var t = el.asShape().getText().asString().trim(); if (t) out.push(t); } } catch (e) {}
+    });
+    var note = ''; try { note = sl.getNotesPage().getSpeakerNotesShape().getText().asString().trim(); } catch (e) {}
+    info.texts.push(out.join('\n')); info.notes.push(note); info.ids.push(sl.getObjectId());
+  });
+  return info;
+}
+// the list of PowerPoints, kept for 30 minutes in Slide Images/_sources.json (listing them all takes a while)
+function slideSourcesCached_(base) {
+  var it = base.getFilesByName('_sources.json');
+  if (it.hasNext()) { var f = it.next(); if (Date.now() - f.getLastUpdated().getTime() < 30 * 60000) return JSON.parse(f.getBlob().getDataAsString()); }
+  var lock = LockService.getScriptLock(); lock.waitLock(120000);
+  try {
+    it = base.getFilesByName('_sources.json');   // another run may have just made it
+    if (it.hasNext()) { var g = it.next(); if (Date.now() - g.getLastUpdated().getTime() < 30 * 60000) return JSON.parse(g.getBlob().getDataAsString()); g.setTrashed(true); }
+    var list = slideSources_(); base.createFile('_sources.json', JSON.stringify(list), 'application/json'); return list;
+  } finally { lock.releaseLock(); }
+}
+// part / of: several runs at once each take every of-th PowerPoint, so they don't collide
+function slideImagesRun_(seconds, part, of) {
+  var t0 = Date.now(), limit = Math.min(seconds, 330) * 1000;
+  part = part || 0; of = of || 1;
+  var lock = LockService.getScriptLock();
+  {
+    var sh = tab_(SIMG, SIHEAD), v = sh.getDataRange().getValues(), done = {};
+    for (var i = 1; i < v.length; i++) done[v[i][0]] = { row: i + 1, updated: Number(v[i][1]), folder: v[i][2], problem: v[i][6] };
+    var base = folder_(SIMG), list = slideSourcesCached_(base), made = 0, failed = 0, left = 0;
+    for (var k = 0; k < list.length; k++) {
+      if (k % of !== part) continue;
+      var f = list[k], d = done[f.id];
+      if (d && d.updated === f.updated && !d.problem) continue;
+      if (Date.now() - t0 > limit) { left++; continue; }
+      var row = [f.id, f.updated, '', f.name, 0, new Date(), ''];
+      try {
+        var conv = converted_(f.id), info = deckInfo_(conv), title = f.name.replace(/\.pptx?$/i, '');
+        // Slide Images/<book>/<song>
+        var bookName = (f.book || 'Other').replace(/[\\/:*?"<>|]+/g, ' ').trim(), bookFolder;
+        lock.waitLock(30000); try { var bi = base.getFoldersByName(bookName); bookFolder = bi.hasNext() ? bi.next() : base.createFolder(bookName); } finally { lock.releaseLock(); }
+        var name = title.replace(/[\\/:*?"<>|]+/g, ' ').trim(), it = bookFolder.getFoldersByName(name), folder;
+        if (d && d.folder) { try { folder = DriveApp.getFolderById(d.folder); } catch (e) {} }
+        if (!folder) folder = it.hasNext() ? it.next() : bookFolder.createFolder(name);
+        var old = folder.getFiles(); while (old.hasNext()) old.next().setTrashed(true);
+        for (var n = 0, tries = 0; n < info.ids.length; n++) {
+          var th;   // Slides API (Services › Slides): a 1600-wide picture of the slide
+          try { th = Slides.Presentations.Pages.getThumbnail(conv, info.ids[n], { 'thumbnailProperties.thumbnailSize': 'LARGE', 'thumbnailProperties.mimeType': 'PNG' }); }
+          catch (e) { if (/quota|rate|429/i.test(String(e)) && (tries = (tries || 0) + 1) < 6) { Utilities.sleep(15000); n--; continue; } throw new Error('picture ' + (n + 1) + ': ' + String(e).slice(0, 150)); }
+          var png = UrlFetchApp.fetch(th.contentUrl).getBlob().setName('slide-' + ('0' + (n + 1)).slice(-2) + '.png');
+          folder.createFile(png);
+        }
+        folder.createFile('slides.json', JSON.stringify({ source: f.id, name: title, book: f.book, updated: f.updated, count: info.ids.length, texts: info.texts, notes: info.notes }), 'application/json');
+        row[2] = folder.getId(); row[4] = info.ids.length; made++;
+      } catch (e) { row[6] = String(e.message || e).slice(0, 300); failed++; }
+      lock.waitLock(30000);
+      try {
+        if (d) sh.getRange(d.row, 1, 1, row.length).setValues([row]);
+        else { sh.appendRow(row); done[f.id] = { row: sh.getLastRow(), updated: f.updated, folder: row[2] }; }
+        SpreadsheetApp.flush();
+      } finally { lock.releaseLock(); }
+    }
+    return { ok: true, made: made, failed: failed, left: left, total: list.length };
+  }
+}
+function slideImagesStatus_() {
+  var v = tab_(SIMG, SIHEAD).getDataRange().getValues().slice(1);
+  return { ok: true, done: v.filter(function (r) { return r[2] && !r[6]; }).length, problems: v.filter(function (r) { return r[6]; }).map(function (r) { return r[3] + ': ' + r[6]; }).slice(0, 20) };
+}
+/** Run from the editor once: converts in the background every 10 minutes until all are done (and keeps them current). */
+function slideImagesStart() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'slideImagesTimer') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('slideImagesTimer').timeBased().everyMinutes(10).create();
+  return slideImagesTimer();
+}
+function slideImagesTimer() { return JSON.stringify(slideImagesRun_(300, 0, 1)); }
+
 // A speaker's slides played "live" on the projector by Google Slides' own player (animations and transitions kept):
 // a PowerPoint is played from its Google Slides copy, which is made viewable by link so the player can open it.
 function slideLive_(d) {
