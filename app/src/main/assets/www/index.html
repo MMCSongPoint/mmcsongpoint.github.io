@@ -5050,14 +5050,14 @@ async function scPlaceSlide(src, chart, section, worker) {
   const named = section ? blocks.filter(b => secKey(b.label) === secKey(section)) : [];
   let best = null;
   for (const blk of (named.length ? named : blocks)) {
-    const C = [], chords = [], starts = new Set([0]), ends = new Set();
-    blk.lines.filter(l => l.kind === 'lyric').forEach(l => { starts.add(C.length); l.segs.forEach(([cd, txt]) => { if (cd) chords.push({ c: cd, at: C.length }); C.push(...scLetters(txt)); }); ends.add(C.length); });
+    const C = [], chords = [];
+    blk.lines.filter(l => l.kind === 'lyric').forEach(l => l.segs.forEach(([cd, txt]) => { if (cd) chords.push({ c: cd, at: C.length }); C.push(...scLetters(txt)); }));
     if (!C.length) continue;
     const a = scAlign(L, C);
-    if (!best || a.cost < best.a.cost) best = { a, C, chords, starts, ends };
+    if (!best || a.cost < best.a.cost) best = { a, C, chords, bi: chart.blocks.indexOf(blk) };
   }
   if (!best) return { marks: [], unsure: true, n: L.length };
-  const { a, chords, starts, ends } = best, al = [...a.map.keys()].sort((x, y) => x - y), marks = [];
+  const { a, chords } = best, al = [...a.map.keys()].sort((x, y) => x - y), marks = [];
   for (const ch of chords) {
     if (ch.at < a.start || ch.at >= a.end) continue;
     let p;
@@ -5073,9 +5073,9 @@ async function scPlaceSlide(src, chart, section, worker) {
     marks.push({ c: ch.c, x: +(Math.max(0, p.x) / W).toFixed(4), y: +((s0.top - s0.sp * .9) / H).toFixed(4), s: +(s0.sp / W).toFixed(5) });
   }
   const rate = a.cost / L.length;
-  // not sure: words misread, the start or end of a line wasn't found (chords would be missing), or stacked verses that don't match well
-  const unsure = L.length < 8 || rate > .2 || !starts.has(a.start) || !ends.has(a.end) || (multi && rate > .08);
-  return { marks, unsure, n: L.length };
+  // not sure: words misread, or stacked verses that don't match well (words left out are found per song, below)
+  const unsure = L.length < 8 || rate > .2 || (multi && rate > .08);
+  return { marks, unsure, n: L.length, bi: best.bi, span: [a.start, a.end], len: best.C.length };
 }
 async function scPlaceSong(s, onSlide) {
   const f = prFile(s), cf = s.chords && s.chords[0]; if (!f || !cf) throw new Error('No slides or chords');
@@ -5086,9 +5086,22 @@ async function scPlaceSong(s, onSlide) {
   const slides = [];
   for (let i = 0; i < d.imgs.length; i++) {
     let r; try { r = await scPlaceSlide(d.imgs[i], chart, d.sections[i], worker); } catch { r = { marks: [], unsure: true, n: 0 }; }
-    slides.push({ marks: r.marks, unsure: r.unsure || undefined });
+    slides.push({ marks: r.marks, unsure: r.unsure || undefined, _r: r });
     if (onSlide) onSlide(i + 1, d.imgs.length);
   }
+  // words of a part that no slide was found to have: its chords would be missing, so the slide next to the gap needs checking
+  const groups = new Map(); slides.forEach(x => { const r = x._r; if (r.span && r.n) { if (!groups.has(r.bi)) groups.set(r.bi, []); groups.get(r.bi).push(x); } });
+  for (const list of groups.values()) {
+    const len = list[0]._r.len, cov = new Uint8Array(len);
+    list.forEach(x => cov.fill(1, x._r.span[0], x._r.span[1]));
+    for (let j = 0; j < len;) {
+      if (cov[j]) { j++; continue; }
+      let k = j; while (k < len && !cov[k]) k++;
+      if (k - j >= 3) { const after = list.find(x => x._r.span[0] === k), before = list.find(x => x._r.span[1] === j); const x = after || before; if (x) x.unsure = true; }
+      j = k;
+    }
+  }
+  slides.forEach(x => delete x._r);
   const data = { v: 1, song: s.key, deck: f.id, deckMod: String(f.modified || ''), chart: cf.id, chartKey: chart.meta.key || '', slides };
   return { data, imgs: d.imgs };
 }
@@ -5131,14 +5144,17 @@ $('#scGo').onclick = async () => {
   if (scRun) { scRun.stop = true; $('#scGo').textContent = 'Stopping…'; return; }
   const todo = scSongs().filter(s => ['todo', 'stale'].includes(scState(s)));
   scRun = { stop: false }; scRender();
-  let done = 0, bad = 0;
-  for (const s of todo) {
-    if (scRun.stop) break;
-    $('#scProg').textContent = `${done + 1} of ${todo.length}: ${s.title}…`;
-    try { const { data } = await scPlaceSong(s, (i, n) => { $('#scProg').textContent = `${done + 1} of ${todo.length}: ${s.title} (slide ${i} of ${n})`; }); await scSave(s, data); }
-    catch { bad++; }
-    done++; if (done % 5 === 0 && $('#scPanel').classList.contains('show')) scRender();
-  }
+  let done = 0, bad = 0, next = 0;
+  const one = async () => {   // three songs at a time: getting the slides is the slow part
+    while (!scRun.stop && next < todo.length) {
+      const s = todo[next++];
+      $('#scProg').textContent = `${done} of ${todo.length} done · now: ${s.title}`;
+      try { const { data } = await scPlaceSong(s); await scSave(s, data); } catch { bad++; }
+      done++; $('#scProg').textContent = `${done} of ${todo.length} done`;
+      if (done % 5 === 0 && $('#scPanel').classList.contains('show')) scRender();
+    }
+  };
+  await Promise.all([one(), one(), one()]);
   $('#scProg').textContent = `Done ${done} song${done === 1 ? '' : 's'}${bad ? ` · ${bad} couldn't be placed (no slides, or the slides couldn't be opened)` : ''}.`;
   scRun = null; scRender();
 };
