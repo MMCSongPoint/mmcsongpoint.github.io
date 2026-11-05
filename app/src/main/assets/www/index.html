@@ -1667,13 +1667,14 @@ function songRow(s, i, words = [], fuzzy = false, inPanel = false) {
       const mine = pickPart(s) || {}, playing = !!now && s.parts.includes(now.part), audioLess = !s.parts.length;
   const isMine = myPart && mine.part.toLowerCase().startsWith(myPart.toLowerCase());
   const allSaved = songFiles(s).every(p => downloaded.has(p.id)), busy = songFiles(s).some(p => downloading.has(p.id));
-  const showParts = s.parts.length > 1;
+  // the part buttons (Soprano, Alto…) only show on the song that's playing
+  const showParts = s.parts.length > 1 && playing;
   return `<div class="song${openRows.has(s.key) ? ' open' : ''}${i === sel && !inPanel ? ' sel' : ''}${playing ? ' playing' : ''}${isKnown(s) ? ' known' : ''}" data-i="${i}"${isKnown(s) ? ' title="A song we know well"' : ''}>
     ${audioLess ? '<span></span>'
       : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
     <div class="info"${audioLess && hasMusic(s) ? ' data-act="sheet"' : ''}>
       <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
-      <div class="sub">${picking ? highlight(s.collection, words) + fileChips(s) : `${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${fileChips(s)}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}`}</div>
+      <div class="sub">${picking ? highlight(s.collection, words) + fileChips(s) : `${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${fileChips(s)}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}`}</div>
     </div>
     <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${hasMusic(s) ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
     ${showParts ? `<div class="parts">${s.parts.map(p =>
