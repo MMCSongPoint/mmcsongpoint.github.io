@@ -60,6 +60,10 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .syncline { color: var(--muted); font-size: 12.5px; margin: -4px 2px 10px; min-height: 16px; }
   .syncline.err { color: var(--danger); }
+  .syncline:empty { display: none; }
+  #syncIcon { display: none; color: var(--muted); margin-left: 8px; animation: spin 1s linear infinite; flex: none; }
+  body.syncing #syncIcon { display: inline-block; }
+  #brandIcon { cursor: pointer; }
 
   .search { position: relative; }
   .search input { width: 100%; padding: 13px 44px 13px 44px; font-size: 17px; border-radius: 14px;
@@ -596,7 +600,7 @@
 <div class="ptr" id="ptr"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></div>
 <div class="wrap">
   <header>
-    <div class="brand"><i id="brandIcon" role="button" aria-label="MMC SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">MMC SongPoint</span></div>
+    <div class="brand"><i id="brandIcon" role="button" aria-label="MMC SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">MMC SongPoint</span><svg id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-label="Syncing"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg></div>
     <button class="hbtn" id="pipeBtn" title="Pitch pipe" aria-label="Pitch pipe"><span id="pipeBtnIcon"></span></button>
     <button class="hbtn" id="menuBtn" title="Menu" aria-label="Menu"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </header>
@@ -1347,7 +1351,7 @@ async function sync(manual = false) {
   if (syncing) return;
   if (!CFG.apiKey || CFG.apiKey.startsWith('PASTE')) { setSyncLine('The app is missing its Google API key (config.js).', true); return; }
   if (!navigator.onLine) { setSyncLine(library.synced ? `Offline · last refreshed ${ago(library.synced)}` : 'You\'re offline.', !library.synced); if (manual) toast('No internet connection'); return; }
-  syncing = true; $('#syncBtn').classList.add('spin'); setSyncLine('Checking Google Drive…');
+  syncing = true; syncSpin(true); $('#syncBtn').classList.add('spin'); setSyncLine('');
   if (manual) { try { checkUpdate(); checkWebUpdate(); } catch {} }   // a refresh also looks for a new app version
   try {
     const tracks = [], seenColl = [];
@@ -1438,19 +1442,21 @@ async function sync(manual = false) {
     buildIndex(); renderTabs(); search();
     setSyncLine(`${summary()} · last refreshed just now`);
     if ($('#checkPanel').classList.contains('show')) renderCheck();
-    if (manual) toast(tracks.length + sheets.length + slides.length + chords.length === before ? 'Up to date' : `Library updated: ${summary()}`);
+    if (manual) toast(tracks.length + sheets.length + slides.length + chords.length === before ? 'Up to date' : 'Songs updated');
   } catch (e) {
     setSyncLine(navigator.onLine ? `Couldn't update: ${e.message}` : 'You\'re offline.', true);
     if (manual) toast(e.message || 'Update failed', 4500);
   } finally {
-    syncing = false; $('#syncBtn').classList.remove('spin'); $('#ptr').classList.remove('busy'); $('#ptr').style.opacity = 0;
+    syncing = false; syncSpin(false); $('#syncBtn').classList.remove('spin'); $('#ptr').classList.remove('busy'); $('#ptr').style.opacity = 0;
   }
 }
 function summary() {
   const t = library.tracks.length, m = songs.filter(s => s.sheets.length).length;
   return `${t} track${t === 1 ? '' : 's'}` + (m ? ` · ${m} with sheet music` : '');
 }
-function setSyncLine(text, isErr = false) { const el = $('#syncLine'); el.textContent = text; el.classList.toggle('err', isErr); }
+function setSyncLine(text, isErr = false) { const el = $('#syncLine'); el.textContent = isErr || /^Offline|offline/.test(text) ? text : ''; el.classList.toggle('err', isErr); }
+let syncBusy = 0;
+function syncSpin(on) { syncBusy = Math.max(0, syncBusy + (on ? 1 : -1)); document.body.classList.toggle('syncing', syncBusy > 0); }
 $('#syncBtn').onclick = () => { closeSheet(); sync(true); };
 
 // ------------------------------------------------------------------ search
@@ -4402,7 +4408,13 @@ $('#checkUpdBtn').onclick = () => checkUpdate(true);
 // Red dot on the app icon (top left) when an update is ready; tapping it asks to download / reload
 function showUpdateBadge(title) { const b = $('#brandIcon'); b.classList.add('has-update'); b.title = title; }
 $('#brandIcon').onclick = () => {
-  if (!$('#brandIcon').classList.contains('has-update')) return;
+  // tapping the icon syncs song lists (and the library)
+  if (!$('#brandIcon').classList.contains('has-update')) {
+    if (!navigator.onLine) return toast('No internet connection');
+    syncSpin(true); Promise.resolve(loadLists()).catch(() => {}).finally(() => syncSpin(false));
+    if (!syncing) sync(false);
+    return;
+  }
   if (updateInfo) {
     if (confirm(`MMC SongPoint ${updateInfo.version} is available.\n\nDownload it now?`)) downloadUpdate();
   } else if (webUpdate) {
