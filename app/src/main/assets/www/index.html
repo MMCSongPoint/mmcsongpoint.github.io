@@ -148,6 +148,8 @@
   .num { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500; margin-right: 6px; }
   .sub { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .song.open .title, .song.open .sub { white-space: normal; overflow: visible; }
+  .song.open .info { grid-column: 2 / 4; }
+  .song.open .acts { grid-column: 2 / 4; justify-self: end; }
   .song.open .sub .slidechip { display: inline-block; margin-top: 2px; }
   .badge { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 6px; font-weight: 500; vertical-align: 1px; }
   .dl { width: 38px; height: 38px; border: none; background: none; color: var(--muted); display: grid; place-items: center; border-radius: 8px; }
@@ -1707,8 +1709,10 @@ $('#list').addEventListener('click', e => {
   const row = e.target.closest('.song'); if (!row) return;
   const s = results[+row.dataset.i].s;
   if (narrow() && e.target.closest('.info') && !e.target.closest('button')) {
-    openRows.has(s.key) ? openRows.delete(s.key) : openRows.add(s.key);
-    row.classList.toggle('open', openRows.has(s.key)); return;
+    const was = openRows.has(s.key);
+    openRows.clear(); document.querySelectorAll('#list .song.open').forEach(r => r.classList.remove('open'));   // one at a time
+    if (!was) { openRows.add(s.key); row.classList.add('open'); }
+    return;
   }
   const btn = e.target.closest('[data-act]'), act = btn && btn.dataset.act;
   sel = +row.dataset.i;
