@@ -4593,8 +4593,8 @@ function setApproved(map) { mp3Approved = map || {}; store.set('mp3Approved', mp
 async function loadApproved() { try { const r = await api('mp3Approved'); if (r.ok) setApproved(r.reviewed); } catch {} }
 // reviewed = played to the end and marked "sounded good" (and the file hasn't been replaced since)
 const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id] || t.modified <= rvReviewed[t.id]);
-// for now only the songs we know (the green ones) are reviewed; SFP's MP3s aren't AI-generated, so they're left out
-function rvAll() { const ids = new Set(); for (const s of songs) if (isKnown(s) && !/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
+// for now: the songs we know (the green ones) and all of Misc; SFP's MP3s aren't AI-generated, so they're left out
+function rvAll() { const ids = new Set(); for (const s of songs) if ((isKnown(s) || /^misc$/i.test(s.collection)) && !/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
 function rvList() {
   const q = normalize($('#rvQ').value || ''), only = $('#rvOnly').checked, showDone = $('#rvDone').checked, flagged = new Set(rvIssues.map(x => x.fileId));
   return rvAll().filter(t => (!rvBook || t.collection === rvBook) && (!only || flagged.has(t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
