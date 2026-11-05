@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 37 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 38 }); }
 
 function doPost(e) {
   var d;
@@ -200,6 +200,7 @@ function handle_(d) {
   if (a === 'setKeyCheck') return setKeyCheck_(me, d);
   if (a === 'slideImagesRun') return slideImagesRun_(Number(d.seconds) || 240, Number(d.part) || 0, Number(d.of) || 1);
   if (a === 'slideChordsSave') return slideChordsSave_(me, d);
+  if (a === 'chordSave') return chordSave_(me, d);
   if (a === 'slideImagesStatus') return slideImagesStatus_();
   if (a === 'mp3Issues') return { ok: true, issues: mp3Issues_(), reviewed: mp3Reviewed_() };
   if (a === 'mp3Review') return mp3Review_(me, d);
@@ -1163,6 +1164,29 @@ function chordUpload_(me, d) {
   else f = folder.createFile(name, text, 'text/plain');
   try { f.setDescription('Uploaded in SongPoint by ' + (me.name || me.username) + ' on ' + new Date().toDateString()); } catch (e) {}
   return { ok: true, id: f.getId(), name: f.getName(), modified: f.getLastUpdated().toISOString() };
+}
+
+/** An admin edited a chord sheet in the app: the file in the Chord Pro folder is replaced (the old text is kept in "Chord Sheet Backups"). */
+function chordSave_(me, d) {
+  var text = String(d.text || '');
+  if (!text.trim() || text.length > 200000) return { ok: false, error: 'The chord sheet is empty or too big.' };
+  var f; try { f = DriveApp.getFileById(String(d.id || '')); } catch (e) { return { ok: false, error: 'Couldn\'t find that chord sheet.' }; }
+  if (!inFolder_(f, CHORDS_FOLDER)) return { ok: false, error: 'That file isn\'t in the Chord Pro folder.' };
+  var was = Date.parse(String(d.was || ''));
+  if (!d.force && was && Math.abs(f.getLastUpdated().getTime() - was) > 2000) return { ok: false, changed: true, error: 'This chord sheet was changed since you opened it.' };
+  try { folder_('Chord Sheet Backups').createFile(f.getName() + ' (before ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HHmm') + ', ' + (me.name || me.username) + ')', f.getBlob().getDataAsString(), 'text/plain'); } catch (e) {}
+  f.setContent(text);
+  try { f.setDescription('Edited in SongPoint by ' + (me.name || me.username) + ' on ' + new Date().toDateString()); } catch (e) {}
+  return { ok: true, id: f.getId(), name: f.getName(), modified: f.getLastUpdated().toISOString() };
+}
+function inFolder_(f, rootId) {
+  var seen = 0, todo = [];
+  var it = f.getParents(); while (it.hasNext()) todo.push(it.next());
+  while (todo.length && seen++ < 20) {
+    var p = todo.shift(); if (p.getId() === rootId) return true;
+    var up = p.getParents(); while (up.hasNext()) todo.push(up.next());
+  }
+  return false;
 }
 
 // ------------------------------------------------------------------ change a username (admins)

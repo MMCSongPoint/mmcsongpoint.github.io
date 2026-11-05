@@ -313,6 +313,25 @@
   .slidepip .spchords { position: absolute; container-type: inline-size; pointer-events: none; }
   .sctag { position: absolute; transform: translateY(-100%); font-weight: 700; line-height: 1; color: #b3261e; white-space: nowrap; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; paint-order: stroke; -webkit-text-stroke: .22em #fff; }
   .slidepip .splabel { position: absolute; right: 8px; bottom: 8px; background: rgba(255,255,255,.92); color: #333; font: 600 12px system-ui, sans-serif; padding: 4px 9px; border-radius: 7px; border: 1px solid #bbb; }
+  .chedit { position: fixed; inset: 0; z-index: 95; background: var(--bg); display: none; flex-direction: column; }
+  .chedit.show { display: flex; }
+  .chedit .chebar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .chedit .chebar b { font-size: 15px; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }
+  .chedit .chebar .seg { display: none; }
+  .chedit .chebody { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+  .chedit textarea { width: 100%; height: 100%; resize: none; border: 0; border-right: 1px solid var(--line); padding: 12px 14px; font: 15px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--bg); color: var(--text); outline: none; tab-size: 4; }
+  .chedit .chepre { overflow: auto; min-height: 0; }
+  .chedit .chepre .chart { padding-bottom: 40px; }
+  .chedit .chehelp { font-size: 12px; color: var(--muted); padding: 6px 12px; border-top: 1px solid var(--line); }
+  .chedit .chehelp code { background: var(--line); padding: 0 4px; border-radius: 4px; }
+  @media (max-width: 800px) {
+    .chedit .chebar .seg { display: inline-flex; }
+    .chedit[data-v="edit"] .seg [data-v="edit"], .chedit[data-v="preview"] .seg [data-v="preview"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .chedit .chehelp { max-height: 4.5em; overflow: auto; }
+    .chedit .chebody { grid-template-columns: 1fr; }
+    .chedit[data-v="edit"] .chepre, .chedit[data-v="preview"] textarea { display: none; }
+    .chedit textarea { border-right: 0; }
+  }
   .scedit { position: fixed; inset: 0; z-index: 90; background: #1c1c1c; display: none; overflow: auto; }
   .scedit.show { display: block; }
   .scedit .scbar { position: sticky; top: 0; z-index: 2; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; background: #111; color: #eee; border-bottom: 1px solid #333; }
@@ -1001,6 +1020,12 @@
     <input id="scQ" type="search" placeholder="Title or number" style="width:100%;margin-bottom:8px">
     <div id="scList"></div>
   </div>
+</div>
+<!-- Edit a chord sheet (admins): ChordPro text on the left, how it looks on the right -->
+<div class="chedit" id="chEdit" data-v="edit">
+  <div class="chebar"><b id="cheTitle"></b><span class="cgrp seg"><button class="pbtn ghost" data-v="edit">Edit</button><button class="pbtn ghost" data-v="preview">Preview</button></span><button class="pbtn ghost" id="cheCancel">Cancel</button><button class="pbtn" id="cheSave">Save</button></div>
+  <div class="chebody"><textarea id="cheText" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Chord sheet"></textarea><div class="chepre" id="chePre"></div></div>
+  <div class="chehelp">Put each chord in square brackets just before the word or syllable it's played on: <code>[G]Amazing [G7]grace</code>. Put a part's name on its own line (<code>Verse 1</code>, <code>Chorus</code>). The key goes in <code>{key: G}</code>. Saving changes it for everyone; the old version is kept in Drive (Chord Sheet Backups).</div>
 </div>
 <div class="scedit" id="scEdit"><div class="scbar"><b id="scTitle"></b><small id="scStatus"></small><button class="pbtn ghost" id="scAdd">+ Chord</button><button class="pbtn ghost" id="scDel" style="display:none">Remove</button><button class="pbtn ghost" id="scRedo">Place again</button><button class="pbtn" id="scOk">✓ Looks right</button><button class="pbtn ghost" id="scClose">✕ Close</button></div><div id="scBody"></div></div>
 <div class="kcbig" id="kcBig"><button class="pbtn" id="kcBigClose">✕ Close</button><div id="kcBigBody"></div></div>
@@ -2285,6 +2310,7 @@ function drawChords() {
     <div class="cview">
       ${arr ? `<div class="cgrp seg"><button class="${useArr ? 'on' : ''}" data-c="arranged">Arranged</button><button class="${useArr ? '' : 'on'}" data-c="original">Original</button></div>` : ''}
       <button data-c="arrange">${arr ? 'Edit order' : 'Section order'}</button>
+      ${isAdmin() && chordFile ? '<button data-c="editsheet" title="Change the chords or words (for everyone)">Edit sheet</button>' : ''}
       ${keyMoved ? '<button class="ctog on" data-c="savekey">Save key</button>' : ''}
     </div>
     <div class="cbody${useArr && arr.note ? ' hasnote' : ''}">
@@ -2328,6 +2354,7 @@ $('#vPages').addEventListener('click', e => {
   else if (c === 'only') { chordsOnly = !chordsOnly; drawChords(); }
   else if (c === 'arranged' || c === 'original') { chordView = c; if (c === 'arranged') applyArrKey(viewing, arrFor(chordFile)); drawChords(); }
   else if (c === 'arrange') openArrange();
+  else if (c === 'editsheet') chEditOpen(viewing, chordFile);
   else if (c === 'note') {   // phones: tap opens the whole note, tap again closes it. Wide screens show it all: tap edits.
     if (window.matchMedia('(min-width: 700px)').matches) return openArrange();
     noteOpen = !noteOpen; b.classList.toggle('open', noteOpen);
@@ -5404,6 +5431,7 @@ function openRowMenu(s, btn) {
   $('#rowMenu').innerHTML =
     `<button data-m="fav"><span class="ic star">${isFav(s) ? '★' : '☆'}</span>${isFav(s) ? 'Remove from favorites' : 'Add to favorites'}</button>`
     + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (tap to cancel)' : saved ? 'Remove offline copy' : 'Save for offline'}</button>` : '')
+    + (isAdmin() ? `<button data-m="editchords"><span class="ic">✎</span>${s.chords.length ? 'Edit chord sheet' : 'Write a chord sheet'}</button>` : '')
     + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Upload a new chord sheet' : 'Upload a chord sheet'}</button>`
     + (isAdmin() ? `<button data-m="known"><span class="ic known">▍</span>${isKnown(s) ? 'Not a song we know' : 'Mark as a song we know'}</button>` : '')
     + (myLive && !(perf && perf.role === 'host') ? liveBtn(myLive) : '');
@@ -5458,9 +5486,78 @@ $('#rowMenu').addEventListener('click', e => {
     api('setKnown', { key: s.key, known: on, title: s.title, book: s.collection }).then(r => { if (r.ok) applyKnown(r.known); else { applyKnown(before); toast(r.error || 'Couldn\'t save that', 4000); } })
       .catch(() => { applyKnown(before); toast('Couldn\'t save that. Check your connection.', 4000); });
   }
+  else if (b.dataset.m === 'editchords') chEditOpen(s, s.chords[0] || null);
   else if (b.dataset.m === 'chords') { chordUploadSong = s; $('#chordFile').value = ''; $('#chordFile').click(); }
 });
+// ---- edit a chord sheet (admins): the ChordPro text, with the chart as it'll look next to it
+let chEd = null, chEdT = 0;
+function chEditName(s, text) {
+  const km = (parseChordPro(text).meta.key || '').match(/^[A-G][#b]?m?/), key = km ? km[0] : '';
+  return `${s.number ? String(s.number).padStart(4, '0') + ' ' : ''}${s.title.replace(/[\\/:*?"<>|]+/g, ' ').trim()}${key ? ' - ' + key : ''}.chordpro`;
+}
+async function chEditOpen(s, x) {
+  if (!s || !isAdmin()) return;
+  if (!navigator.onLine) return toast('Connect to the internet to edit chord sheets');
+  let text = '';
+  if (x) { try { text = await loadChordText(x); } catch { return toast('Couldn\'t open the chord sheet'); } }
+  else text = `{title: ${s.title}}\n{key: ${s.musicKey || ''}}\n\nVerse 1\n[${s.musicKey || 'G'}]\n`;
+  chEd = { s, x, orig: x ? text : '' };
+  $('#cheTitle').textContent = `${x ? 'Edit chords' : 'New chord sheet'}: ${(s.number ? s.number + '. ' : '') + s.title}`;
+  $('#cheText').value = text; $('#chEdit').dataset.v = 'edit';
+  $('#chEdit').classList.add('show'); chPreview();
+  setTimeout(() => $('#cheText').focus(), 50);
+}
+function chPreview() {
+  const t = $('#cheText').value;
+  let html; try { html = renderChordChart(parseChordPro(t), 0); } catch { html = '<div class="vmsg">Can\'t show this yet</div>'; }
+  $('#chePre').innerHTML = `<div class="chart" style="font-size:${chordSize}px">${html}</div>`;
+}
+$('#cheText').addEventListener('input', () => { clearTimeout(chEdT); chEdT = setTimeout(chPreview, 250); });
+$('#cheText').addEventListener('keydown', e => {   // Tab puts in a tab instead of leaving the box
+  if (e.key !== 'Tab') return; e.preventDefault();
+  const el = e.target, a = el.selectionStart; el.setRangeText('\t', a, el.selectionEnd, 'end'); el.dispatchEvent(new Event('input'));
+});
+$('#chEdit .seg').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) { $('#chEdit').dataset.v = b.dataset.v; if (b.dataset.v === 'preview') chPreview(); } });
+function chEditClose() { $('#chEdit').classList.remove('show'); chEd = null; }
+$('#cheCancel').onclick = async () => {
+  if (chEd && $('#cheText').value !== chEd.orig && (chEd.x || $('#cheText').value.trim())) {
+    const c = await choose('Throw away your changes?', 'The chord sheet stays as it was.', [{ label: 'Throw away', value: 'go', primary: true }, { label: 'Keep editing', value: 'cancel' }]);
+    if (c !== 'go') return;
+  }
+  chEditClose();
+};
+$('#cheSave').onclick = async () => {
+  const e = chEd; if (!e) return;
+  const text = $('#cheText').value;
+  if (!/\[[A-G][^\]]*\]/.test(text)) return toast('There are no [chords] in it yet', 3000);
+  if (e.x && text === e.orig) return chEditClose();
+  if (!navigator.onLine) return toast('Connect to the internet to save');
+  $('#cheSave').disabled = true; $('#cheSave').textContent = 'Saving…';
+  try {
+    let r = e.x ? await api('chordSave', { id: e.x.id, text, was: e.x.modified || '' }) : await api('chordUpload', { book: e.s.collection, name: chEditName(e.s, text), text });
+    if (!r.ok && r.changed) {
+      const c = await choose('Someone else changed this chord sheet', 'It was changed after you opened it. Save yours anyway (theirs is kept in Chord Sheet Backups), or cancel and open it again to see their changes.', [{ label: 'Save mine', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]);
+      if (c !== 'go') return;
+      r = await api('chordSave', { id: e.x.id, text, force: true });
+    }
+    if (!r.ok) return toast(r.error || 'Couldn\'t save it', 4500);
+    chordLibAdd(e.s, r);
+    // chords already placed on this song's slides follow the old sheet: they'll be placed again
+    if (scIndex[e.s.key]) { api('slideChordsSave', { song: e.s.key, status: 'delete' }).catch(() => {}); delete scIndex[e.s.key]; store.set('scIndex', scIndex); scData.delete(e.s.key); }
+    chEditClose(); toast('Chord sheet saved');
+    const fresh = songIndex.get(e.s.key) || songs.find(x => x.chords.some(y => y.id === r.id));
+    if (fresh) openViewer(fresh, false, null, 'chords');
+  } catch { toast('Couldn\'t save it. Check the internet connection.', 4000); }
+  finally { $('#cheSave').disabled = false; $('#cheSave').textContent = 'Save'; }
+};
 // ---- upload a chord sheet (ChordPro / OnSong / SongSelect .txt) for a song: saved to the Chord Pro folder on Drive
+function chordLibAdd(s, r) {   // a chord sheet saved on the server: into the library on this device
+  const old = (library.chords || []).find(x => x.id === r.id);
+  const p = parseChordFile(r.name, true) || { ext: 'chordpro', number: s.number, title: s.title };
+  const entry = Object.assign({}, old || { collection: s.collection, number: p.number || s.number || '', title: p.title || s.title, ext: p.ext }, { id: r.id, name: r.name, modified: r.modified });
+  library.chords = (library.chords || []).filter(x => x.id !== r.id).concat(entry);
+  chordText.clear(); store.set('library', library); buildIndex(); renderTabs(); search();
+}
 let chordUploadSong = null;
 $('#chordFile').onchange = async e => {
   const f = e.target.files && e.target.files[0], s = chordUploadSong; e.target.value = '';
@@ -5483,10 +5580,7 @@ $('#chordFile').onchange = async e => {
   try {
     const r = await api('chordUpload', { book: s.collection, name, text });
     if (!r.ok) return toast(r.error || 'Couldn\'t upload it', 4500);
-    const p = parseChordFile(r.name, true) || { ext: 'chordpro', number: s.number, title: s.title };
-    const entry = { id: r.id, name: r.name, collection: s.collection, number: p.number || s.number || '', title: p.title || s.title, ext: p.ext, modified: r.modified };
-    library.chords = (library.chords || []).filter(x => x.id !== r.id).concat(entry);
-    chordText.clear(); store.set('library', library); buildIndex(); renderTabs(); search();
+    chordLibAdd(s, r);
     toast(`Chords added to ${s.title}`);
     const fresh = songIndex.get(s.key) || songs.find(x => x.chords.some(y => y.id === r.id));
     if (fresh) openViewer(fresh, false, null, 'chords');
