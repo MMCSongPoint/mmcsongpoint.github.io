@@ -343,6 +343,10 @@
   .arow .al { flex: 1; font-weight: 600; }
   .arow button { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 7px; width: 32px; height: 30px; font-size: 15px; }
   .arow button:disabled { opacity: .3; }
+  .arow .ahandle { width: 26px; height: 30px; display: grid; place-items: center; color: var(--muted); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 20px; }
+  .arow.dragging { position: relative; z-index: 2; background: var(--row); box-shadow: 0 4px 14px rgba(0,0,0,.25); border-radius: 8px; }
+  .arow.dragging .ahandle { cursor: grabbing; color: var(--accent-text); }
+  #arrList.reordering .arow:not(.dragging) { transition: transform .15s; }
   .aempty { padding: 14px; color: var(--muted); font-size: 13px; text-align: center; }
   .arrlbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 4px 0 6px; }
   .arradd { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
@@ -1664,7 +1668,7 @@ function songRow(s, i, words = [], fuzzy = false, inPanel = false) {
       : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
     <div class="info"${audioLess && hasMusic(s) ? ' data-act="sheet"' : ''}>
       <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
-      <div class="sub">${picking ? highlight(s.collection, words) + fileChips(s) : `${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${audioLess ? (s.sheets.length ? ' · Sheet music only' : s.chords.length ? ' · Chords only' : ' · Slides only') : ''}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}`}</div>
+      <div class="sub">${picking ? highlight(s.collection, words) + fileChips(s) : `${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${fileChips(s)}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${!showParts && mine.part && mine.part !== DEFAULT_PART ? ' · ' + highlight(mine.part, words) : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}`}</div>
     </div>
     <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${hasMusic(s) ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
     ${showParts ? `<div class="parts">${s.parts.map(p =>
@@ -2297,8 +2301,8 @@ function openArrange() {
 }
 function renderArr() {
   const o = arrDraft.order, k = chordKeyState(viewing, chordChart);
-  $('#arrList').innerHTML = o.length ? o.map((x, n) => `<div class="arow"><span class="an">${n + 1}</span><span class="al">${esc(x.label)}</span>`
-    + `<button data-up="${n}" aria-label="Move up"${n ? '' : ' disabled'}>↑</button><button data-down="${n}" aria-label="Move down"${n < o.length - 1 ? '' : ' disabled'}>↓</button><button data-rm="${n}" aria-label="Remove">×</button></div>`).join('')
+  $('#arrList').innerHTML = o.length ? o.map((x, n) => `<div class="arow" data-n="${n}"><span class="ahandle" title="Drag to reorder" aria-label="Drag to reorder">≡</span><span class="an">${n + 1}</span><span class="al">${esc(x.label)}</span>`
+    + `<button data-rm="${n}" aria-label="Remove">×</button></div>`).join('')
     : '<div class="aempty">No sections yet. Tap the sections below in the order you want them.</div>';
   $('#arrAdd').innerHTML = arrDraft.secs.map(x => `<button class="pp" data-add="${x.i}">+ ${esc(x.label)}</button>`).join('');
   $('#arrKey').textContent = k.label || '—';
@@ -2316,6 +2320,34 @@ $('#arrBox').addEventListener('click', e => {
   else return;
   renderArr();
 });
+// drag a section by its ≡ handle to a new place
+(() => {
+  const list = $('#arrList'); let d = null;
+  list.addEventListener('pointerdown', e => {
+    const h = e.target.closest('.ahandle'); if (!h || !arrDraft) return;
+    e.preventDefault();
+    const row = h.closest('.arow'), rows = [...list.querySelectorAll('.arow')];
+    d = { row, rows, from: +row.dataset.n, to: +row.dataset.n, y0: e.clientY, mids: rows.map(r => { const b = r.getBoundingClientRect(); return b.top + b.height / 2; }), h: row.offsetHeight };
+    try { h.setPointerCapture(e.pointerId); } catch {}
+    list.classList.add('reordering'); row.classList.add('dragging');
+    if (navigator.vibrate) navigator.vibrate(10);
+  });
+  list.addEventListener('pointermove', e => {
+    if (!d) return;
+    const dy = e.clientY - d.y0, c = d.mids[d.from] + dy;
+    d.row.style.transform = `translateY(${dy}px)`;
+    let to = 0; d.mids.forEach((m, k) => { if (k !== d.from && c > m) to++; });
+    d.to = to;
+    d.rows.forEach((r, k) => { if (k === d.from) return; const sh = d.from < to && k > d.from && k <= to ? -d.h : d.from > to && k >= to && k < d.from ? d.h : 0; r.style.transform = sh ? `translateY(${sh}px)` : ''; });
+  });
+  const end = () => {
+    if (!d) return; const { from, to } = d; d = null;
+    list.classList.remove('reordering');
+    if (from !== to) { const o = arrDraft.order; o.splice(to, 0, o.splice(from, 1)[0]); }
+    renderArr();
+  };
+  list.addEventListener('pointerup', end); list.addEventListener('pointercancel', end);
+})();
 $('#arrCancel').onclick = closeArrange;
 $('#arrSave').onclick = () => { if (!arrDraft.order.length) return toast('Add at least one section'); saveArrangement(arrDraft.order); };
 async function saveArrangement(order, keyOnly = false) {
