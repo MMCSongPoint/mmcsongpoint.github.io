@@ -1232,7 +1232,8 @@ const bookKey = b => String(b || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const knownSet = new Set();
 for (const b of window.SONGS_KNOWN || []) for (const book of [b.book, ...(b.aka || [])]) for (const n of b.numbers) knownSet.add(bookKey(book) + '|' + n);
 let knownEdits = store.get('knownEdits', {});   // marked / unmarked in the app (admins), shared through the server
-const knownBase = s => !!(s && s.number && knownSet.has(bookKey(s.collection) + '|' + String(s.number).replace(/^0+/, '')));
+// every Misc song counts as known; other books by the numbers in known.js
+const knownBase = s => !!(s && (/^misc$/i.test(s.collection) || (s.number && knownSet.has(bookKey(s.collection) + '|' + String(s.number).replace(/^0+/, '')))));
 const isKnown = s => !!s && (s.key in knownEdits ? !!knownEdits[s.key] : knownBase(s));
 function applyKnown(map) {
   const was = JSON.stringify(knownEdits); knownEdits = map || {}; store.set('knownEdits', knownEdits);
