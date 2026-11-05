@@ -1,0 +1,18 @@
+SongPoint: save slides as pictures
+==================================
+Saves every song's slides as pictures with PowerPoint on this computer, into
+My Drive\SongPoint\Slide Images\<book>\<song>\ (slide-01.png, slide-02.png, ... and slides.json).
+Google Drive for desktop uploads them. There are no Google limits, so it's much faster than the server.
+
+You need: Windows, Microsoft PowerPoint, and Google Drive for desktop (My Drive on this computer, e.g. H:\My Drive).
+
+1. Unzip this folder anywhere.
+2. Double-click "Save slides as pictures.cmd". (If Windows asks, choose "More info" > "Run anyway".)
+3. Leave the window open. It lists each song as it's done. Songs that already have up-to-date pictures are skipped.
+
+- To stop: close the window. Run it again later and it carries on where it left off.
+- If a slideshow is running in PowerPoint (e.g. during a service), it waits until it ends.
+- To try it on a few songs first, open a Command Prompt in this folder and run:
+     "Save slides as pictures.cmd" -Limit 5
+- The log is in %LOCALAPPDATA%\SongPoint helper\slide-pictures-log.txt
+- Run it again after slides are added or changed: only the new and changed ones are made.
