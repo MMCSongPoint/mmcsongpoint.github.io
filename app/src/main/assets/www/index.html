@@ -4826,7 +4826,7 @@ const kcSig = k => (KC_KEYS.find(x => x[0] === k) || [])[1] || '';
 let kcBook = '', kcObs = null;
 const kcCache = new Map();   // sheet id -> Promise<{ crop, full }>
 function kcSongs() {
-  return songs.filter(s => s.sheets.length && !isTextDoc(s) && (keyScanBooks.has(s.collection) || /^(sfp|songs of faith and praise)$/i.test(s.collection) || s.keyFrom === 'scan' || keyChecks[s.key]))
+  return songs.filter(s => s.sheets.length && !isTextDoc(s) && (keyScanBooks.has(s.collection) || /^(sfp|songs of faith and praise|misc|worship team)$/i.test(s.collection) || s.keyFrom === 'scan' || keyChecks[s.key]))
     .sort((a, b) => a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.nTitle.localeCompare(b.nTitle));
 }
 function kcRender() {
