@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 36 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 37 }); }
 
 function doPost(e) {
   var d;
@@ -180,6 +180,8 @@ function handle_(d) {
   if (a === 'perfEnd') return perfEnd_(d);
   if (a === 'perfMine') return perfMine_(me);
   if (a === 'perfRemote') return perfRemote_(me, d);
+  if (a === 'slideChordsIndex') return { ok: true, index: slideChordsIndex_() };
+  if (a === 'slideChordsGet') return slideChordsGet_(d);
   if (a === 'getArrangements') return { ok: true, arrangements: arrangements_() };
   if (a === 'setArrangement') return setArrangement_(me, d);
   if (a === 'deleteArrangement') return deleteArrangement_(me, d);
@@ -197,6 +199,7 @@ function handle_(d) {
   if (a === 'setKnown') return setKnown_(me, d);
   if (a === 'setKeyCheck') return setKeyCheck_(me, d);
   if (a === 'slideImagesRun') return slideImagesRun_(Number(d.seconds) || 240, Number(d.part) || 0, Number(d.of) || 1);
+  if (a === 'slideChordsSave') return slideChordsSave_(me, d);
   if (a === 'slideImagesStatus') return slideImagesStatus_();
   if (a === 'mp3Issues') return { ok: true, issues: mp3Issues_(), reviewed: mp3Reviewed_() };
   if (a === 'mp3Review') return mp3Review_(me, d);
@@ -573,6 +576,47 @@ function setKeyCheck_(me, d) {
     }
   } finally { lock.releaseLock(); }
   return { ok: true, keys: keyChecks_() };
+}
+
+// ---- chords placed on the slide pictures (musicians' "View Slides" + Chords): one JSON file per song in "Slide Chords"
+var SCH = 'Slide Chords', SCHEAD = ['Song', 'Title', 'Book', 'Status', 'Slides', 'Unsure', 'Deck ID', 'Deck modified', 'Chart ID', 'File ID', 'By', 'When'];
+function slideChordsRows_() {
+  var sh = tab_(SCH, SCHEAD), n = sh.getLastRow() - 1;
+  return n < 1 ? [] : sh.getRange(2, 1, n, SCHEAD.length).getValues();
+}
+function slideChordsIndex_() {
+  var out = {};
+  slideChordsRows_().forEach(function (r) { if (r[0]) out[String(r[0])] = { status: String(r[3]), slides: Number(r[4]) || 0, unsure: Number(r[5]) || 0, deck: String(r[6]), deckMod: String(r[7]), chart: String(r[8]), by: String(r[10] || ''), at: r[11] ? new Date(r[11]).toISOString() : '' }; });
+  return out;
+}
+function slideChordsGet_(d) {
+  var song = String(d.song || ''), rows = slideChordsRows_();
+  for (var i = 0; i < rows.length; i++) if (String(rows[i][0]) === song) {
+    try { return { ok: true, data: JSON.parse(DriveApp.getFileById(String(rows[i][9])).getBlob().getDataAsString()) }; }
+    catch (e) { return { ok: false, error: 'Couldn\'t read the chords for that song.' }; }
+  }
+  return { ok: true, data: null };
+}
+function slideChordsSave_(me, d) {
+  var song = String(d.song || ''); if (!song) return { ok: false, error: 'No song given.' };
+  var status = String(d.status || '');
+  var lock = LockService.getScriptLock(); lock.waitLock(25000);
+  try {
+    var sh = tab_(SCH, SCHEAD), rows = slideChordsRows_(), i = -1;
+    for (var k = 0; k < rows.length; k++) if (String(rows[k][0]) === song) { i = k; break; }
+    if (status === 'delete') {
+      if (i >= 0) { try { DriveApp.getFileById(String(rows[i][9])).setTrashed(true); } catch (e) {} sh.deleteRow(i + 2); }
+      return { ok: true };
+    }
+    if (['auto', 'check', 'ok'].indexOf(status) < 0) return { ok: false, error: 'Unknown status.' };
+    var data = String(d.data || ''); JSON.parse(data);
+    var name = song.replace(/[\\/:*?"<>|]+/g, '_').slice(0, 150) + '.json', fileId = i >= 0 ? String(rows[i][9]) : '', f = null;
+    if (fileId) { try { f = DriveApp.getFileById(fileId); f.setContent(data); } catch (e) { f = null; } }
+    if (!f) { f = folder_(SCH).createFile(name, data, 'application/json'); fileId = f.getId(); }
+    var row = [song, String(d.title || ''), String(d.book || ''), status, Number(d.slides) || 0, Number(d.unsure) || 0, String(d.deck || ''), "'" + String(d.deckMod || ''), String(d.chart || ''), fileId, me.name || me.username, new Date()];
+    if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
+  } finally { lock.releaseLock(); }
+  return { ok: true };
 }
 
 /** "Songs we know" changes made in the app (on top of the list built into the app): key -> known yes/no. */

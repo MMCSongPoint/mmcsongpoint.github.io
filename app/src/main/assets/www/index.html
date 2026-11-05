@@ -310,6 +310,22 @@
   .slidepip { display: none; position: fixed; left: 0; right: 0; bottom: 0; top: 0; z-index: 60; background: #000; place-items: center; overflow: hidden; }
   .slidepip.show { display: grid; }
   .slidepip img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }   /* whole slide, letterboxed */
+  .slidepip .spchords { position: absolute; container-type: inline-size; pointer-events: none; }
+  .sctag { position: absolute; transform: translateY(-100%); font-weight: 700; line-height: 1; color: #b3261e; white-space: nowrap; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; paint-order: stroke; -webkit-text-stroke: .22em #fff; }
+  .slidepip .splabel { position: absolute; right: 8px; bottom: 8px; background: rgba(255,255,255,.92); color: #333; font: 600 12px system-ui, sans-serif; padding: 4px 9px; border-radius: 7px; border: 1px solid #bbb; }
+  .scedit { position: fixed; inset: 0; z-index: 90; background: #1c1c1c; display: none; overflow: auto; }
+  .scedit.show { display: block; }
+  .scedit .scbar { position: sticky; top: 0; z-index: 2; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; background: #111; color: #eee; border-bottom: 1px solid #333; }
+  .scedit .scbar b { font-size: 15px; margin-right: auto; } .scedit .scbar small { color: #aaa; font-size: 12px; }
+  .scedit #scBody { padding: 12px; max-width: 1100px; margin: 0 auto; }
+  .scslide { position: relative; margin: 0 0 14px; background: #fff; border: 3px solid transparent; touch-action: pan-y; }
+  .scslide.unsure { border-color: #f0a020; }
+  .scslide img { width: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+  .scslide .sclayer { position: absolute; inset: 0; container-type: inline-size; }
+  .scslide .sctag { cursor: grab; touch-action: none; user-select: none; padding: 0 .1em; }
+  .scslide .sctag.sel { outline: 2px solid #1a73e8; outline-offset: 2px; border-radius: 3px; }
+  .scslide .scnum { position: absolute; left: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 6px; }
+  .scst.check, .scst.stale { color: #e0a030; font-weight: 600; } .scst.ok { color: #3aa76d; font-weight: 600; }
   .slidepip .spmsg { color: #aaa; font-size: 18px; padding: 16px; text-align: center; }
   .pdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
   .pdot.ok { background: #3ddc84; } .pdot.bad { background: #ff4d4d; }
@@ -681,7 +697,7 @@
     <button class="icon" id="vPlay" aria-label="Play"></button>
   </div>
   <div class="perfbar" id="perfBar"></div>
-  <div class="slidepip" id="slidePip"><img alt="Current slide"><div class="spmsg"></div></div>
+  <div class="slidepip" id="slidePip"><img alt="Current slide"><div class="spchords"></div><div class="splabel" style="display:none"></div><div class="spmsg"></div></div>
   <div class="vtabs scroller" id="vTabs"></div>
   <div class="vbody" id="vBody"><div class="pages" id="vPages"></div></div>
   <div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div>
@@ -971,6 +987,22 @@
     <div id="kcList"></div>
   </div>
 </div>
+<!-- Chords on slides (admins): place chords above the music on the slide pictures, and check the ones the app isn't sure of -->
+<div class="panel" id="scPanel">
+  <div class="phead">
+    <button class="icon" data-close="scPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Chords on slides</h2>
+  </div>
+  <div class="pbody">
+    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">The app reads the words on each slide and puts the chord sheet's chords above the music. Musicians see them when they follow along with <b>View Slides</b>, in the key they pick. Songs marked <b>Needs checking</b> are hidden from musicians until you open them, fix anything that's off and tap <b>✓ Looks right</b>. Keep this screen open while it places them (about 20 seconds a song).</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><button class="pbtn" id="scGo">Place chords</button><span class="m" id="scProg" style="font-size:12.5px;color:var(--muted)"></span></div>
+    <p class="m" id="scCount" style="margin:0 0 6px;font-size:12.5px;color:var(--muted)"></p>
+    <div class="chips" id="scFilters" style="margin:0 0 8px"></div>
+    <input id="scQ" type="search" placeholder="Title or number" style="width:100%;margin-bottom:8px">
+    <div id="scList"></div>
+  </div>
+</div>
+<div class="scedit" id="scEdit"><div class="scbar"><b id="scTitle"></b><small id="scStatus"></small><button class="pbtn ghost" id="scAdd">+ Chord</button><button class="pbtn ghost" id="scDel" style="display:none">Remove</button><button class="pbtn ghost" id="scRedo">Place again</button><button class="pbtn" id="scOk">✓ Looks right</button><button class="pbtn ghost" id="scClose">✕ Close</button></div><div id="scBody"></div></div>
 <div class="kcbig" id="kcBig"><button class="pbtn" id="kcBigClose">✕ Close</button><div id="kcBigBody"></div></div>
 
 <!-- Closing songs: a plain list (known.js) -->
@@ -1043,6 +1075,7 @@
   <button class="act" id="checkBtn">Library check (missing files)</button>
   <button class="act" id="mp3Btn">MP3 review (flag problems)</button>
   <button class="act" id="keyChkBtn">Verify keys (check against the sheet music)</button>
+  <button class="act" id="scBtn">Chords on slides (place &amp; check)</button>
   <a class="act" id="pptHelperBtn" href="helper/SongPoint-helper-setup.exe" download style="display:block;text-decoration:none;color:inherit">PowerPoint helper for the projector computer (Windows setup)</a>
   <button class="act" id="changePwBtn">Change password</button>
   <button class="act" id="signOutBtn">Sign out</button>
@@ -2236,6 +2269,7 @@ async function showChords(x) {
   } catch { if (chordFile === x) box.innerHTML = `<div class="vmsg">Couldn't open the chords.${navigator.onLine ? '' : ' You\'re offline.'}</div>`; }
 }
 function drawChords() {
+  if (typeof scRefit === 'function') scRefit();
   if (!viewing || !chordChart || !$('#viewer').classList.contains('chordmode')) return;
   const s = viewing, k = chordKeyState(s, chordChart), m = chordChart.meta;
   const arr = chordFile && arrFor(chordFile), useArr = !!arr && chordView === 'arranged';
@@ -2907,7 +2941,8 @@ function renderPerfBar() {
     text = `<b>Following ${esc(perf.hostName)}</b> · ${esc(perf.code)}${how}`;
     btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow leader</button>')
       + (perf.last && perf.last.presenter ? (viewSlides ? '' : `<button class="${followSlides ? 'on' : ''}" data-p="slides" title="Scroll my chords to the words on the screen">Sync w/ Slides${followSlides ? ' ✓' : ''}</button>`)
-        + `<button data-p="view" title="${viewSlides ? 'Back to the chords' : 'Show the slides instead of the chords'}">${viewSlides ? 'Show Chords' : 'View Slides'}</button>` : '')
+        + `<button data-p="view" title="${viewSlides ? 'Back to the chords' : 'Show the slides instead of the chords'}">${viewSlides ? 'Show Chords' : 'View Slides'}</button>`
+        + (viewSlides && scUsable(songIndex.get(perf.last.song)) ? `<button class="${scOn ? 'on' : ''}" data-p="scchords" title="Chords above the music on the slide">Chords${scOn ? ' ✓' : ''}</button>` : '') : '')
       + `<button data-p="reconnect" title="${perfOnline() ? 'Connected' : 'Not connected'}"><i class="pdot ${perfOnline() ? 'ok' : 'bad'}"></i>Reconnect</button>`
       + '<button data-p="leave">Leave</button>';
   }
@@ -2922,7 +2957,8 @@ $('#perfBar').addEventListener('click', async e => {
   else if (b.dataset.p === 'leave') perfLeave();
   else if (b.dataset.p === 'follow') perfFollow();
   else if (b.dataset.p === 'reconnect') perfReconnect();
-  else if (b.dataset.p === 'view') { viewSlides = !viewSlides; store.set('viewSlides', viewSlides); renderPerfBar(); perfSlideView(perf && perf.last); }
+  else if (b.dataset.p === 'scchords') { scOn = !scOn; store.set('slideChordsOn', scOn); renderPerfBar(); scPipKey = ''; if (perf && perf.last) scPip(perf.last, songIndex.get(perf.last.song)); }
+  else if (b.dataset.p === 'view') { viewSlides = !viewSlides; store.set('viewSlides', viewSlides); renderPerfBar(); perfSlideView(perf && perf.last); if (viewSlides) loadScIndex().then(() => { renderPerfBar(); scRefit(); }); }
   else if (b.dataset.p === 'slides') { followSlides = !followSlides; store.set('followSlides', followSlides); renderPerfBar(); if (followSlides && perf && perf.last) { perf.slideLine = -1; perf.slideBlock = -1; perfFollowSlide(perf.last); } toast(followSlides ? 'Your chords follow the slides' : 'You scroll your own chords', 1800); }
 });
 // Connected = a direct link is open, or the server route answered in the last few seconds.
@@ -3456,9 +3492,9 @@ function perfSlideView(st) {
   const box = $('#slidePip');
   const on = viewSlides && perf && perf.role === 'guest' && st && st.presenter && $('#viewer').classList.contains('show');
   box.classList.toggle('show', !!on);
-  if (!on) { pipKey = ''; return; }
+  if (!on) { pipKey = ''; scPipKey = ''; return; }
   placeSlidePip();
-  const s = st.deckId ? deckItem(st.deckId, st.deckTitle) : songIndex.get(st.song), msg = t => { box.querySelector('img').style.display = 'none'; const m = box.querySelector('.spmsg'); m.textContent = t; m.style.display = ''; };
+  const s = st.deckId ? deckItem(st.deckId, st.deckTitle) : songIndex.get(st.song), msg = t => { box.querySelector('img').style.display = 'none'; const m = box.querySelector('.spmsg'); m.textContent = t; m.style.display = ''; scPip(null); };
   const key = [st.song, st.slideIdx, st.blank].join('|'); if (key === pipKey) return; pipKey = key;
   if (st.blank) return msg('Screen is blank');
   if (st.liveDeck) return msg(`${st.deckTitle || 'The speaker\'s slides'} are on the main screen`);
@@ -3468,7 +3504,7 @@ function perfSlideView(st) {
     if (pipKey !== key) return;
     const src = d && d.imgs[st.slideIdx ?? st.slideNo ?? 0];
     if (!src) return msg('');
-    const img = box.querySelector('img'); img.src = src; img.style.display = ''; box.querySelector('.spmsg').style.display = 'none';
+    const img = box.querySelector('img'); img.src = src; img.style.display = ''; box.querySelector('.spmsg').style.display = 'none'; scPip(st, s);
   }).catch(() => { if (pipKey === key) msg('Couldn\'t open the slides'); });
 }
 function placeSlidePip() { const b = $('#perfBar').getBoundingClientRect(); $('#slidePip').style.top = Math.max(0, Math.round(b.bottom)) + 'px'; }
@@ -4233,6 +4269,7 @@ function renderWelcome() {
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
   $('#mp3Btn').style.display = isAdmin() ? '' : 'none';
   $('#keyChkBtn').style.display = isAdmin() ? '' : 'none';
+  $('#scBtn').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
 }
 function signOut(expired = false) {
@@ -4878,6 +4915,315 @@ $('#kcList').addEventListener('click', e => {
 $('#kcList').addEventListener('change', e => { const sel = e.target.closest('select'); if (sel && sel.value) kcDone(e.target.closest('.kcrow'), sel.value); });
 function kcBigShow(html) { $('#kcBigBody').innerHTML = html; $('#kcBig').classList.add('show'); $('#kcBig').scrollTo(0, 0); }
 $('#kcBigClose').onclick = () => $('#kcBig').classList.remove('show');
+
+// ------------------------------------------------------------------ chords on the slide pictures
+// The words on each slide picture are read (OCR) and lined up with the chord sheet; each chord is put
+// just above the top staff of its line of music. Admins place them (Settings › Chords on slides) and
+// fix the ones the app isn't sure of; musicians see them over "View Slides", in the key they've chosen.
+let scIndex = store.get('scIndex', {}), scOn = store.get('slideChordsOn', true);
+const scData = new Map();   // song key -> Promise<data | null>
+async function loadScIndex() { try { const r = await api('slideChordsIndex'); if (r.ok) { scIndex = r.index || {}; store.set('scIndex', scIndex); } } catch {} }
+function scFresh(s) {   // placed for the slides as they are now
+  const x = s && scIndex[s.key], f = s && prFile(s), c = s && s.chords && s.chords[0];
+  return !!(x && f && c && x.deck === f.id && x.deckMod === String(f.modified || '') && x.chart === c.id);
+}
+const scUsable = s => scFresh(s) && (scIndex[s.key].status !== 'check' || isAdmin());
+function scGet(s) {
+  if (!scData.has(s.key)) { const p = api('slideChordsGet', { song: s.key }).then(r => r.ok ? r.data : null); scData.set(s.key, p); p.catch(() => scData.delete(s.key)); }
+  return scData.get(s.key);
+}
+// the key the chords are shown in (the song's key, or the one the musician picked) and the label for it
+function scKey(s, data) {
+  const k = chordKeyState(s, { meta: { key: data.chartKey || '' } });
+  const shown = plainKey(k.label), music = String(s.musicKey || '');
+  let label = k.label && !/^[+-]?\d+$/.test(k.label) ? `Chords in ${k.label}` : k.semis ? `Chords moved ${k.label}` : '';
+  if (music && shown && parseKeyName(shown) && parseKeyName(music) && parseKeyName(shown).pc !== parseKeyName(music).pc) label += ` · music written in ${music.replace('b', '♭').replace('#', '♯')}`;
+  return { semis: k.semis, table: k.table, label };
+}
+// chord tags for one slide, laid out in a layer that covers the picture exactly (font sizes in % of its width)
+function scTags(slide, key, edit) {
+  const items = (slide.marks || []).map((m, i) => ({ ...m, i, t: transposeChord(m.c, key.semis, key.table) })).sort((a, b) => a.y - b.y || a.x - b.x);
+  let prev = null;
+  for (const it of items) {   // two chords close together: push the second one along
+    it.dx = it.x; const w = (it.t.length * 0.62 + 0.35) * it.s * 2.8;
+    if (prev && Math.abs(prev.y - it.y) < 0.01 && it.dx < prev.end) it.dx = prev.end;
+    it.end = it.dx + w; prev = it;
+  }
+  return items.map(it => `<span class="sctag" data-i="${it.i}" style="left:${(edit ? it.x : it.dx) * 100}%;top:${it.y * 100}%;font-size:${it.s * 280}cqw">${esc(it.t)}</span>`).join('');
+}
+function scFit(box, img) {   // where an object-fit:contain picture actually is inside its box
+  const W = box.clientWidth, H = box.clientHeight, a = (img.naturalWidth || 4) / (img.naturalHeight || 3);
+  const w = W / H > a ? H * a : W, h = w / a;
+  return { left: (W - w) / 2, top: (H - h) / 2, width: w, height: h };
+}
+let scPipKey = '';
+async function scPip(st, s) {
+  const box = $('#slidePip'), layer = box.querySelector('.spchords'), lab = box.querySelector('.splabel');
+  const off = () => { layer.innerHTML = ''; lab.textContent = ''; lab.style.display = 'none'; };
+  if (!scOn || !st || st.blank || st.liveDeck || st.deckId || !s || !scUsable(s)) { scPipKey = ''; return off(); }
+  const want = [s.key, st.slideIdx ?? st.slideNo ?? 0].join('|'); scPipKey = want;
+  let data; try { data = await scGet(s); } catch { data = null; }
+  if (scPipKey !== want) return;
+  const slide = data && data.slides && data.slides[st.slideIdx ?? st.slideNo ?? 0];
+  if (!slide || !slide.marks || !slide.marks.length || (slide.unsure && !isAdmin())) return off();
+  const img = box.querySelector('img'); if (!img.complete || !img.naturalWidth) await new Promise(r => img.addEventListener('load', r, { once: true }));
+  if (scPipKey !== want) return;
+  const key = scKey(s, data), r = scFit(box, img);
+  Object.assign(layer.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+  layer.innerHTML = scTags(slide, key);
+  lab.textContent = key.label; lab.style.display = key.label ? '' : 'none';
+}
+function scRefit() { if ($('#slidePip').classList.contains('show') && perf && perf.last) { scPipKey = ''; scPip(perf.last, songIndex.get(perf.last.song)); } }
+window.addEventListener('resize', scRefit);
+
+// ---- placing them (admins): read the words, find the staves, line the words up with the chord sheet
+let scTess = null;
+function scWorker() {
+  if (!scTess) {
+    scTess = (async () => {
+      if (!window.Tesseract) await new Promise((ok, no) => { const el = document.createElement('script'); el.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'; el.onload = ok; el.onerror = () => no(new Error('Couldn\'t load the word reader')); document.head.appendChild(el); });
+      return Tesseract.createWorker('eng');
+    })();
+    scTess.catch(() => { scTess = null; });
+  }
+  return scTess;
+}
+function scStaves(px, W, H) {   // 5 evenly spaced long dark lines = a staff
+  const cols = []; for (let x = Math.round(W * .05); x < W * .97; x += 2) cols.push(x);
+  const dark = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (const x of cols) { const i = (y * W + x) * 4; if (px[i] + px[i + 1] + px[i + 2] < 300) dark[y * W + x] = 1; }
+  const rows = new Float32Array(H);
+  for (let y = 0; y < H; y++) { let n = 0; for (const x of cols) if (dark[y * W + x] || (y && dark[(y - 1) * W + x]) || (y + 1 < H && dark[(y + 1) * W + x])) n++; rows[y] = n / cols.length; }
+  const find = th => {
+    const lines = []; for (let y = 0; y < H; y++) if (rows[y] > th) { const l = lines[lines.length - 1]; if (l && y - l.b <= 2) l.b = y; else lines.push({ t: y, b: y }); }
+    const ys = lines.map(l => (l.t + l.b) / 2), st = [];
+    for (let i = 0; i + 4 < ys.length;) {
+      const sp = ys.slice(i, i + 5), gaps = sp.slice(1).map((v, k) => v - sp[k]), m = gaps.reduce((a, b) => a + b) / 4;
+      if (m > 4 && gaps.every(g => Math.abs(g - m) < m * .25)) { st.push({ top: sp[0], bot: sp[4], sp: m }); i += 5; } else i++;
+    }
+    return st;
+  };
+  let best = null;
+  for (const th of [.45, .55, .35, .65, .3]) {
+    const st = find(th), score = st.length + (st.length % 2 === 0 ? 100 : 0);
+    if (!best || score > best.score) best = { st, score };
+    if (th === .45 && st.length >= 2 && st.length % 2 === 0) break;
+  }
+  return best.st;
+}
+const scLetters = t => [...String(t)].filter(ch => /[a-z]/i.test(ch)).map(ch => ch.toLowerCase());
+function scAlign(L, C) {   // all of the slide's letters against a stretch of the chord sheet's letters
+  const n = L.length, m = C.length, D = Array.from({ length: n + 1 }, () => new Float32Array(m + 1)), P = Array.from({ length: n + 1 }, () => new Uint8Array(m + 1));
+  for (let i = 1; i <= n; i++) { D[i][0] = i; P[i][0] = 1; }
+  for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) {
+    const s = D[i - 1][j - 1] + (L[i - 1].ch === C[j - 1] ? 0 : 1), u = D[i - 1][j] + 1, v = D[i][j - 1] + 1;
+    if (s <= u && s <= v) { D[i][j] = s; P[i][j] = 0; } else if (u <= v) { D[i][j] = u; P[i][j] = 1; } else { D[i][j] = v; P[i][j] = 2; }
+  }
+  let j = 0, cost = 1e9; for (let jj = 0; jj <= m; jj++) if (D[n][jj] < cost) { cost = D[n][jj]; j = jj; }
+  const map = new Map(), end = j; let i = n;
+  while (i > 0 && j > 0) { const p = P[i][j]; if (p === 0) { map.set(j - 1, i - 1); i--; j--; } else if (p === 1) i--; else j--; }
+  return { map, cost, start: j, end };
+}
+async function scPlaceSlide(src, chart, section, worker) {
+  const im = new Image(); im.src = src; await im.decode();
+  const W = im.naturalWidth, H = im.naturalHeight, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'); g.drawImage(im, 0, 0); const px = g.getImageData(0, 0, W, H).data; cv.width = cv.height = 0;
+  const st = scStaves(px, W, H);
+  const r = await worker.recognize(src, {}, { blocks: true }), dd = r.data;
+  const words = dd.words || (dd.blocks || []).flatMap(b => b.paragraphs.flatMap(p => p.lines.flatMap(l => l.words)));
+  // the words under each staff that has music (grand staff: under the top staff of each pair)
+  const pairs = st.length % 2 === 0, lyr = []; let multi = false;
+  for (let k = 0; k < st.length; k += pairs ? 2 : 1) {
+    const a = st[k], b = st[k + (pairs ? 1 : 0) + (pairs ? 0 : 1)], lo = a.bot + a.sp * .5, hi = pairs ? b.top : Math.min(b ? b.top : H, a.bot + a.sp * 7);
+    const cand = words.filter(w => w.confidence > 30 && /[a-z]/i.test(w.text) && w.bbox.y0 > lo && w.bbox.y1 < hi + a.sp && (w.bbox.y1 - w.bbox.y0) > a.sp * 1.2).sort((p, q) => p.bbox.y0 - q.bbox.y0);
+    const rows = [];
+    for (const w of cand) { const cy = (w.bbox.y0 + w.bbox.y1) / 2, row = rows.find(x => Math.abs(x.cy - cy) < a.sp * .9); if (row) row.ws.push(w); else rows.push({ cy, ws: [w] }); }
+    const good = rows.filter(x => x.ws.length >= 3 || rows.length === 1); if (good.length > 1) multi = true;   // verses stacked: use the first
+    (good[0] ? good[0].ws : []).forEach(w => lyr.push({ w, staff: k }));
+  }
+  lyr.sort((p, q) => p.staff - q.staff || p.w.bbox.x0 - q.w.bbox.x0);
+  const L = [];
+  for (const { w, staff } of lyr) { const t = w.text; for (let j = 0; j < t.length; j++) if (/[a-z]/i.test(t[j])) L.push({ ch: t[j].toLowerCase(), x: w.bbox.x0 + (w.bbox.x1 - w.bbox.x0) * j / t.length, staff }); }
+  if (!L.length) return { marks: [], unsure: false, n: 0 };
+  // which part of the chord sheet: the slide's section, else whichever matches best
+  const blocks = chart.blocks.filter(b => b.lines.some(l => l.kind === 'lyric'));
+  const named = section ? blocks.filter(b => secKey(b.label) === secKey(section)) : [];
+  let best = null;
+  for (const blk of (named.length ? named : blocks)) {
+    const C = [], chords = [], starts = new Set([0]), ends = new Set();
+    blk.lines.filter(l => l.kind === 'lyric').forEach(l => { starts.add(C.length); l.segs.forEach(([cd, txt]) => { if (cd) chords.push({ c: cd, at: C.length }); C.push(...scLetters(txt)); }); ends.add(C.length); });
+    if (!C.length) continue;
+    const a = scAlign(L, C);
+    if (!best || a.cost < best.a.cost) best = { a, C, chords, starts, ends };
+  }
+  if (!best) return { marks: [], unsure: true, n: L.length };
+  const { a, chords, starts, ends } = best, al = [...a.map.keys()].sort((x, y) => x - y), marks = [];
+  for (const ch of chords) {
+    if (ch.at < a.start || ch.at >= a.end) continue;
+    let p;
+    if (a.map.has(ch.at)) p = L[a.map.get(ch.at)];
+    else {   // that letter wasn't read: in between the letters around it
+      const pk = al.filter(k => k < ch.at).pop(), nk = al.find(k => k > ch.at); if (pk == null && nk == null) continue;
+      const P0 = pk != null && L[a.map.get(pk)], N0 = nk != null && L[a.map.get(nk)];
+      if (P0 && N0 && P0.staff === N0.staff) p = { staff: P0.staff, x: P0.x + (N0.x - P0.x) * (ch.at - pk) / (nk - pk) };
+      else if (N0 && (!P0 || nk - ch.at <= ch.at - pk)) p = { staff: N0.staff, x: N0.x - (nk - ch.at) * st[N0.staff].sp * .9 };
+      else p = { staff: P0.staff, x: P0.x + (ch.at - pk) * st[P0.staff].sp * .9 };
+    }
+    const s0 = st[p.staff];
+    marks.push({ c: ch.c, x: +(Math.max(0, p.x) / W).toFixed(4), y: +((s0.top - s0.sp * .9) / H).toFixed(4), s: +(s0.sp / W).toFixed(5) });
+  }
+  const rate = a.cost / L.length;
+  // not sure: words misread, the start or end of a line wasn't found (chords would be missing), or stacked verses that don't match well
+  const unsure = L.length < 8 || rate > .2 || !starts.has(a.start) || !ends.has(a.end) || (multi && rate > .08);
+  return { marks, unsure, n: L.length };
+}
+async function scPlaceSong(s, onSlide) {
+  const f = prFile(s), cf = s.chords && s.chords[0]; if (!f || !cf) throw new Error('No slides or chords');
+  const worker = await scWorker();
+  const chart = parseChordPro(await loadChordText(cf));
+  let d; try { d = await prDeck(s); } finally { deckCache.delete(f.id); }   // don't keep hundreds of decks in memory
+  if (!d || !d.imgs.length) throw new Error('No slides');
+  const slides = [];
+  for (let i = 0; i < d.imgs.length; i++) {
+    let r; try { r = await scPlaceSlide(d.imgs[i], chart, d.sections[i], worker); } catch { r = { marks: [], unsure: true, n: 0 }; }
+    slides.push({ marks: r.marks, unsure: r.unsure || undefined });
+    if (onSlide) onSlide(i + 1, d.imgs.length);
+  }
+  const data = { v: 1, song: s.key, deck: f.id, deckMod: String(f.modified || ''), chart: cf.id, chartKey: chart.meta.key || '', slides };
+  return { data, imgs: d.imgs };
+}
+async function scSave(s, data, status) {
+  const unsure = data.slides.filter(x => x.unsure).length;
+  if (!status) status = unsure ? 'check' : 'auto';
+  const r = await api('slideChordsSave', { song: s.key, title: s.title, book: s.collection, status, slides: data.slides.length, unsure, deck: data.deck, deckMod: data.deckMod, chart: data.chart, data: JSON.stringify(data) });
+  if (!r.ok) throw new Error(r.error || 'Couldn\'t save');
+  scIndex[s.key] = { status, slides: data.slides.length, unsure, deck: data.deck, deckMod: data.deckMod, chart: data.chart, by: userName(), at: new Date().toISOString() };
+  store.set('scIndex', scIndex); scData.set(s.key, Promise.resolve(data));
+  return status;
+}
+
+// ---- Settings › Chords on slides
+let scFilter = 'check', scRun = null;
+const scSongs = () => songs.filter(s => s.chords && s.chords.length && prFile(s) && !isTextDoc(s))
+  .sort((a, b) => (isKnown(b) - isKnown(a)) || a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.nTitle.localeCompare(b.nTitle));
+const scState = s => !scIndex[s.key] ? 'todo' : !scFresh(s) ? 'stale' : scIndex[s.key].status;
+const SC_NAMES = { todo: 'Not done', stale: 'Slides changed', check: 'Needs checking', auto: 'Placed', ok: 'Checked' };
+function scRender() {
+  const all = scSongs(), cnt = {}; all.forEach(s => { const k = scState(s); cnt[k] = (cnt[k] || 0) + 1; });
+  const left = all.filter(s => ['todo', 'stale'].includes(scState(s))).length;
+  $('#scCount').textContent = `${all.length} songs have slides and chords · ${['ok', 'auto', 'check', 'todo', 'stale'].filter(k => cnt[k]).map(k => `${cnt[k]} ${SC_NAMES[k].toLowerCase()}`).join(' · ')}`;
+  $('#scGo').textContent = scRun ? 'Stop' : left ? `Place chords on ${left} song${left === 1 ? '' : 's'}` : 'All placed';
+  $('#scGo').disabled = !scRun && !left;
+  $('#scFilters').innerHTML = [['check', 'Needs checking'], ['auto', 'Placed'], ['ok', 'Checked'], ['todo', 'Not done'], ['', 'All']].map(([k, t]) => `<button class="chip${k === scFilter ? ' on' : ''}" data-f="${k}">${t}${k && cnt[k] ? ' ' + cnt[k] : ''}${k === 'todo' && cnt.stale ? ` + ${cnt.stale}` : ''}</button>`).join('');
+  const q = normalize($('#scQ').value || '');
+  const list = all.filter(s => (!scFilter || scState(s) === scFilter || (scFilter === 'todo' && scState(s) === 'stale')) && (!q || s.nAll.includes(q)));
+  $('#scList').innerHTML = list.slice(0, 300).map(s => {
+    const k = scState(s), x = scIndex[s.key];
+    return `<div class="kcrow" data-k="${esc(s.key)}"><div class="t"><b>${esc((s.number ? s.number + '. ' : '') + s.title)}</b><small>${esc(s.collection)} · <span class="scst ${k}">${SC_NAMES[k]}</span>${x && k === 'check' ? ` · ${x.unsure} of ${x.slides} slides` : ''}${x && x.status === 'ok' && x.by ? ` · by ${esc(x.by)}` : ''}</small></div>
+      <div class="ctl"><button class="pbtn${k === 'check' ? '' : ' ghost'}" data-open>${['todo', 'stale'].includes(k) ? 'Place' : k === 'check' ? 'Check' : 'Open'}</button></div></div>`;
+  }).join('') + (list.length > 300 ? `<p class="m">Showing 300 of ${list.length}. Search to narrow it down.</p>` : '') + (list.length ? '' : '<div class="vmsg">Nothing here.</div>');
+}
+$('#scBtn').onclick = () => { closeSheet(); const st = scSongs().map(scState); scFilter = st.includes('check') ? 'check' : st.some(k => k === 'todo' || k === 'stale') ? 'todo' : ''; scRender(); openPanel('scPanel'); loadScIndex().then(() => { if ($('#scPanel').classList.contains('show')) scRender(); }); };
+$('#scQ').addEventListener('input', scRender);
+$('#scFilters').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (b) { scFilter = b.dataset.f; scRender(); } });
+$('#scList').addEventListener('click', e => { const b = e.target.closest('[data-open]'); if (b) scOpen(songIndex.get(b.closest('.kcrow').dataset.k)); });
+$('#scGo').onclick = async () => {
+  if (scRun) { scRun.stop = true; $('#scGo').textContent = 'Stopping…'; return; }
+  const todo = scSongs().filter(s => ['todo', 'stale'].includes(scState(s)));
+  scRun = { stop: false }; scRender();
+  let done = 0, bad = 0;
+  for (const s of todo) {
+    if (scRun.stop) break;
+    $('#scProg').textContent = `${done + 1} of ${todo.length}: ${s.title}…`;
+    try { const { data } = await scPlaceSong(s, (i, n) => { $('#scProg').textContent = `${done + 1} of ${todo.length}: ${s.title} (slide ${i} of ${n})`; }); await scSave(s, data); }
+    catch { bad++; }
+    done++; if (done % 5 === 0 && $('#scPanel').classList.contains('show')) scRender();
+  }
+  $('#scProg').textContent = `Done ${done} song${done === 1 ? '' : 's'}${bad ? ` · ${bad} couldn't be placed (no slides, or the slides couldn't be opened)` : ''}.`;
+  scRun = null; scRender();
+};
+
+// ---- checking one song: drag a chord to move it, tap it to remove it, "+ Chord" to add one
+let scEd = null;
+async function scOpen(s) {
+  if (!s) return;
+  scEd = { s, data: null, imgs: null, sel: null, dirty: false };
+  const box = $('#scEdit'); box.classList.add('show');
+  $('#scTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
+  $('#scBody').innerHTML = '<div class="vmsg">Opening the slides…</div>'; scBar();
+  const me = scEd;
+  try {
+    const f = prFile(s);
+    if (scFresh(s)) { me.data = await scGet(s); const d = await prDeck(s); me.imgs = d.imgs; }
+    else { const r = await scPlaceSong(s, (i, n) => { if (scEd === me) $('#scBody').innerHTML = `<div class="vmsg">Reading slide ${i} of ${n}…</div>`; }); me.data = r.data; me.imgs = r.imgs; await scSave(s, me.data); }
+    if (f) deckCache.delete(f.id);
+  } catch (e) { if (scEd === me) $('#scBody').innerHTML = `<div class="vmsg">Couldn't place the chords: ${esc(e.message || 'error')}</div>`; return; }
+  if (scEd !== me) return;
+  scDrawEd(); if ($('#scPanel').classList.contains('show')) scRender();
+}
+function scBar() {
+  const e = scEd, x = e && scIndex[e.s.key];
+  $('#scStatus').textContent = !x ? '' : `${SC_NAMES[x.status] || ''}${e.dirty ? ' · saving…' : ''}`;
+  $('#scDel').style.display = e && e.sel ? '' : 'none';
+  $('#scOk').textContent = x && x.status === 'ok' ? '✓ Checked' : '✓ Looks right';
+}
+function scDrawEd() {
+  const e = scEd, key = scKey(e.s, e.data);
+  $('#scBody').innerHTML = `<p class="m" style="color:#ccc;margin:0 0 8px">${esc(key.label || '')}. Drag a chord to move it. Tap a chord, then <b>Remove</b>, to take it off. <b>+ Chord</b> adds one to the slide you tapped last. Slides with an orange edge are the ones the app wasn't sure about.</p>`
+    + e.data.slides.map((sl, i) => `<div class="scslide${sl.unsure ? ' unsure' : ''}" data-n="${i}"><img src="${e.imgs[i] || ''}" alt="Slide ${i + 1}"><div class="sclayer">${scTags(sl, key, true)}</div><span class="scnum">${i + 1}${sl.unsure ? ' · check' : ''}</span></div>`).join('');
+  if (e.sel) { const t = $(`#scBody .scslide[data-n="${e.sel.n}"] .sctag[data-i="${e.sel.i}"]`); if (t) t.classList.add('sel'); else e.sel = null; }
+  scBar();
+}
+let scSaveT = 0;
+function scChanged() {
+  const e = scEd; e.dirty = true; scBar(); clearTimeout(scSaveT);
+  scSaveT = setTimeout(async () => { if (scEd !== e) return; try { await scSave(e.s, e.data, scIndex[e.s.key] && scIndex[e.s.key].status === 'ok' ? 'ok' : undefined); e.dirty = false; } catch (err) { toast(err.message || 'Couldn\'t save'); } if (scEd === e) scBar(); }, 1200);
+}
+$('#scBody').addEventListener('pointerdown', ev => {
+  const e = scEd; if (!e || !e.data) return;
+  const slideEl = ev.target.closest('.scslide'); if (!slideEl) return;
+  e.lastSlide = +slideEl.dataset.n;
+  const tag = ev.target.closest('.sctag');
+  $('#scBody').querySelectorAll('.sctag.sel').forEach(t => t.classList.remove('sel'));
+  if (!tag) { e.sel = null; scBar(); return; }
+  ev.preventDefault(); tag.classList.add('sel');
+  const n = +slideEl.dataset.n, i = +tag.dataset.i, m = e.data.slides[n].marks[i], layer = slideEl.querySelector('.sclayer').getBoundingClientRect();
+  e.sel = { n, i }; scBar();
+  const x0 = ev.clientX, y0 = ev.clientY, mx = m.x, my = m.y; let moved = false;
+  tag.setPointerCapture(ev.pointerId);
+  const move = mv => {
+    const dx = (mv.clientX - x0) / layer.width, dy = (mv.clientY - y0) / layer.height;
+    if (!moved && Math.hypot(mv.clientX - x0, mv.clientY - y0) < 4) return; moved = true;
+    m.x = +Math.min(1, Math.max(0, mx + dx)).toFixed(4); m.y = +Math.min(1, Math.max(0.02, my + dy)).toFixed(4);
+    tag.style.left = m.x * 100 + '%'; tag.style.top = m.y * 100 + '%';
+  };
+  const up = () => { tag.removeEventListener('pointermove', move); tag.removeEventListener('pointerup', up); tag.removeEventListener('pointercancel', up); if (moved) scChanged(); };
+  tag.addEventListener('pointermove', move); tag.addEventListener('pointerup', up); tag.addEventListener('pointercancel', up);
+});
+$('#scDel').onclick = () => { const e = scEd; if (!e || !e.sel) return; e.data.slides[e.sel.n].marks.splice(e.sel.i, 1); e.sel = null; scDrawEd(); scChanged(); };
+$('#scAdd').onclick = async () => {
+  const e = scEd; if (!e || !e.data) return;
+  const n = e.lastSlide ?? 0, sl = e.data.slides[n]; if (!sl) return;
+  const name = (prompt(`Chord to add to slide ${n + 1} (as it should show, e.g. G or D7):`) || '').trim(); if (!name) return;
+  if (!/^\(?[A-G][#b♯♭]?[^\s]*\)?$/.test(name)) return toast('That doesn\'t look like a chord');
+  const key = scKey(e.s, e.data), back = (12 - key.semis) % 12;
+  const c = transposeChord(name.replace('♯', '#').replace('♭', 'b'), back, spellingFor(e.data.chartKey || 'C'));
+  const s0 = (sl.marks[0] && sl.marks[0].s) || 0.0105, y = (sl.marks[0] && sl.marks[0].y) || 0.1;
+  sl.marks.push({ c, x: 0.45, y, s: s0 }); e.sel = { n, i: sl.marks.length - 1 }; scDrawEd(); scChanged();
+};
+$('#scOk').onclick = async () => {
+  const e = scEd; if (!e || !e.data) return;
+  e.data.slides.forEach(sl => delete sl.unsure);
+  clearTimeout(scSaveT);
+  try { await scSave(e.s, e.data, 'ok'); e.dirty = false; toast('Marked as checked'); } catch (err) { return toast(err.message || 'Couldn\'t save'); }
+  scDrawEd(); if ($('#scPanel').classList.contains('show')) scRender();
+};
+$('#scRedo').onclick = async () => {
+  const e = scEd; if (!e) return;
+  if (!confirm('Place this song\'s chords again from scratch? Changes you made here are lost.')) return;
+  delete scIndex[e.s.key]; scData.delete(e.s.key); scOpen(e.s);
+};
+$('#scClose').onclick = () => { $('#scEdit').classList.remove('show'); const e = scEd; if (e && e.dirty) { clearTimeout(scSaveT); scSave(e.s, e.data, scIndex[e.s.key] && scIndex[e.s.key].status === 'ok' ? 'ok' : undefined).catch(() => toast('Couldn\'t save the last change')); } scEd = null; if ($('#scPanel').classList.contains('show')) scRender(); };
 // every page of the song's sheet music, drawn here (the web app's viewer can't show PDFs itself)
 async function kcAll(s) {
   if (!s) return;
@@ -5678,7 +6024,7 @@ function startApp(fresh = false) {
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
     if (navigator.onLine && auth.token) loadKnown();
-    if (navigator.onLine && auth.token) loadKeyChecks();
+    if (navigator.onLine && auth.token) { loadKeyChecks(); loadScIndex(); }
     if (navigator.onLine && auth.token) loadApproved();
     if (navigator.onLine && auth.token) loadArrangements(true);
     if (navigator.onLine && auth.token) loadLists();
