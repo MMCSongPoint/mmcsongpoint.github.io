@@ -967,7 +967,7 @@
   <button class="ditem" id="dPerform"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>Join a performance</button>
   <button class="ditem" id="dRemote"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10.5 7.5 13.5 9.5 10.5 11.5z"/><path d="M10 16h4"/></svg>Remote control</button>
   <button class="ditem" id="dClosing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Closing Songs</button>
-  <button class="ditem" id="dTheory" style="display:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Music Theory</button>
+  <button class="ditem" id="dTheory"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Music Theory</button>
   <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
   <button class="ditem" id="dOffline"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Offline songs<small id="dOffCount"></small></button>
   <button class="ditem" id="dSettings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
@@ -1054,7 +1054,7 @@
   <div class="pbody"><ul class="closelist" id="closingList"></ul></div>
 </div>
 
-<!-- Music Theory (admins for now): name the key from its key signature -->
+<!-- Music Theory: practice games (key signatures, notes and rests, pitches) -->
 <div class="panel" id="theoryPanel">
   <div class="phead">
     <button class="icon" data-close="theoryPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
@@ -4375,7 +4375,6 @@ function renderWelcome() {
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
   $('#mp3Btn').style.display = isAdmin() ? '' : 'none';
   $('#scBtn').style.display = isAdmin() ? '' : 'none';
-  $('#dTheory').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
 }
 function signOut(expired = false) {
@@ -5352,7 +5351,7 @@ $('#dClosing').onclick = () => { closeDrawer(); renderClosing(); openPanel('clos
 $('#closingList').addEventListener('click', e => { const b = e.target.closest('[data-k]'); const s2 = b && songIndex.get(b.dataset.k); if (s2) openViewer(s2); });
 $('#dFavs').onclick = () => { closeDrawer(); openSongsPanel('fav'); };
 
-// ------------------------------------------------------------------ Music Theory (admins for now): three little games
+// ------------------------------------------------------------------ Music Theory (everyone): three little games
 // Key Signatures (name the key), Notes and Rests (name the value), Pitches (name the note on a treble or bass staff).
 // End game shows how it went: accuracy, times, and which ones were quickest, slowest and most missed.
 const MT_MAJOR = { 0: 'C', 1: 'G', 2: 'D', 3: 'A', 4: 'E', 5: 'B', 6: 'F♯', 7: 'C♯', '-1': 'F', '-2': 'B♭', '-3': 'E♭', '-4': 'A♭', '-5': 'D♭', '-6': 'G♭', '-7': 'C♭' };
