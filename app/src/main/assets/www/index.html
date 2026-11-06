@@ -576,6 +576,20 @@
   .drawer.show { transform: none; }
   .dhead { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 8px 10px; }
   .dhead b { font-size: 18px; }
+  .mt { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 30px; }
+  .mthead { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .mthead b { font-size: 18px; }
+  .mtmode button { padding: 7px 14px; } .mtmode button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .mtscore { font-size: 13px; color: var(--muted); min-height: 1.2em; }
+  .mtcard { background: #fff; border-radius: 14px; padding: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+  .mtcard svg { width: 100%; height: auto; display: block; }
+  .mtq { text-align: center; font-size: 15px; color: var(--muted); }
+  .mtopts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mtopts button { font: 700 26px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 18px 8px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel); color: var(--text); }
+  .mtopts button.right { background: #2e9d5b; border-color: #2e9d5b; color: #fff; }
+  .mtopts button.wrong { background: #c0392b; border-color: #c0392b; color: #fff; }
+  .mtopts button:disabled { opacity: 1; }
+  .mtfb { text-align: center; font-size: 15px; min-height: 1.4em; } .mtfb.ok { color: #2e9d5b; font-weight: 600; } .mtfb.no { color: #d0453a; font-weight: 600; }
+  #mtNext { align-self: center; min-width: 140px; }
   .ditem { display: flex; align-items: center; gap: 14px; width: 100%; background: none; border: none; color: var(--text); font: inherit; font-size: 16px; padding: 13px 12px; border-radius: 12px; text-align: left; }
   .ditem:active, .ditem:hover { background: var(--row); }
   .ditem svg, .ditem .dstar { width: 22px; flex: none; color: var(--accent-text); text-align: center; font-size: 20px; }
@@ -938,6 +952,7 @@
   <button class="ditem" id="dPerform"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>Join a performance</button>
   <button class="ditem" id="dRemote"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10.5 7.5 13.5 9.5 10.5 11.5z"/><path d="M10 16h4"/></svg>Remote control</button>
   <button class="ditem" id="dClosing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Closing Songs</button>
+  <button class="ditem" id="dTheory" style="display:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Music Theory</button>
   <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
   <button class="ditem" id="dOffline"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Offline songs<small id="dOffCount"></small></button>
   <button class="ditem" id="dSettings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
@@ -1037,6 +1052,25 @@
     <h2>Closing Songs</h2>
   </div>
   <div class="pbody"><ul class="closelist" id="closingList"></ul></div>
+</div>
+
+<!-- Music Theory (admins for now): name the key from its key signature -->
+<div class="panel" id="theoryPanel">
+  <div class="phead">
+    <button class="icon" data-close="theoryPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Music Theory</h2>
+  </div>
+  <div class="pbody">
+    <div class="mt">
+      <div class="mthead"><b>Name the key</b><span class="cgrp seg mtmode"><button data-mode="major">Major</button><button data-mode="minor">Minor</button></span></div>
+      <div class="mtscore" id="mtScore"></div>
+      <div class="mtcard"><svg id="mtStaff" viewBox="0 0 300 116" aria-label="Key signature"></svg></div>
+      <div class="mtq" id="mtQ"></div>
+      <div class="mtopts" id="mtOpts"></div>
+      <div class="mtfb" id="mtFb"></div>
+      <button class="pbtn" id="mtNext" style="display:none">Next ▶</button>
+    </div>
+  </div>
 </div>
 
 <!-- Favorites / Offline songs -->
@@ -4339,6 +4373,7 @@ function renderWelcome() {
   $('#mp3Btn').style.display = isAdmin() ? '' : 'none';
   $('#keyChkBtn').style.display = isAdmin() ? '' : 'none';
   $('#scBtn').style.display = isAdmin() ? '' : 'none';
+  $('#dTheory').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
 }
 function signOut(expired = false) {
@@ -5467,6 +5502,80 @@ function renderClosing() {
 $('#dClosing').onclick = () => { closeDrawer(); renderClosing(); openPanel('closingPanel'); };
 $('#closingList').addEventListener('click', e => { const b = e.target.closest('[data-k]'); const s2 = b && songIndex.get(b.dataset.k); if (s2) openViewer(s2); });
 $('#dFavs').onclick = () => { closeDrawer(); openSongsPanel('fav'); };
+
+// ------------------------------------------------------------------ Music Theory: name the key from its key signature
+// k = number of sharps (1..7) or flats (-1..-7); 0 = none
+const MT_MAJOR = { 0: 'C', 1: 'G', 2: 'D', 3: 'A', 4: 'E', 5: 'B', 6: 'F♯', 7: 'C♯', '-1': 'F', '-2': 'B♭', '-3': 'E♭', '-4': 'A♭', '-5': 'D♭', '-6': 'G♭', '-7': 'C♭' };
+const MT_MINOR = { 0: 'a', 1: 'e', 2: 'b', 3: 'f♯', 4: 'c♯', 5: 'g♯', 6: 'd♯', 7: 'a♯', '-1': 'd', '-2': 'g', '-3': 'c', '-4': 'f', '-5': 'b♭', '-6': 'e♭', '-7': 'a♭' };
+// treble staff steps above the bottom line (E4 = 0): where each sharp / flat sits, in order
+const MT_SHARPS = [8, 5, 9, 6, 3, 7, 4], MT_FLATS = [4, 7, 3, 6, 2, 5, 1];
+let mt = { mode: store.get('mtMode', 'major'), k: null, right: 0, total: 0, streak: 0, best: store.get('mtBest', 0), done: false };
+function mtFont() {   // the treble clef comes from the Noto Music font (loaded the first time)
+  if (document.getElementById('mtFontCss')) return;
+  const l = document.createElement('link'); l.id = 'mtFontCss'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Noto+Music&display=block';
+  l.onload = () => { if (document.fonts) document.fonts.load('60px "Noto Music"', '\u{1D11E}').then(() => mtDraw()).catch(() => {}); };
+  document.head.appendChild(l);
+}
+function mtDraw() {
+  const s = 14, top = 30, bot = top + 4 * s, x0 = 14, x1 = 286, k = mt.k ?? 0, n = Math.abs(k);
+  const yOf = step => bot - step * s / 2;
+  let g = '';
+  for (let i = 0; i < 5; i++) g += `<line x1="${x0}" x2="${x1}" y1="${top + i * s}" y2="${top + i * s}" stroke="#000" stroke-width="1.3"/>`;
+  g += `<line x1="${x0}" x2="${x0}" y1="${top}" y2="${bot}" stroke="#000" stroke-width="1.6"/>`;
+  // treble clef: its curl sits on the G line (2nd from the bottom)
+  g += `<text id="mtClef" x="0" y="0" font-family="'Noto Music', 'Bravura', 'Segoe UI Symbol', 'Apple Symbols', serif" font-size="${s * 4}" fill="#000">\u{1D11E}</text>`;
+  const gap = 17, start = x0 + 62;
+  for (let i = 0; i < n; i++) {
+    const x = start + i * gap, y = yOf(k > 0 ? MT_SHARPS[i] : MT_FLATS[i]);
+    if (k > 0) {   // sharp: two upright strokes, two thick slanted bars
+      g += `<path d="M${x - 2.6} ${y - s * 1.25}V${y + s * 1.45}M${x + 2.6} ${y - s * 1.45}V${y + s * 1.25}" stroke="#000" stroke-width="1.3"/>`;
+      g += `<path d="M${x - 5.5} ${y - s * 0.3}L${x + 5.5} ${y - s * 0.62}V${y - s * 0.32}L${x - 5.5} ${y}ZM${x - 5.5} ${y + s * 0.42}L${x + 5.5} ${y + s * 0.1}V${y + s * 0.4}L${x - 5.5} ${y + s * 0.72}Z" fill="#000"/>`;
+    } else {       // flat: a stem and a closed bowl around its line or space
+      g += `<path d="M${x - 3.5} ${y - s * 1.75}V${y + s * 0.55}" stroke="#000" stroke-width="1.5"/>`;
+      g += `<path d="M${x - 3.5} ${y + s * 0.5}C${x + 3} ${y + s * 0.05} ${x + 6.5} ${y - s * 0.55} ${x + 2.5} ${y - s * 0.62}C${x} ${y - s * 0.66} ${x - 2} ${y - s * 0.45} ${x - 3.5} ${y - s * 0.25}" fill="none" stroke="#000" stroke-width="2.2"/>`;
+    }
+  }
+  $('#mtStaff').innerHTML = g;
+  // fit the clef to the staff whatever font drew it: from 1.5 spaces above the top line to 1.4 below the bottom
+  const c = $('#mtClef'); try { const bb = c.getBBox(); if (bb.height) { const sc = (bot - top + s * 2.9) / bb.height; c.setAttribute('transform', `translate(${x0 + 8 - bb.x * sc} ${top - s * 1.5 - bb.y * sc}) scale(${sc})`); } } catch {}
+}
+const mtName = k => (mt.mode === 'minor' ? MT_MINOR : MT_MAJOR)[k];
+function mtNew() {
+  let k; do k = Math.floor(Math.random() * 15) - 7; while (k === mt.k);
+  mt.k = k; mt.done = false;
+  // three other keys, mostly close to the right one (the easy mix-ups)
+  const near = [-3, -2, -1, 1, 2, 3].map(d => k + d).filter(x => x >= -7 && x <= 7).sort(() => Math.random() - 0.5);
+  const far = Array.from({ length: 15 }, (_, i) => i - 7).filter(x => x !== k && !near.includes(x)).sort(() => Math.random() - 0.5);
+  const opts = [k, ...near.slice(0, 2), ...[...near.slice(2), ...far].sort(() => Math.random() - 0.5).slice(0, 1)].sort(() => Math.random() - 0.5);
+  $('#mtOpts').innerHTML = opts.map(x => `<button data-k="${x}">${esc(mtName(x))}</button>`).join('');
+  $('#mtQ').textContent = `Which ${mt.mode} key has this key signature?`;
+  $('#mtFb').textContent = ''; $('#mtFb').className = 'mtfb'; $('#mtNext').style.display = 'none';
+  mtDraw(); mtScore();
+}
+function mtScore() {
+  document.querySelectorAll('.mtmode button').forEach(b => b.classList.toggle('on', b.dataset.mode === mt.mode));
+  $('#mtScore').textContent = mt.total ? `${mt.right} of ${mt.total} right · streak ${mt.streak} · best streak ${mt.best}` : `Best streak ${mt.best}`;
+}
+const mtSig = k => k === 0 ? 'no sharps or flats' : `${Math.abs(k)} ${k > 0 ? 'sharp' : 'flat'}${Math.abs(k) === 1 ? '' : 's'}`;
+$('#mtOpts').addEventListener('click', e => {
+  const b = e.target.closest('[data-k]'); if (!b || mt.done) return;
+  mt.done = true; mt.total++;
+  const pick = +b.dataset.k, ok = pick === mt.k;
+  document.querySelectorAll('#mtOpts button').forEach(x => { x.disabled = true; if (+x.dataset.k === mt.k) x.classList.add('right'); });
+  if (ok) { mt.right++; mt.streak++; if (mt.streak > mt.best) { mt.best = mt.streak; store.set('mtBest', mt.best); } }
+  else { b.classList.add('wrong'); mt.streak = 0; }
+  $('#mtFb').className = 'mtfb ' + (ok ? 'ok' : 'no');
+  $('#mtFb').textContent = `${ok ? 'Right!' : 'Not quite.'} ${mtSig(mt.k)} = ${mtName(mt.k)} ${mt.mode}`;
+  mtScore();
+  if (ok) setTimeout(() => { if (mt.done && $('#theoryPanel').classList.contains('show')) mtNew(); }, 1100);
+  else $('#mtNext').style.display = '';
+});
+$('#mtNext').onclick = mtNew;
+document.querySelector('.mtmode').addEventListener('click', e => {
+  const b = e.target.closest('[data-mode]'); if (!b || b.dataset.mode === mt.mode) return;
+  mt.mode = b.dataset.mode; store.set('mtMode', mt.mode); mt.right = mt.total = mt.streak = 0; mtNew();
+});
+$('#dTheory').onclick = () => { closeDrawer(); openPanel('theoryPanel'); mtFont(); mtNew(); };
 
 // ------------------------------------------------------------------ song "more" menu (favorite, save offline)
 let rowMenuSong = null;
