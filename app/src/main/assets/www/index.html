@@ -590,6 +590,24 @@
   .mtopts button:disabled { opacity: 1; }
   .mtfb { text-align: center; font-size: 15px; min-height: 1.4em; } .mtfb.ok { color: #2e9d5b; font-weight: 600; } .mtfb.no { color: #d0453a; font-weight: 600; }
   #mtNext { align-self: center; min-width: 140px; }
+  #mtPlay { display: flex; flex-direction: column; gap: 12px; }
+  #mtMenu { display: flex; flex-direction: column; gap: 10px; }
+  .mthead #mtTitle { font-size: 17px; flex: 1; text-align: center; } .mthead .pbtn { padding: 7px 12px; }
+  .mtscore { text-align: right; }
+  .mtgame { display: block; width: 100%; text-align: left; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; }
+  .mtgame b { display: block; font-size: 18px; margin-bottom: 3px; } .mtgame small { color: var(--muted); font-size: 13.5px; }
+  .mtopts.letters { grid-template-columns: repeat(4, 1fr); } .mtopts.letters button { padding: 16px 4px; }
+  .mtopts button { font-size: 22px; }
+  .mtsumhead { display: flex; justify-content: space-between; align-items: baseline; } .mtsumhead b { font-size: 19px; } .mtsumhead span { color: var(--accent-text, var(--accent)); font-weight: 600; }
+  .mtstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
+  .mtstats div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 6px; text-align: center; }
+  .mtstats b { display: block; font-size: 22px; } .mtstats small { color: var(--muted); font-size: 11.5px; }
+  .mtcols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .mtcols h4 { margin: 0 0 4px; font-size: 13.5px; } .mtcols ul { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
+  .mtcols li { padding: 3px 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 6px; } .mtcols li span { color: var(--muted); white-space: nowrap; } .mtcols li.none { color: var(--muted); }
+  .mttable { width: 100%; border-collapse: collapse; font-size: 13.5px; } .mttable th { text-align: right; color: var(--muted); font-weight: 600; font-size: 12px; padding: 4px; } .mttable th:first-child { text-align: left; }
+  .mttable td { padding: 5px 4px; border-top: 1px solid var(--line); text-align: right; } .mttable td:first-child { text-align: left; } .mttable tr.mtmiss td:first-child { color: #d0453a; }
+  @media (max-width: 480px) { .mtstats { grid-template-columns: repeat(2, 1fr); } .mtcols { grid-template-columns: 1fr; } }
   .ditem { display: flex; align-items: center; gap: 14px; width: 100%; background: none; border: none; color: var(--text); font: inherit; font-size: 16px; padding: 13px 12px; border-radius: 12px; text-align: left; }
   .ditem:active, .ditem:hover { background: var(--row); }
   .ditem svg, .ditem .dstar { width: 22px; flex: none; color: var(--accent-text); text-align: center; font-size: 20px; }
@@ -1062,13 +1080,17 @@
   </div>
   <div class="pbody">
     <div class="mt">
-      <div class="mthead"><b>Name the key</b><span class="cgrp seg mtmode"><button data-mode="major">Major</button><button data-mode="minor">Minor</button></span></div>
-      <div class="mtscore" id="mtScore"></div>
-      <div class="mtcard"><svg id="mtStaff" viewBox="0 0 300 116" aria-label="Key signature"></svg></div>
-      <div class="mtq" id="mtQ"></div>
-      <div class="mtopts" id="mtOpts"></div>
-      <div class="mtfb" id="mtFb"></div>
-      <button class="pbtn" id="mtNext" style="display:none">Next ▶</button>
+      <div id="mtMenu"></div>
+      <div id="mtPlay" style="display:none">
+        <div class="mthead"><button class="pbtn ghost" id="mtBack">‹ Games</button><b id="mtTitle"></b><button class="pbtn ghost" id="mtEnd">End game</button></div>
+        <div class="mthead"><span class="cgrp seg mtmode" id="mtModes"></span><span class="mtscore" id="mtScore"></span></div>
+        <div class="mtcard"><svg id="mtStaff" viewBox="0 0 300 116" aria-label="Music"></svg></div>
+        <div class="mtq" id="mtQ"></div>
+        <div class="mtopts" id="mtOpts"></div>
+        <div class="mtfb" id="mtFb"></div>
+        <button class="pbtn" id="mtNext" style="display:none">Next ▶</button>
+      </div>
+      <div id="mtSum" style="display:none"></div>
     </div>
   </div>
 </div>
@@ -5503,79 +5525,219 @@ $('#dClosing').onclick = () => { closeDrawer(); renderClosing(); openPanel('clos
 $('#closingList').addEventListener('click', e => { const b = e.target.closest('[data-k]'); const s2 = b && songIndex.get(b.dataset.k); if (s2) openViewer(s2); });
 $('#dFavs').onclick = () => { closeDrawer(); openSongsPanel('fav'); };
 
-// ------------------------------------------------------------------ Music Theory: name the key from its key signature
-// k = number of sharps (1..7) or flats (-1..-7); 0 = none
+// ------------------------------------------------------------------ Music Theory (admins for now): three little games
+// Key Signatures (name the key), Notes and Rests (name the value), Pitches (name the note on a treble or bass staff).
+// End game shows how it went: accuracy, times, and which ones were quickest, slowest and most missed.
 const MT_MAJOR = { 0: 'C', 1: 'G', 2: 'D', 3: 'A', 4: 'E', 5: 'B', 6: 'F♯', 7: 'C♯', '-1': 'F', '-2': 'B♭', '-3': 'E♭', '-4': 'A♭', '-5': 'D♭', '-6': 'G♭', '-7': 'C♭' };
 const MT_MINOR = { 0: 'a', 1: 'e', 2: 'b', 3: 'f♯', 4: 'c♯', 5: 'g♯', 6: 'd♯', 7: 'a♯', '-1': 'd', '-2': 'g', '-3': 'c', '-4': 'f', '-5': 'b♭', '-6': 'e♭', '-7': 'a♭' };
-// treble staff steps above the bottom line (E4 = 0): where each sharp / flat sits, in order
-const MT_SHARPS = [8, 5, 9, 6, 3, 7, 4], MT_FLATS = [4, 7, 3, 6, 2, 5, 1];
-let mt = { mode: store.get('mtMode', 'major'), k: null, right: 0, total: 0, streak: 0, best: store.get('mtBest', 0), done: false };
-function mtFont() {   // the treble clef comes from the Noto Music font (loaded the first time)
-  if (document.getElementById('mtFontCss')) return;
-  const l = document.createElement('link'); l.id = 'mtFontCss'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Noto+Music&display=block';
-  l.onload = () => { if (document.fonts) document.fonts.load('60px "Noto Music"', '\u{1D11E}').then(() => mtDraw()).catch(() => {}); };
-  document.head.appendChild(l);
-}
-function mtDraw() {
-  const s = 14, top = 30, bot = top + 4 * s, x0 = 14, x1 = 286, k = mt.k ?? 0, n = Math.abs(k);
-  const yOf = step => bot - step * s / 2;
+const MT_SHARPS = [8, 5, 9, 6, 3, 7, 4], MT_FLATS = [4, 7, 3, 6, 2, 5, 1];   // treble steps above the bottom line (E4 = 0)
+const MT_VALUES = ['double whole', 'whole', 'half', 'quarter', '8th', '16th', '32nd'];
+const MT_LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+const mtShuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const mtPick = a => a[Math.floor(Math.random() * a.length)];
+// staff drawing: 5 lines, s = space between lines; y of a step (half-spaces above the bottom line)
+const MT_S = 14, MT_TOP = 30, MT_BOT = MT_TOP + 4 * MT_S, MT_X0 = 14, MT_X1 = 286;
+const mtY = step => MT_BOT - step * MT_S / 2;
+function mtStaffLines() {
   let g = '';
-  for (let i = 0; i < 5; i++) g += `<line x1="${x0}" x2="${x1}" y1="${top + i * s}" y2="${top + i * s}" stroke="#000" stroke-width="1.3"/>`;
-  g += `<line x1="${x0}" x2="${x0}" y1="${top}" y2="${bot}" stroke="#000" stroke-width="1.6"/>`;
-  // treble clef: its curl sits on the G line (2nd from the bottom)
-  g += `<text id="mtClef" x="0" y="0" font-family="'Noto Music', 'Bravura', 'Segoe UI Symbol', 'Apple Symbols', serif" font-size="${s * 4}" fill="#000">\u{1D11E}</text>`;
-  const gap = 17, start = x0 + 62;
-  for (let i = 0; i < n; i++) {
-    const x = start + i * gap, y = yOf(k > 0 ? MT_SHARPS[i] : MT_FLATS[i]);
-    if (k > 0) {   // sharp: two upright strokes, two thick slanted bars
-      g += `<path d="M${x - 2.6} ${y - s * 1.25}V${y + s * 1.45}M${x + 2.6} ${y - s * 1.45}V${y + s * 1.25}" stroke="#000" stroke-width="1.3"/>`;
-      g += `<path d="M${x - 5.5} ${y - s * 0.3}L${x + 5.5} ${y - s * 0.62}V${y - s * 0.32}L${x - 5.5} ${y}ZM${x - 5.5} ${y + s * 0.42}L${x + 5.5} ${y + s * 0.1}V${y + s * 0.4}L${x - 5.5} ${y + s * 0.72}Z" fill="#000"/>`;
-    } else {       // flat: a stem and a closed bowl around its line or space
-      g += `<path d="M${x - 3.5} ${y - s * 1.75}V${y + s * 0.55}" stroke="#000" stroke-width="1.5"/>`;
-      g += `<path d="M${x - 3.5} ${y + s * 0.5}C${x + 3} ${y + s * 0.05} ${x + 6.5} ${y - s * 0.55} ${x + 2.5} ${y - s * 0.62}C${x} ${y - s * 0.66} ${x - 2} ${y - s * 0.45} ${x - 3.5} ${y - s * 0.25}" fill="none" stroke="#000" stroke-width="2.2"/>`;
+  for (let i = 0; i < 5; i++) g += `<line x1="${MT_X0}" x2="${MT_X1}" y1="${MT_TOP + i * MT_S}" y2="${MT_TOP + i * MT_S}" stroke="#000" stroke-width="1.3"/>`;
+  return g + `<line x1="${MT_X0}" x2="${MT_X0}" y1="${MT_TOP}" y2="${MT_BOT}" stroke="#000" stroke-width="1.6"/>`;
+}
+const MT_FONT = `'Noto Music', 'Bravura', 'Segoe UI Symbol', 'Apple Symbols', serif`;
+const mtClef = clef => `<text class="mtclef" data-clef="${clef}" x="0" y="0" font-family="${MT_FONT}" font-size="${MT_S * 4}" fill="#000">${clef === 'bass' ? '\u{1D122}' : '\u{1D11E}'}</text>`;
+function mtFitClef(svg) {   // whatever font drew the clef: scale it onto the staff
+  svg.querySelectorAll('.mtclef').forEach(c => {
+    try {
+      const bb = c.getBBox(); if (!bb.height) return;
+      const bass = c.dataset.clef === 'bass', want = bass ? MT_S * 3.1 : (MT_BOT - MT_TOP) + MT_S * 2.9, top = bass ? MT_TOP - MT_S * 0.1 : MT_TOP - MT_S * 1.5;
+      const sc = want / bb.height; c.setAttribute('transform', `translate(${MT_X0 + 8 - bb.x * sc} ${top - bb.y * sc}) scale(${sc})`);
+    } catch {}
+  });
+}
+function mtAccidental(k, x, y) {
+  const s = MT_S;
+  if (k > 0) return `<path d="M${x - 2.6} ${y - s * 1.25}V${y + s * 1.45}M${x + 2.6} ${y - s * 1.45}V${y + s * 1.25}" stroke="#000" stroke-width="1.3"/>`
+    + `<path d="M${x - 5.5} ${y - s * 0.3}L${x + 5.5} ${y - s * 0.62}V${y - s * 0.32}L${x - 5.5} ${y}ZM${x - 5.5} ${y + s * 0.42}L${x + 5.5} ${y + s * 0.1}V${y + s * 0.4}L${x - 5.5} ${y + s * 0.72}Z" fill="#000"/>`;
+  return `<path d="M${x - 3.5} ${y - s * 1.75}V${y + s * 0.55}" stroke="#000" stroke-width="1.5"/>`
+    + `<path d="M${x - 3.5} ${y + s * 0.5}C${x + 3} ${y + s * 0.05} ${x + 6.5} ${y - s * 0.55} ${x + 2.5} ${y - s * 0.62}C${x} ${y - s * 0.66} ${x - 2} ${y - s * 0.45} ${x - 3.5} ${y - s * 0.25}" fill="none" stroke="#000" stroke-width="2.2"/>`;
+}
+// a note: head at (x, y); value index 0..6 (double whole .. 32nd); stem up
+function mtNote(v, x, y) {
+  const s = MT_S, open = v <= 2, rx = v <= 1 ? s * 0.78 : s * 0.66, ry = s * 0.5;
+  let g = open
+    ? (v <= 1 ? `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#000"/><ellipse cx="${x}" cy="${y}" rx="${rx * 0.42}" ry="${ry * 0.82}" transform="rotate(-50 ${x} ${y})" fill="#fff"/>`
+      : `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(-22 ${x} ${y})" fill="#000"/><ellipse cx="${x}" cy="${y}" rx="${rx * 0.72}" ry="${ry * 0.42}" transform="rotate(-22 ${x} ${y})" fill="#fff"/>`)
+    : `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(-22 ${x} ${y})" fill="#000"/>`;
+  if (v === 0) g += [-1, 1].map(d => `<path d="M${x + d * (rx + 3)} ${y - s * 0.75}V${y + s * 0.75}M${x + d * (rx + 6)} ${y - s * 0.75}V${y + s * 0.75}" stroke="#000" stroke-width="1.4"/>`).join('');
+  if (v >= 2) {
+    const sx = x + rx - 1.2, top = y - s * (3.5 + Math.max(0, v - 4) * 0.7);
+    g += `<path d="M${sx} ${y - 1}V${top}" stroke="#000" stroke-width="1.5"/>`;
+    for (let f = 0; f < v - 3; f++) {   // flags
+      const fy = top + f * s * 0.85;
+      g += `<path d="M${sx} ${fy}C${sx + 2} ${fy + s * 0.9} ${sx + 11} ${fy + s * 1.2} ${sx + 8} ${fy + s * 2.6}C${sx + 10} ${fy + s * 1.5} ${sx + 4} ${fy + s * 1.1} ${sx} ${fy + s * 0.75}Z" fill="#000"/>`;
     }
   }
-  $('#mtStaff').innerHTML = g;
-  // fit the clef to the staff whatever font drew it: from 1.5 spaces above the top line to 1.4 below the bottom
-  const c = $('#mtClef'); try { const bb = c.getBBox(); if (bb.height) { const sc = (bot - top + s * 2.9) / bb.height; c.setAttribute('transform', `translate(${x0 + 8 - bb.x * sc} ${top - s * 1.5 - bb.y * sc}) scale(${sc})`); } } catch {}
+  return g;
 }
-const mtName = k => (mt.mode === 'minor' ? MT_MINOR : MT_MAJOR)[k];
+// a rest centred at x on the staff
+function mtRest(v, x) {
+  const s = MT_S, l3 = mtY(4), l4 = mtY(6);   // middle line, 4th line
+  if (v === 0) return `<rect x="${x - s * 0.45}" y="${l4}" width="${s * 0.9}" height="${s}" fill="#000"/>`;
+  if (v === 1) return `<rect x="${x - s * 0.8}" y="${l4}" width="${s * 1.6}" height="${s * 0.5}" fill="#000"/>`;
+  if (v === 2) return `<rect x="${x - s * 0.8}" y="${l3 - s * 0.5}" width="${s * 1.6}" height="${s * 0.5}" fill="#000"/>`;
+  if (v === 3) return `<path d="M${x - 2} ${l4 - s * 0.9}L${x + 4} ${l4 + s * 0.15}L${x - 1.5} ${l3 + s * 0.2}L${x + 4.5} ${l3 + s * 1.3}C${x - 3} ${l3 + s * 0.9} ${x - 4} ${l3 + s * 2.1} ${x + 1} ${l3 + s * 2.4}" fill="none" stroke="#000" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
+  // 8th / 16th / 32nd: a slanted stem with one, two or three hooks
+  const n = v - 3, top = l4 - (n === 3 ? s * 0.5 : 0) - s * 0.1, bot = top + s * (1.6 + n * 0.85);
+  let g = `<path d="M${x + 4 + n * 1.5} ${top}L${x - 2} ${bot}" stroke="#000" stroke-width="1.6"/>`;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n === 1 ? 1 : n + 0.4), hx = x + 4 + n * 1.5 - (i * s * 0.85) * 0.28, hy = top + i * s * 0.85;
+    g += `<circle cx="${hx - 8}" cy="${hy + 3}" r="3.1" fill="#000"/><path d="M${hx - 9} ${hy + 5}C${hx - 5} ${hy + 6} ${hx - 2} ${hy + 4} ${hx} ${hy}" fill="none" stroke="#000" stroke-width="1.6"/>`;
+  }
+  return g;
+}
+// pitches: steps above the bottom line; treble bottom line E4, bass bottom line G2
+const MT_PITCH = {
+  treble: { lo: -2, hi: 10, base: 2 },   // C4 (ledger below) .. A5 (ledger above); bottom line E = letter index 2
+  bass:   { lo: -2, hi: 10, base: 4 },   // E2 (ledger below) .. C4 (ledger above); bottom line G = letter index 4
+};
+const mtLetter = (clef, step) => MT_LETTERS[((MT_PITCH[clef].base + step) % 7 + 7) % 7];
+const mtOctave = (clef, step) => { const b = clef === 'bass' ? 2 * 7 + 4 : 4 * 7 + 2, n = b + step; return Math.floor(n / 7); };
+function mtLedgers(step, x) {
+  let g = ''; const w = MT_S * 1.1;
+  for (let st = -2; st >= step; st -= 2) g += `<line x1="${x - w}" x2="${x + w}" y1="${mtY(st)}" y2="${mtY(st)}" stroke="#000" stroke-width="1.3"/>`;
+  for (let st = 10; st <= step; st += 2) g += `<line x1="${x - w}" x2="${x + w}" y1="${mtY(st)}" y2="${mtY(st)}" stroke="#000" stroke-width="1.3"/>`;
+  return g;
+}
+const MT_GAMES = {
+  keys: {
+    name: 'Key Signatures', blurb: 'See a key signature, name the key.', modes: [['major', 'Major'], ['minor', 'Minor']],
+    ask(mode, last) {
+      let k; do k = Math.floor(Math.random() * 15) - 7; while (k === last);
+      const names = mode === 'minor' ? MT_MINOR : MT_MAJOR;
+      const near = mtShuffle([-3, -2, -1, 1, 2, 3].map(d => k + d).filter(x => x >= -7 && x <= 7));
+      const far = mtShuffle(Array.from({ length: 15 }, (_, i) => i - 7).filter(x => x !== k && !near.includes(x)));
+      const opts = mtShuffle([k, near[0], near[1], mtPick([...near.slice(2), ...far])].map(x => names[x]));
+      let g = mtStaffLines() + mtClef('treble');
+      for (let i = 0; i < Math.abs(k); i++) g += mtAccidental(k, MT_X0 + 62 + i * 17, mtY(k > 0 ? MT_SHARPS[i] : MT_FLATS[i]));
+      const sig = k === 0 ? 'no sharps or flats' : `${Math.abs(k)} ${k > 0 ? 'sharp' : 'flat'}${Math.abs(k) === 1 ? '' : 's'}`;
+      return { key: k, svg: g, q: `Which ${mode} key has this key signature?`, answer: names[k], opts, item: `${names[k]} ${mode}`, explain: `${sig} = ${names[k]} ${mode}` };
+    },
+  },
+  notes: {
+    name: 'Notes and Rests', blurb: 'See a note or a rest, name its value.', modes: [['notes', 'Notes'], ['rests', 'Rests'], ['both', 'Both']],
+    ask(mode, last) {
+      let v, rest, key; do { v = Math.floor(Math.random() * 7); rest = mode === 'rests' || (mode === 'both' && Math.random() < 0.5); key = v + (rest ? 'r' : 'n'); } while (key === last);
+      const near = mtShuffle([-2, -1, 1, 2].map(d => v + d).filter(x => x >= 0 && x <= 6));
+      const far = mtShuffle([0, 1, 2, 3, 4, 5, 6].filter(x => x !== v && !near.includes(x)));
+      const opts = mtShuffle([v, near[0], near[1], mtPick([...near.slice(2), ...far])].map(x => MT_VALUES[x]));
+      const g = `<g transform="translate(150 ${MT_TOP + 2 * MT_S}) scale(1.75) translate(-150 ${-(MT_TOP + 2 * MT_S)})">${mtStaffLines()}${rest ? mtRest(v, 150) : mtNote(v, 150, mtY(3) + (v >= 5 ? MT_S * 0.5 : 0))}</g>`;   // zoomed in
+      const what = `${MT_VALUES[v]} ${rest ? 'rest' : 'note'}`;
+      return { key, svg: g, q: `What kind of ${rest ? 'rest' : 'note'} is this?`, answer: MT_VALUES[v], opts, item: what, explain: `That's a ${what}` };
+    },
+  },
+  pitch: {
+    name: 'Pitches', blurb: 'See a note on the treble or bass staff, name it.', modes: [['treble', 'Treble'], ['bass', 'Bass'], ['both', 'Both']], letters: true,
+    ask(mode, last) {
+      let clef, step, key; do { clef = mode === 'both' ? mtPick(['treble', 'bass']) : mode; const p = MT_PITCH[clef]; step = p.lo + Math.floor(Math.random() * (p.hi - p.lo + 1)); key = clef + step; } while (key === last);
+      const L = mtLetter(clef, step), oct = mtOctave(clef, step), mid = L === 'C' && oct === 4;
+      const g = mtStaffLines() + mtClef(clef) + mtLedgers(step, 170) + mtNote(1, 170, mtY(step));   // a whole note
+      return { key, svg: g, q: `What note is this (${clef} clef)?`, answer: L, opts: MT_LETTERS, item: `${L}${oct} (${clef})`, explain: `That's ${L}${mid ? ' (middle C)' : ''}: ${['line', 'space'][((step % 2) + 2) % 2]}${step <= -2 || step >= 10 ? ' (ledger line)' : ''}` };
+    },
+  },
+};
+let mt = { game: null, mode: {}, q: null, shown: 0, log: [], streak: 0, best: 0, done: false };
+mt.mode = store.get('mtModes', { keys: 'major', notes: 'notes', pitch: 'treble' });
+function mtFont() {
+  if (document.getElementById('mtFontCss')) return;
+  const l = document.createElement('link'); l.id = 'mtFontCss'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Noto+Music&display=block';
+  l.onload = () => { if (document.fonts) document.fonts.load('60px "Noto Music"', '\u{1D11E}\u{1D122}').then(() => mtFitClef($('#mtStaff'))).catch(() => {}); };
+  document.head.appendChild(l);
+}
+function mtShow(view) { ['mtMenu', 'mtPlay', 'mtSum'].forEach(id => { $('#' + id).style.display = id === view ? '' : 'none'; }); $('#theoryPanel .pbody').scrollTop = 0; }
+function mtMenu() {
+  $('#mtMenu').innerHTML = '<p class="m" style="margin:0 0 4px;color:var(--muted)">Pick a game. Tap <b>End game</b> any time to see how you did.</p>'
+    + Object.entries(MT_GAMES).map(([id, g]) => `<button class="mtgame" data-g="${id}"><b>${esc(g.name)}</b><small>${esc(g.blurb)}</small></button>`).join('');
+  mtShow('mtMenu');
+}
+function mtStart(id) {
+  mt.game = id; mt.log = []; mt.streak = 0; mt.best = 0; mt.q = null;
+  const g = MT_GAMES[id];
+  $('#mtTitle').textContent = g.name;
+  $('#mtModes').innerHTML = g.modes.map(([v, t]) => `<button data-mode="${v}">${t}</button>`).join('');
+  mtShow('mtPlay'); mtNew();
+}
 function mtNew() {
-  let k; do k = Math.floor(Math.random() * 15) - 7; while (k === mt.k);
-  mt.k = k; mt.done = false;
-  // three other keys, mostly close to the right one (the easy mix-ups)
-  const near = [-3, -2, -1, 1, 2, 3].map(d => k + d).filter(x => x >= -7 && x <= 7).sort(() => Math.random() - 0.5);
-  const far = Array.from({ length: 15 }, (_, i) => i - 7).filter(x => x !== k && !near.includes(x)).sort(() => Math.random() - 0.5);
-  const opts = [k, ...near.slice(0, 2), ...[...near.slice(2), ...far].sort(() => Math.random() - 0.5).slice(0, 1)].sort(() => Math.random() - 0.5);
-  $('#mtOpts').innerHTML = opts.map(x => `<button data-k="${x}">${esc(mtName(x))}</button>`).join('');
-  $('#mtQ').textContent = `Which ${mt.mode} key has this key signature?`;
+  const g = MT_GAMES[mt.game], mode = mt.mode[mt.game];
+  mt.q = g.ask(mode, mt.q && mt.q.key); mt.done = false;
+  $('#mtStaff').innerHTML = mt.q.svg; mtFitClef($('#mtStaff'));
+  $('#mtQ').textContent = mt.q.q;
+  $('#mtOpts').className = 'mtopts' + (g.letters ? ' letters' : '');
+  $('#mtOpts').innerHTML = mt.q.opts.map(o => `<button data-a="${esc(o)}">${esc(o)}</button>`).join('');
   $('#mtFb').textContent = ''; $('#mtFb').className = 'mtfb'; $('#mtNext').style.display = 'none';
-  mtDraw(); mtScore();
+  mtScore(); mt.shown = performance.now();
 }
 function mtScore() {
-  document.querySelectorAll('.mtmode button').forEach(b => b.classList.toggle('on', b.dataset.mode === mt.mode));
-  $('#mtScore').textContent = mt.total ? `${mt.right} of ${mt.total} right · streak ${mt.streak} · best streak ${mt.best}` : `Best streak ${mt.best}`;
+  document.querySelectorAll('#mtModes button').forEach(b => b.classList.toggle('on', b.dataset.mode === mt.mode[mt.game]));
+  const right = mt.log.filter(x => x.ok).length, n = mt.log.length;
+  $('#mtScore').textContent = n ? `${right} of ${n} right · streak ${mt.streak}` : 'Answer as quickly as you can.';
 }
-const mtSig = k => k === 0 ? 'no sharps or flats' : `${Math.abs(k)} ${k > 0 ? 'sharp' : 'flat'}${Math.abs(k) === 1 ? '' : 's'}`;
 $('#mtOpts').addEventListener('click', e => {
-  const b = e.target.closest('[data-k]'); if (!b || mt.done) return;
-  mt.done = true; mt.total++;
-  const pick = +b.dataset.k, ok = pick === mt.k;
-  document.querySelectorAll('#mtOpts button').forEach(x => { x.disabled = true; if (+x.dataset.k === mt.k) x.classList.add('right'); });
-  if (ok) { mt.right++; mt.streak++; if (mt.streak > mt.best) { mt.best = mt.streak; store.set('mtBest', mt.best); } }
-  else { b.classList.add('wrong'); mt.streak = 0; }
+  const b = e.target.closest('[data-a]'); if (!b || mt.done || !mt.q) return;
+  mt.done = true;
+  const ok = b.dataset.a === mt.q.answer, ms = Math.round(performance.now() - mt.shown);
+  mt.log.push({ item: mt.q.item, ok, ms, mode: mt.mode[mt.game], picked: b.dataset.a });
+  document.querySelectorAll('#mtOpts button').forEach(x => { x.disabled = true; if (x.dataset.a === mt.q.answer) x.classList.add('right'); });
+  if (ok) { mt.streak++; mt.best = Math.max(mt.best, mt.streak); } else { b.classList.add('wrong'); mt.streak = 0; }
   $('#mtFb').className = 'mtfb ' + (ok ? 'ok' : 'no');
-  $('#mtFb').textContent = `${ok ? 'Right!' : 'Not quite.'} ${mtSig(mt.k)} = ${mtName(mt.k)} ${mt.mode}`;
+  $('#mtFb').textContent = `${ok ? 'Right!' : 'Not quite.'} ${mt.q.explain}`;
   mtScore();
-  if (ok) setTimeout(() => { if (mt.done && $('#theoryPanel').classList.contains('show')) mtNew(); }, 1100);
+  if (ok) setTimeout(() => { if (mt.done && $('#mtPlay').style.display !== 'none' && $('#theoryPanel').classList.contains('show')) mtNew(); }, 900);
   else $('#mtNext').style.display = '';
 });
 $('#mtNext').onclick = mtNew;
-document.querySelector('.mtmode').addEventListener('click', e => {
-  const b = e.target.closest('[data-mode]'); if (!b || b.dataset.mode === mt.mode) return;
-  mt.mode = b.dataset.mode; store.set('mtMode', mt.mode); mt.right = mt.total = mt.streak = 0; mtNew();
+$('#mtModes').addEventListener('click', e => {
+  const b = e.target.closest('[data-mode]'); if (!b || b.dataset.mode === mt.mode[mt.game]) return;
+  mt.mode[mt.game] = b.dataset.mode; store.set('mtModes', mt.mode); mt.streak = 0; mtNew();
 });
-$('#dTheory').onclick = () => { closeDrawer(); openPanel('theoryPanel'); mtFont(); mtNew(); };
+$('#mtMenu').addEventListener('click', e => { const b = e.target.closest('[data-g]'); if (b) mtStart(b.dataset.g); });
+const mtSec = ms => (ms / 1000).toFixed(1) + 's';
+function mtEnd() {
+  const log = mt.log, n = log.length, g = MT_GAMES[mt.game];
+  if (!n) return mtMenu();
+  const right = log.filter(x => x.ok).length, avg = log.reduce((a, x) => a + x.ms, 0) / n;
+  const by = new Map();
+  log.forEach(x => { const r = by.get(x.item) || { item: x.item, n: 0, ok: 0, ms: 0, okMs: 0 }; r.n++; r.ms += x.ms; if (x.ok) { r.ok++; r.okMs += x.ms; } by.set(x.item, r); });
+  const items = [...by.values()].map(r => ({ ...r, avg: r.ms / r.n, okAvg: r.ok ? r.okMs / r.ok : Infinity }));
+  const known = items.filter(r => r.ok === r.n).sort((a, b) => a.okAvg - b.okAvg);   // quickest: only ones never missed
+  const missed = items.filter(r => r.ok < r.n).sort((a, b) => (b.n - b.ok) - (a.n - a.ok) || a.ok / a.n - b.ok / b.n);
+  const slow = items.slice().sort((a, b) => b.avg - a.avg);
+  const pct = Math.round(100 * right / n);
+  const list = (rows, f) => rows.length ? rows.slice(0, 3).map(r => `<li>${esc(r.item)} <span>${f(r)}</span></li>`).join('') : '<li class="none">None</li>';
+  $('#mtSum').innerHTML = `
+    <div class="mtsumhead"><b>${esc(g.name)}</b><span>${pct >= 90 ? 'Excellent!' : pct >= 75 ? 'Nice work!' : pct >= 50 ? 'Keep practicing!' : 'Good start!'}</span></div>
+    <div class="mtstats">
+      <div><b>${pct}%</b><small>accuracy</small></div>
+      <div><b>${right}/${n}</b><small>right</small></div>
+      <div><b>${mtSec(avg)}</b><small>average answer</small></div>
+      <div><b>${mt.best}</b><small>best streak</small></div>
+    </div>
+    <div class="mtcols">
+      <div><h4>⚡ Quickest</h4><ul>${list(known, r => mtSec(r.okAvg))}</ul></div>
+      <div><h4>🐢 Slowest</h4><ul>${list(slow, r => mtSec(r.avg))}</ul></div>
+      <div><h4>✗ Most missed</h4><ul>${list(missed, r => `${r.n - r.ok} of ${r.n}`)}</ul></div>
+    </div>
+    <h4 style="margin:14px 0 6px">Every one</h4>
+    <table class="mttable"><thead><tr><th></th><th>Asked</th><th>Right</th><th>Average</th></tr></thead><tbody>
+      ${items.sort((a, b) => a.avg - b.avg).map(r => `<tr class="${r.ok === r.n ? '' : 'mtmiss'}"><td>${esc(r.item)}</td><td>${r.n}</td><td>${r.ok}</td><td>${mtSec(r.avg)}</td></tr>`).join('')}
+    </tbody></table>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap"><button class="pbtn" id="mtAgain">Play again</button><button class="pbtn ghost" id="mtOther">Choose a game</button></div>`;
+  mtShow('mtSum');
+  $('#mtAgain').onclick = () => mtStart(mt.game);
+  $('#mtOther').onclick = mtMenu;
+}
+$('#mtEnd').onclick = mtEnd;
+$('#mtBack').onclick = () => { if (mt.log.length) mtEnd(); else mtMenu(); };
+$('#dTheory').onclick = () => { closeDrawer(); openPanel('theoryPanel'); mtFont(); mtMenu(); };
 
 // ------------------------------------------------------------------ song "more" menu (favorite, save offline)
 let rowMenuSong = null;
