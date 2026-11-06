@@ -5477,7 +5477,7 @@ function openRowMenu(s, btn) {
     `<button data-m="fav"><span class="ic star">${isFav(s) ? '★' : '☆'}</span>${isFav(s) ? 'Remove from favorites' : 'Add to favorites'}</button>`
     + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (tap to cancel)' : saved ? 'Remove offline copy' : 'Save for offline'}</button>` : '')
     + (isAdmin() ? `<button data-m="editchords"><span class="ic">✎</span>${s.chords.length ? 'Edit chord sheet' : 'Write a chord sheet'}</button>` : '')
-    + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Upload a new chord sheet' : 'Upload a chord sheet'}</button>`
+    + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Replace chord sheet (upload a file)' : 'Upload a chord sheet'}</button>`
     + (isAdmin() ? `<button data-m="known"><span class="ic known">▍</span>${isKnown(s) ? 'Not a song we know' : 'Mark as a song we know'}</button>` : '')
     + (myLive && !(perf && perf.role === 'host') ? liveBtn(myLive) : '');
   const m = $('#rowMenu'); m.classList.add('show');
@@ -5617,16 +5617,19 @@ $('#chordFile').onchange = async e => {
   const num = s.number ? String(s.number).padStart(4, '0') + ' ' : '';
   const name = `${num}${s.title.replace(/[\\/:*?"<>|]+/g, ' ').trim()}${key ? ' - ' + key : ''}.chordpro`;
   const mismatch = chart.meta.title && normalize(baseTitle(chart.meta.title)) !== normalize(baseTitle(s.title)) && !normalize(chart.meta.title).includes(normalize(baseTitle(s.title)));
-  const c = await choose(`Upload chords for “${s.title}”?`,
-    `${mismatch ? `⚠ This file is titled “${chart.meta.title}”, not “${s.title}”. Make sure it's the right song. ` : ''}${f.name}${chart.meta.title ? ` (${chart.meta.title}${key ? ', key of ' + key : ''})` : ''} will be saved for everyone as “${name}” in Chord Pro › ${s.collection}.${s.chords.length ? ' The current chord sheet stays too; the new one is added as another Chords tab.' : ''}`,
-    [{ label: 'Upload', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]);
+  // a song that already has a chord sheet: the new one replaces it (the one showing, if this song is open)
+  const old = s.chords.length ? ((viewing === s && chordFile && s.chords.includes(chordFile)) ? chordFile : s.chords[0]) : null;
+  const c = await choose(`${old ? 'Replace the chords' : 'Upload chords'} for “${s.title}”?`,
+    `${mismatch ? `⚠ This file is titled “${chart.meta.title}”, not “${s.title}”. Make sure it's the right song. ` : ''}${f.name}${chart.meta.title ? ` (${chart.meta.title}${key ? ', key of ' + key : ''})` : ''} will be saved for everyone as “${name}” in Chord Pro › ${s.collection}.${old ? ` It replaces the current chord sheet (“${old.name}”); the old one is kept in Drive (Chord Sheet Backups).` : ''}`,
+    [{ label: old ? 'Replace' : 'Upload', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]);
   if (c !== 'go') return;
   toast('Uploading…', 1500);
   try {
-    const r = await api('chordUpload', { book: s.collection, name, text });
+    const r = await api('chordUpload', { book: s.collection, name, text, replace: old ? old.id : '' });
     if (!r.ok) return toast(r.error || 'Couldn\'t upload it', 4500);
     chordLibAdd(s, r);
-    toast(`Chords added to ${s.title}`);
+    if (old && scIndex[s.key]) { api('slideChordsSave', { song: s.key, status: 'delete' }).catch(() => {}); delete scIndex[s.key]; store.set('scIndex', scIndex); scData.delete(s.key); }   // chords on the slides followed the old sheet
+    toast(old ? `Chords replaced for ${s.title}` : `Chords added to ${s.title}`);
     const fresh = songIndex.get(s.key) || songs.find(x => x.chords.some(y => y.id === r.id));
     if (fresh) openViewer(fresh, false, null, 'chords');
   } catch { toast('Connect to the internet to upload'); }

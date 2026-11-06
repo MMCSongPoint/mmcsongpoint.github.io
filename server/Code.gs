@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 40 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 41 }); }
 
 function doPost(e) {
   var d;
@@ -1218,6 +1218,13 @@ function chordUpload_(me, d) {
   var text = String(d.text || '');
   if (!text.trim() || text.length > 200000) return { ok: false, error: 'That file is empty or too big.' };
   if (!/\[[A-G][^\]]*\]/.test(text)) return { ok: false, error: 'No [chords] found. Upload a ChordPro chord sheet.' };
+  if (d.replace) {   // a new chord sheet for a song that has one: it replaces that file (the old text goes to Chord Sheet Backups)
+    var r = chordSave_(me, { id: d.replace, text: text, force: true });
+    if (!r.ok) return r;
+    var nn = String(d.name || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (nn && nn !== r.name) { try { var g = DriveApp.getFileById(r.id); g.setName(nn); r.name = nn; r.modified = g.getLastUpdated().toISOString(); } catch (e) {} }
+    return r;
+  }
   var book = String(d.book || 'Misc').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'Misc';
   var name = String(d.name || 'Chord sheet').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
   if (!/\.(cho|chordpro|chopro|crd|pro|onsong|txt)$/i.test(name)) name += '.chordpro';
