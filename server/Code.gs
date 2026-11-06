@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 38 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 40 }); }
 
 function doPost(e) {
   var d;
@@ -180,6 +180,7 @@ function handle_(d) {
   if (a === 'perfEnd') return perfEnd_(d);
   if (a === 'perfMine') return perfMine_(me);
   if (a === 'perfRemote') return perfRemote_(me, d);
+  if (a === 'slideImagesIndex') return slideImagesIndex_();
   if (a === 'slideChordsIndex') return { ok: true, index: slideChordsIndex_() };
   if (a === 'slideChordsGet') return slideChordsGet_(d);
   if (a === 'getArrangements') return { ok: true, arrangements: arrangements_() };
@@ -201,6 +202,8 @@ function handle_(d) {
   if (a === 'slideImagesRun') return slideImagesRun_(Number(d.seconds) || 240, Number(d.part) || 0, Number(d.of) || 1);
   if (a === 'slideChordsSave') return slideChordsSave_(me, d);
   if (a === 'chordSave') return chordSave_(me, d);
+  if (a === 'slideImagesIndexBuild') return slideImagesIndexBuild_();
+  if (a === 'slideImagesShare') return slideImagesShare_(Number(d.seconds) || 240, Number(d.part) || 0, Number(d.of) || 1);
   if (a === 'slideImagesStatus') return slideImagesStatus_();
   if (a === 'mp3Issues') return { ok: true, issues: mp3Issues_(), reviewed: mp3Reviewed_() };
   if (a === 'mp3Review') return mp3Review_(me, d);
@@ -1102,6 +1105,67 @@ function slideImagesStatus_() {
   var v = tab_(SIMG, SIHEAD).getDataRange().getValues().slice(1);
   return { ok: true, done: v.filter(function (r) { return r[2] && !r[6]; }).length, problems: v.filter(function (r) { return r[6]; }).map(function (r) { return r[3] + ': ' + r[6]; }).slice(0, 20) };
 }
+// ---- which song has pictures where: Slide Images/_index.json, PowerPoint file id -> { f: song folder, n: pictures, t: newest picture, u: PowerPoint's date }
+// (the pictures are made by "Save slides as pictures" on a Windows computer, or by slideImagesRun_ above)
+function driveAll_(q, fields) {
+  var out = [], tok = null;
+  do {
+    var r = Drive.Files.list({ q: q, fields: 'nextPageToken, files(' + fields + ')', pageSize: 1000, pageToken: tok, supportsAllDrives: true, includeItemsFromAllDrives: true });
+    out = out.concat(r.files || []); tok = r.nextPageToken;
+  } while (tok);
+  return out;
+}
+function simgKey_(book, name) { var c = function (x) { return String(x || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase(); }; return c(book || 'Other') + '/' + c(name); }
+function slideImagesIndexBuild_() {
+  var base = folder_(SIMG), FOLDER = "mimeType = 'application/vnd.google-apps.folder' and trashed = false", books = {}, songs = {};
+  driveAll_("'" + base.getId() + "' in parents and " + FOLDER, 'id,name').forEach(function (b) { books[b.id] = b.name; });
+  var ids = Object.keys(books);
+  for (var i = 0; i < ids.length; i += 30) {
+    var q = '(' + ids.slice(i, i + 30).map(function (id) { return "'" + id + "' in parents"; }).join(' or ') + ') and ' + FOLDER;
+    driveAll_(q, 'id,name,parents').forEach(function (f) { songs[f.id] = { book: books[f.parents[0]], name: f.name, n: 0, j: '', t: 0 }; });
+  }
+  driveAll_("((name contains 'slide-' and mimeType = 'image/png') or name = 'slides.json') and trashed = false", 'id,name,parents,modifiedTime').forEach(function (f) {
+    var s = songs[f.parents && f.parents[0]]; if (!s) return;
+    if (f.name === 'slides.json') s.j = f.id; else if (/^slide-\d+\.png$/.test(f.name)) s.n++;
+    var t = Date.parse(f.modifiedTime); if (t > s.t) s.t = t;
+  });
+  var byName = {}; Object.keys(songs).forEach(function (id) { var s = songs[id]; if (s.n) byName[simgKey_(s.book, s.name)] = { f: id, n: s.n, t: s.t }; });
+  var decks = {}, missing = 0, stale = 0;
+  slideSourcesCached_(base).forEach(function (src) {
+    var x = byName[simgKey_(src.book || 'Other', src.name.replace(/\.pptx?$/i, ''))];
+    if (!x) { missing++; return; }
+    decks[src.id] = { f: x.f, n: x.n, t: x.t, u: src.updated };
+    if (x.t < src.updated) stale++;
+  });
+  var idx = { built: Date.now(), decks: decks }, text = JSON.stringify(idx), it = base.getFilesByName('_index.json');
+  if (it.hasNext()) it.next().setContent(text); else base.createFile('_index.json', text, 'application/json');
+  CacheService.getScriptCache().remove('simgidx');
+  return { ok: true, decks: Object.keys(decks).length, missing: missing, stale: stale, folders: Object.keys(songs).length, bytes: text.length };
+}
+function slideImagesIndex_() {
+  var c = CacheService.getScriptCache(), v = c.get('simgidx');
+  if (!v) { var it = folder_(SIMG).getFilesByName('_index.json'); if (!it.hasNext()) return { ok: true, index: null }; v = it.next().getBlob().getDataAsString(); if (v.length < 95000) c.put('simgidx', v, 600); }
+  return { ok: true, index: JSON.parse(v) };
+}
+// Pictures uploaded by Google Drive for desktop are private: make each one viewable by link (like the PowerPoints in Song Slides),
+// so phones load them straight from Drive. Several runs at once each take every of-th file.
+function slideImagesShare_(seconds, part, of) {
+  var t0 = Date.now(), limit = Math.min(seconds, 300) * 1000, it = folder_(SIMG).getFilesByName('_index.json');
+  if (!it.hasNext()) return { ok: false, error: 'Make the list of pictures first.' };
+  var idx = JSON.parse(it.next().getBlob().getDataAsString()), folders = {};
+  Object.keys(idx.decks).forEach(function (k) { folders[idx.decks[k].f] = 1; });
+  var done = 0, left = 0, tok = null, err = '', hash = function (id) { var h = 0; for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100003; return h; };
+  do {
+    var r = Drive.Files.list({ q: "((name contains 'slide-' and mimeType = 'image/png') or name = 'slides.json') and visibility = 'limited' and trashed = false", fields: 'nextPageToken, files(id,parents)', pageSize: 1000, pageToken: tok });
+    (r.files || []).forEach(function (f) {
+      if (!f.parents || !folders[f.parents[0]] || hash(f.id) % of !== part) return;
+      if (Date.now() - t0 > limit) { left++; return; }
+      try { Drive.Permissions.create({ type: 'anyone', role: 'reader' }, f.id); done++; } catch (e) { err = String(e).slice(0, 200); left++; }
+    });
+    tok = r.nextPageToken;
+  } while (tok && Date.now() - t0 < limit);
+  return { ok: true, done: done, left: left + (tok ? 1 : 0), error: err };
+}
 /** Run from the editor once: converts in the background every 10 minutes until all are done (and keeps them current). */
 function slideImagesStart() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'slideImagesTimer') ScriptApp.deleteTrigger(t); });
@@ -1208,3 +1272,6 @@ function renameUser_(me, d) {
     return out;
   } finally { lock.releaseLock(); }
 }
+
+/** Run once from the editor: phones load the slide pictures straight from Drive (view-only, by link, like Song Slides). */
+function shareSlideImages() { var f = folder_(SIMG); f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); Logger.log(f.getSharingAccess() + ' ' + f.getSharingPermission()); }

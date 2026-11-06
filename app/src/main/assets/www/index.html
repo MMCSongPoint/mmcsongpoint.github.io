@@ -3080,12 +3080,54 @@ function slideSection(note, text) {
   }
   return '';
 }
-// One song's slides: the server sends a PDF (and each slide's words); each page is drawn once as a full-HD picture.
+// ---- slide pictures: Slide Images/<book>/<song>/slide-01.png ... (made with PowerPoint by "Save slides as pictures").
+// The server keeps a list of which PowerPoint has pictures where; a deck with pictures newer than the PowerPoint loads them
+// straight from Drive (fast). Anything else goes the old way: the server makes a PDF and the app draws it.
+let simg = store.get('simgIdx', null), simgAt = store.get('simgAt', 0);
+async function loadSimg(force) {
+  if (!force && simg && Date.now() - simgAt < 3 * 3600e3) return;
+  try {
+    const r = await api('slideImagesIndex');
+    if (r.ok && r.index) { simg = r.index; simgAt = Date.now(); try { store.set('simgIdx', simg); store.set('simgAt', simgAt); } catch {} }
+    // admins keep the list current (new pictures, changed PowerPoints)
+    if (isAdmin() && (!simg || Date.now() - simg.built > 12 * 3600e3)) api('slideImagesIndexBuild').then(b => { if (b.ok) { loadSimg(true); api('slideImagesShare', { seconds: 240 }).catch(() => {}); } }).catch(() => {});   // new pictures: viewable by link
+  } catch {}
+}
+function simgFor(f) {
+  const x = f && simg && simg.decks && simg.decks[f.id]; if (!x) return null;
+  const mod = Math.max(Date.parse(f.modified || '') || 0, x.u || 0);
+  return x.t + 120000 >= mod ? x : null;   // pictures older than the PowerPoint: not used
+}
+const simgLists = new Map();   // song folder -> Promise<{ pngs: [ids], json: id }>
+function simgList(x) {
+  if (!simgLists.has(x.f)) {
+    const p = driveList(x.f).then(files => {
+      const pngs = files.filter(g => /^slide-\d+\.png$/i.test(g.name)).sort((a, b) => parseInt(a.name.slice(6)) - parseInt(b.name.slice(6))).map(g => g.id);
+      const j = files.find(g => g.name === 'slides.json');
+      if (!pngs.length) throw new Error('No pictures');
+      return { pngs, json: j ? j.id : '' };
+    });
+    simgLists.set(x.f, p); p.catch(() => simgLists.delete(x.f));
+  }
+  return simgLists.get(x.f);
+}
+async function simgDeck(x) {
+  const l = await simgList(x);
+  let info = {}; if (l.json) { try { info = await (await fetch(mediaUrl(l.json))).json(); } catch {} }
+  const imgs = new Array(l.pngs.length); let next = 0;
+  const one = async () => { while (next < l.pngs.length) { const i = next++; const r = await fetch(mediaUrl(l.pngs[i])); if (!r.ok) throw new Error('Picture ' + (i + 1) + ': HTTP ' + r.status); imgs[i] = URL.createObjectURL(await r.blob()); } };
+  await Promise.all([one(), one(), one(), one()]);
+  const texts = info.texts || [], notes = info.notes || [];
+  return { imgs, texts, sections: imgs.map((_, i) => slideSection(notes[i], texts[i])), src: 'png' };
+}
+// One song's slides: its pictures (above), or the server sends a PDF (and each slide's words) and each page is drawn once as a full-HD picture.
 const deckCache = new Map();   // slide decks by file id (the presenter's, and a musician's "View Slides")
 function prDeck(s) {
   const f = prFile(s); if (!f) return Promise.resolve(null);
   if (deckCache.has(f.id)) return deckCache.get(f.id);
   const p = (async () => {
+    const x = simgFor(f);
+    if (x) { try { return await simgDeck(x); } catch (e) { console.warn('Slide pictures didn\'t load, using the PDF', e); } }
     const r = await api('slideDeck', { id: f.id });
     if (!r.ok) throw new Error(r.error || 'Couldn\'t open the slides');
     const lib = await prPdf(), bytes = Uint8Array.from(atob(r.pdf), c => c.charCodeAt(0));
@@ -4952,8 +4994,9 @@ const scData = new Map();   // song key -> Promise<data | null>
 async function loadScIndex() { try { const r = await api('slideChordsIndex'); if (r.ok) { scIndex = r.index || {}; store.set('scIndex', scIndex); } } catch {} }
 function scFresh(s) {   // placed for the slides as they are now
   const x = s && scIndex[s.key], f = s && prFile(s), c = s && s.chords && s.chords[0];
-  return !!(x && f && c && x.deck === f.id && x.deckMod === String(f.modified || '') && x.chart === c.id);
+  return !!(x && f && c && x.deck === f.id && x.deckMod === scDeckMod(f) && x.chart === c.id);
 }
+const scDeckMod = f => String(f.modified || '') + (simgFor(f) ? '|png' : '');   // placed on the slide pictures, or on the PDF drawing
 const scUsable = s => scFresh(s) && (scIndex[s.key].status !== 'check' || isAdmin());
 function scGet(s) {
   if (!scData.has(s.key)) { const p = api('slideChordsGet', { song: s.key }).then(r => r.ok ? r.data : null); scData.set(s.key, p); p.catch(() => scData.delete(s.key)); }
@@ -5054,9 +5097,9 @@ function scAlign(L, C) {   // all of the slide's letters against a stretch of th
 async function scPlaceSlide(src, chart, section, worker) {
   const im = new Image(); im.src = src; await im.decode();
   const W = im.naturalWidth, H = im.naturalHeight, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d'); g.drawImage(im, 0, 0); const px = g.getImageData(0, 0, W, H).data; cv.width = cv.height = 0;
+  const g = cv.getContext('2d'); g.drawImage(im, 0, 0); const px = g.getImageData(0, 0, W, H).data;
   const st = scStaves(px, W, H);
-  const r = await worker.recognize(src, {}, { blocks: true }), dd = r.data;
+  const r = await worker.recognize(cv, {}, { blocks: true }), dd = r.data; cv.width = cv.height = 0;
   const words = dd.words || (dd.blocks || []).flatMap(b => b.paragraphs.flatMap(p => p.lines.flatMap(l => l.words)));
   // the words under each staff that has music (grand staff: under the top staff of each pair)
   const pairs = st.length % 2 === 0, lyr = []; let multi = false;
@@ -5129,7 +5172,7 @@ async function scPlaceSong(s, onSlide) {
     }
   }
   slides.forEach(x => delete x._r);
-  const data = { v: 1, song: s.key, deck: f.id, deckMod: String(f.modified || ''), chart: cf.id, chartKey: chart.meta.key || '', slides };
+  const data = { v: 1, song: s.key, deck: f.id, deckMod: String(f.modified || '') + (d.src === 'png' ? '|png' : ''), chart: cf.id, chartKey: chart.meta.key || '', slides };
   return { data, imgs: d.imgs };
 }
 async function scSave(s, data, status) {
@@ -5347,8 +5390,10 @@ async function rmImg(key, idx, el, big) {
   const want = key + '|' + idx; if (el.dataset.want === want && el.querySelector('img')) return; el.dataset.want = want;
   if (big && !el.querySelector('img')) el.innerHTML = '<span class="rmload">Loading slide…</span>';
   try {
-    const f = prFile(it), cached = deckCache.get(f.id);
-    const src = cached && !cached.then ? cached.imgs[idx] : await rmPage(f, idx);
+    const f = prFile(it), cached = deckCache.get(f.id), x = simgFor(f);
+    let src = cached && !cached.then ? cached.imgs[idx] : '';
+    if (!src && x) { try { const l = await simgList(x); src = l.pngs[idx] ? mediaUrl(l.pngs[idx]) : ''; } catch {} }
+    if (!src) src = await rmPage(f, idx);
     if (el.dataset.want === want) el.innerHTML = src ? `<img src="${src}" alt="">` : '';
   } catch (e) { if (el.dataset.want === want) el.innerHTML = big ? `<span class="rmload">Couldn't load this slide${e && e.message ? ': ' + esc(e.message) : ''}</span>` : ''; }
 }
@@ -6134,7 +6179,7 @@ function startApp(fresh = false) {
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
     if (navigator.onLine && auth.token) loadKnown();
-    if (navigator.onLine && auth.token) { loadKeyChecks(); loadScIndex(); }
+    if (navigator.onLine && auth.token) { loadKeyChecks(); loadScIndex(); loadSimg(); }
     if (navigator.onLine && auth.token) loadApproved();
     if (navigator.onLine && auth.token) loadArrangements(true);
     if (navigator.onLine && auth.token) loadLists();
