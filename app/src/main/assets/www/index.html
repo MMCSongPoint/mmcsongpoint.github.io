@@ -1064,7 +1064,7 @@
     <div class="mt">
       <div id="mtMenu"></div>
       <div id="mtPlay" style="display:none">
-        <div class="mthead"><button class="pbtn ghost" id="mtBack">‹ Games</button><b id="mtTitle"></b><button class="pbtn ghost" id="mtEnd">End game</button></div>
+        <div class="mthead"><button class="pbtn ghost" id="mtBack">‹ Skills</button><b id="mtTitle"></b><button class="pbtn ghost" id="mtEnd">End Session</button></div>
         <div class="mthead"><span class="cgrp seg mtmode" id="mtModes"></span><span class="mtscore" id="mtScore"></span></div>
         <div class="mtcard"><svg id="mtStaff" viewBox="0 0 300 116" aria-label="Music"></svg></div>
         <div class="mtq" id="mtQ"></div>
@@ -5459,9 +5459,9 @@ const MT_GAMES = {
       const near = mtShuffle([-2, -1, 1, 2].map(d => v + d).filter(x => x >= 0 && x <= 6));
       const far = mtShuffle([0, 1, 2, 3, 4, 5, 6].filter(x => x !== v && !near.includes(x)));
       const opts = mtShuffle([v, near[0], near[1], mtPick([...near.slice(2), ...far])].map(x => MT_VALUES[x]));
-      const g = `<g transform="translate(150 ${MT_TOP + 2 * MT_S}) scale(1.75) translate(-150 ${-(MT_TOP + 2 * MT_S)})">${mtStaffLines()}${rest ? mtRest(v, 150) : mtNote(v, 150, mtY(3) + (v >= 5 ? MT_S * 0.5 : 0))}</g>`;   // zoomed in
+      const g = mtStaffLines() + (rest ? mtRest(v, 150) : mtNote(v, 150, mtY(1)));
       const what = `${MT_VALUES[v]} ${rest ? 'rest' : 'note'}`;
-      return { key, svg: g, q: `What kind of ${rest ? 'rest' : 'note'} is this?`, answer: MT_VALUES[v], opts, item: what, explain: `That's a ${what}` };
+      return { key, svg: g, vb: '60 -22 180 128', q: `What kind of ${rest ? 'rest' : 'note'} is this?`, answer: MT_VALUES[v], opts, item: what, explain: `That's a ${what}` };
     },
   },
   pitch: {
@@ -5484,7 +5484,7 @@ function mtFont() {
 }
 function mtShow(view) { ['mtMenu', 'mtPlay', 'mtSum'].forEach(id => { $('#' + id).style.display = id === view ? '' : 'none'; }); $('#theoryPanel .pbody').scrollTop = 0; }
 function mtMenu() {
-  $('#mtMenu').innerHTML = '<p class="m" style="margin:0 0 4px;color:var(--muted)">Pick a game. Tap <b>End game</b> any time to see how you did.</p>'
+  $('#mtMenu').innerHTML = '<p class="m" style="margin:0 0 4px;color:var(--muted)">Pick a skill to practice. Tap <b>End Session</b> any time to see how you did.</p>'
     + Object.entries(MT_GAMES).map(([id, g]) => `<button class="mtgame" data-g="${id}"><b>${esc(g.name)}</b><small>${esc(g.blurb)}</small></button>`).join('');
   mtShow('mtMenu');
 }
@@ -5498,7 +5498,7 @@ function mtStart(id) {
 function mtNew() {
   const g = MT_GAMES[mt.game], mode = mt.mode[mt.game];
   mt.q = g.ask(mode, mt.q && mt.q.key); mt.done = false;
-  $('#mtStaff').innerHTML = mt.q.svg; mtFitClef($('#mtStaff'));
+  $('#mtStaff').setAttribute('viewBox', mt.q.vb || '0 0 300 116'); $('#mtStaff').innerHTML = mt.q.svg; mtFitClef($('#mtStaff'));
   $('#mtQ').textContent = mt.q.q;
   $('#mtOpts').className = 'mtopts' + (g.letters ? ' letters' : '');
   $('#mtOpts').innerHTML = mt.q.opts.map(o => `<button data-a="${esc(o)}">${esc(o)}</button>`).join('');
@@ -5559,7 +5559,7 @@ function mtEnd() {
     <table class="mttable"><thead><tr><th></th><th>Asked</th><th>Right</th><th>Average</th></tr></thead><tbody>
       ${items.sort((a, b) => a.avg - b.avg).map(r => `<tr class="${r.ok === r.n ? '' : 'mtmiss'}"><td>${esc(r.item)}</td><td>${r.n}</td><td>${r.ok}</td><td>${mtSec(r.avg)}</td></tr>`).join('')}
     </tbody></table>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap"><button class="pbtn" id="mtAgain">Play again</button><button class="pbtn ghost" id="mtOther">Choose a game</button></div>`;
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap"><button class="pbtn" id="mtAgain">Play again</button><button class="pbtn ghost" id="mtOther">Choose a Skill</button></div>`;
   mtShow('mtSum');
   $('#mtAgain').onclick = () => mtStart(mt.game);
   $('#mtOther').onclick = mtMenu;
