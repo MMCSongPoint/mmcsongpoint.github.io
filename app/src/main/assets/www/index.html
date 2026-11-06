@@ -105,9 +105,6 @@
   .kcrow .t b { display: block; font-size: 15px; } .kcrow .t small { color: var(--muted); font-size: 12px; } .kcrow .hard { color: #e0a030; font-weight: 600; }
   .kcrow .ctl { display: flex; gap: 6px; align-items: center; } .kcrow .ctl select { font-size: 15px; padding: 6px; } .kcrow .ctl .pbtn { padding: 7px 12px; }
   .kcrow.ok { opacity: .55; } .kcrow.ok .okmark { color: #3aa76d; font-weight: 700; }
-  .kccrop { grid-column: 1 / -1; height: 120px; background: #fff; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: flex-start; cursor: zoom-in; border: 1px solid var(--line); }
-  .kccrop img { height: 100%; width: auto; max-width: 100%; object-fit: contain; object-position: left center; } .kccrop span { color: #777; font-size: 13px; padding: 10px; }
-  .kcbig { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.85); display: none; overflow: auto; padding: 12px; } .kcbig.show { display: block; } .kcbig img { width: 100%; max-width: 1000px; display: block; margin: 0 auto 10px; background: #fff; } .kcbig #kcBigClose { position: sticky; top: 0; margin: 0 0 10px auto; display: block; z-index: 1; } .kcbig .vmsg { color: #ddd; }
   .rvrow { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-top: 1px solid var(--line); cursor: pointer; }
   .rvrow.now { background: var(--row); } .rvrow .t { flex: 1; min-width: 0; } .rvrow .t div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rvrow .t small { color: var(--muted); font-size: 12px; } .rvrow .fl { color: #e05a4a; font-weight: 700; font-size: 13px; white-space: nowrap; }
@@ -1025,20 +1022,6 @@
   </div>
 </div>
 
-<!-- Verify keys (admins): the start of each song's sheet music next to the key listed for it -->
-<div class="panel" id="keyPanel">
-  <div class="phead">
-    <button class="icon" data-close="keyPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>Verify keys</h2>
-  </div>
-  <div class="pbody">
-    <div class="chips" id="kcBooks" style="margin:0 0 8px"></div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap"><input id="kcQ" type="search" placeholder="Title or number" style="flex:1;min-width:140px"><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="kcHard"> Hard to read only</label><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="kcDone"> Checked</label></div>
-    <p class="m" id="kcCount" style="margin:0 0 6px;font-size:12.5px;color:var(--muted)"></p>
-    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">The picture is the start of the first line of music. Count the sharps or flats: if the key is right tap <b>✓ Right</b>, otherwise pick the right one. Tap the picture to see the whole page, or <b>PDF</b> for all of the sheet music.</p>
-    <div id="kcList"></div>
-  </div>
-</div>
 <!-- Chords on slides (admins): place chords above the music on the slide pictures, and check the ones the app isn't sure of -->
 <div class="panel" id="scPanel">
   <div class="phead">
@@ -1061,7 +1044,6 @@
   <div class="chehelp">Put each chord in square brackets just before the word or syllable it's played on: <code>[G]Amazing [G7]grace</code>. Put a part's name on its own line (<code>Verse 1</code>, <code>Chorus</code>). The key goes in <code>{key: G}</code>. Saving changes it for everyone; the old version is kept in Drive (Chord Sheet Backups).</div>
 </div>
 <div class="scedit" id="scEdit"><div class="scbar"><b id="scTitle"></b><small id="scStatus"></small><button class="pbtn ghost" id="scAdd">+ Chord</button><button class="pbtn ghost" id="scDel" style="display:none">Remove</button><button class="pbtn ghost" id="scRedo">Place again</button><button class="pbtn" id="scOk">✓ Looks right</button><button class="pbtn ghost" id="scClose">✕ Close</button></div><div id="scBody"></div></div>
-<div class="kcbig" id="kcBig"><button class="pbtn" id="kcBigClose">✕ Close</button><div id="kcBigBody"></div></div>
 
 <!-- Closing songs: a plain list (known.js) -->
 <div class="panel" id="closingPanel">
@@ -1155,7 +1137,6 @@
   <button class="act" id="recordsBtn">Usage records (delete entries)</button>
   <button class="act" id="checkBtn">Library check (missing files)</button>
   <button class="act" id="mp3Btn">MP3 review (flag problems)</button>
-  <button class="act" id="keyChkBtn">Verify keys (check against the sheet music)</button>
   <button class="act" id="scBtn">Chords on slides (place &amp; check)</button>
   <a class="act" id="pptHelperBtn" href="helper/SongPoint-helper-setup.exe" download style="display:block;text-decoration:none;color:inherit">PowerPoint helper for the projector computer (Windows setup)</a>
   <button class="act" id="changePwBtn">Change password</button>
@@ -4393,7 +4374,6 @@ function renderWelcome() {
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
   $('#mp3Btn').style.display = isAdmin() ? '' : 'none';
-  $('#keyChkBtn').style.display = isAdmin() ? '' : 'none';
   $('#scBtn').style.display = isAdmin() ? '' : 'none';
   $('#dTheory').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
@@ -4919,128 +4899,6 @@ document.addEventListener('keydown', e => {
 });
 // leaving the panel stops the review player
 new MutationObserver(() => { if (!$('#mp3Panel').classList.contains('show') && !rvAudio.paused) rvAudio.pause(); }).observe($('#mp3Panel'), { attributes: true, attributeFilter: ['class'] });
-// ---- Verify keys (admins): the start of each song's sheet music next to its listed key
-const KC_KEYS = [['C', 'no ♯/♭'], ['G', '1♯'], ['D', '2♯'], ['A', '3♯'], ['E', '4♯'], ['B', '5♯'], ['F#', '6♯'], ['F', '1♭'], ['Bb', '2♭'], ['Eb', '3♭'], ['Ab', '4♭'], ['Db', '5♭'], ['Gb', '6♭']];
-const kcSig = k => (KC_KEYS.find(x => x[0] === k) || [])[1] || '';
-let kcBook = '', kcObs = null;
-const kcCache = new Map();   // sheet id -> Promise<{ crop, full }>
-function kcSongs() {
-  return songs.filter(s => s.sheets.length && !isTextDoc(s) && (keyScanBooks.has(s.collection) || /^(sfp|songs of faith and praise|misc|worship team)$/i.test(s.collection) || s.keyFrom === 'scan' || keyChecks[s.key]))
-    .sort((a, b) => a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.nTitle.localeCompare(b.nTitle));
-}
-function kcRender() {
-  const all = kcSongs(), books = [...new Set(all.map(s => s.collection))];
-  if (kcBook && !books.includes(kcBook)) kcBook = '';
-  $('#kcBooks').innerHTML = ['', ...books].map(b => `<button class="chip${b === kcBook ? ' on' : ''}" data-b="${esc(b)}">${esc(b || 'All')}</button>`).join('');
-  const q = normalize($('#kcQ').value || ''), hard = $('#kcHard').checked, done = $('#kcDone').checked;
-  const list = all.filter(s => (!kcBook || s.collection === kcBook) && (!hard || s.keyHard) && (!!keyChecks[s.key] === done) && (!q || s.nAll.includes(q)));
-  const checked = all.filter(s => keyChecks[s.key]).length;
-  $('#kcCount').textContent = `${checked} of ${all.length} checked` + (done ? ' · showing the checked ones' : '');
-  const opts = cur => (cur ? '' : '<option value="">Key?</option>') + KC_KEYS.map(([k, n]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${k.replace('b', '♭').replace('#', '♯')} (${n})</option>`).join('');
-  $('#kcList').innerHTML = list.slice(0, 300).map(s => {
-    const c = keyChecks[s.key];
-    return `<div class="kcrow${c ? ' ok' : ''}" data-k="${esc(s.key)}">
-      <div class="t"><b>${esc((s.number ? s.number + '. ' : '') + s.title)}</b><small>${esc(s.collection)} · ${s.keyOrig ? `listed ${esc(s.keyOrig)} (${kcSig(s.keyOrig)})` : 'no key listed'}${s.keyHard ? ' · <span class="hard">⚠ hard to read</span>' : ''}${c ? ` · <span class="okmark">✓ ${esc(c.key)}</span> by ${esc(c.by || '')}` : ''}</small></div>
-      <div class="ctl"><button class="pbtn ghost" data-pdf title="See the sheet music">PDF</button><select aria-label="Key">${opts(s.musicKey)}</select>${c ? '<button class="pbtn ghost" data-undo>Undo</button>' : `<button class="pbtn" data-ok${s.musicKey ? '' : ' disabled'}>✓ Right</button>`}</div>
-      <div class="kccrop" data-k="${esc(s.key)}"><span>…</span></div></div>`;
-  }).join('') + (list.length > 300 ? `<p class="m">Showing 300 of ${list.length}. Pick a book or search to narrow it down.</p>` : '') + (list.length ? '' : `<div class="vmsg">${done ? 'Nothing checked yet.' : 'Nothing left to check here.'}</div>`);
-  if (kcObs) kcObs.disconnect();
-  kcObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { kcObs.unobserve(e.target); kcShow(e.target); } }), { root: $('#keyPanel .pbody'), rootMargin: '400px' });
-  document.querySelectorAll('#kcList .kccrop').forEach(el => kcObs.observe(el));
-}
-// a few pictures at a time
-let kcBusy = 0; const kcQueue = [];
-function kcRun(fn) { return new Promise((ok, no) => { kcQueue.push(() => fn().then(ok, no)); kcPump(); }); }
-function kcPump() { while (kcBusy < 3 && kcQueue.length) { kcBusy++; kcQueue.shift()().finally(() => { kcBusy--; kcPump(); }); } }
-async function kcShow(el) {
-  const s = songIndex.get(el.dataset.k); if (!s) return;
-  const x = s.sheets.slice().sort((a, b) => (a.page || 0) - (b.page || 0))[0];
-  try {
-    if (!kcCache.has(x.id)) { const p = kcRun(() => kcLoad(x)); kcCache.set(x.id, p); p.catch(() => kcCache.delete(x.id)); }
-    const r = await kcCache.get(x.id);
-    el.innerHTML = `<img src="${r.crop}" alt="Start of the music">`; el.dataset.full = x.id;
-  } catch (e) { el.innerHTML = `<span>Couldn't load the sheet music${e && e.message ? ' (' + esc(e.message) + ')' : ''}</span>`; }
-}
-// The sheet music's first page, drawn 1400 wide
-async function kcPage(x) {
-  const W = 1400, c = document.createElement('canvas'), ctx = c.getContext('2d');
-  if (x.ext === 'pdf') {
-    let buf;
-    try { const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw 0; buf = await r.arrayBuffer(); }
-    catch { const r = await api('file', { id: x.id }); if (!r.ok) throw new Error(r.error || 'not found'); buf = Uint8Array.from(atob(r.data), ch => ch.charCodeAt(0)).buffer; }
-    const lib = await prPdf(), doc = await lib.getDocument({ data: new Uint8Array(buf) }).promise, page = await doc.getPage(1);
-    const vp = page.getViewport({ scale: W / page.getViewport({ scale: 1 }).width });
-    c.width = W; c.height = Math.round(vp.height); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-    await page.render({ canvasContext: ctx, viewport: vp }).promise;
-    return c;
-  }
-  let blob;
-  try { const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw 0; blob = await r.blob(); }
-  catch { blob = await (await fetch(await relayFile(x.id))).blob(); }
-  const bmp = await createImageBitmap(blob);
-  c.width = W; c.height = Math.round(bmp.height * W / bmp.width); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-  ctx.drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
-  return c;
-}
-// Find the first line of music (the staff lines: long dark rows) and cut out its start: clef, key signature, first bar
-function kcFind(c) {
-  const W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
-  // the left half only: a slightly crooked scan still keeps each staff line within a row or two there
-  const x0 = Math.round(W * .08), x1 = Math.round(W * .5), n = (x1 - x0) / 2, rows = [];
-  for (let y = 0; y < H; y++) {
-    let k = 0; for (let x = x0; x < x1; x += 2) { const i = (y * W + x) * 4; if (d[i] + d[i + 1] + d[i + 2] < 420) k++; }
-    if (k / n > .3) rows.push(y);
-  }
-  const lines = []; for (const y of rows) { const l = lines[lines.length - 1]; if (l && y - l.b <= 2) l.b = y; else lines.push({ a: y, b: y }); }
-  const ys = lines.filter(l => l.b - l.a < 10).map(l => (l.a + l.b) / 2);
-  const staffAt = i => { if (i + 4 >= ys.length) return null; const g = (ys[i + 4] - ys[i]) / 4; if (g < 5 || g > 45) return null; for (let j = 0; j < 4; j++) { const s = ys[i + j + 1] - ys[i + j]; if (s < g * .7 || s > g * 1.3) return null; } return { top: ys[i], bot: ys[i + 4], g, i }; };
-  let st = null; for (let i = 0; i < ys.length && !st; i++) st = staffAt(i);
-  if (!st) return { x: 0, y: 0, w: Math.round(W * .45), h: Math.round(H * .3) };
-  let bot = st.bot; for (let i = st.i + 5; i < ys.length && ys[i] - st.bot < st.g * 12; i++) { const s2 = staffAt(i); if (s2) { bot = s2.bot; break; } }   // the bass staff under it
-  // where the staff starts: the first spot where (nearly) all five lines are drawn, for a stretch
-  const lineYs = [0, 1, 2, 3, 4].map(j => ys[st.i + j]), dark = (x, y) => { for (let dy = -2; dy <= 2; dy++) { const yy = Math.round(y + dy); if (yy < 0 || yy >= H) continue; const i = (yy * W + x) * 4; if (d[i] + d[i + 1] + d[i + 2] < 420) return true; } return false; };
-  const on = x => lineYs.filter(y => dark(x, y)).length >= 4;
-  let left = 0;
-  for (let x = 0; x < W * .6; x++) { if (!on(x)) continue; let k = 0; for (let j = 0; j < 30; j++) if (on(x + j)) k++; if (k >= 24) { left = x; break; } }
-  const g = st.g, x = Math.max(0, Math.round(left - g)), y = Math.max(0, Math.round(st.top - g * 5.5));
-  return { x, y, w: Math.min(W - x, Math.round(g * 30)), h: Math.min(H - y, Math.round(bot + g * 4.5 - y)) };
-}
-async function kcLoad(x) {
-  const c = await kcPage(x), r = kcFind(c), o = document.createElement('canvas');
-  o.width = r.w; o.height = r.h; o.getContext('2d').drawImage(c, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
-  const out = { crop: o.toDataURL('image/jpeg', .85), full: c.toDataURL('image/jpeg', .8) };
-  c.width = c.height = o.width = o.height = 0;
-  return out;
-}
-async function kcSave(s, key) {
-  try {
-    const r = await api('setKeyCheck', { song: s.key, key, title: (s.number ? s.number + ' ' : '') + s.title, book: s.collection, was: s.keyOrig || '' });
-    if (!r.ok) throw new Error(r.error);
-    applyKeyChecks(r.keys); return true;
-  } catch (e) { toast(e.message || 'Couldn\'t save that. Check your connection.', 4000); return false; }
-}
-$('#keyChkBtn').onclick = () => { closeSheet(); kcRender(); openPanel('keyPanel'); loadKeyChecks().then(() => { if ($('#keyPanel').classList.contains('show')) kcRender(); }); };
-$('#kcBooks').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) { kcBook = b.dataset.b; kcRender(); } });
-$('#kcQ').addEventListener('input', () => kcRender());
-$('#kcHard').onchange = $('#kcDone').onchange = () => kcRender();
-// right / another key: saved, and the row fades (it leaves the list next time it's drawn)
-async function kcDone(row, key) {
-  const s = songIndex.get(row.dataset.k); if (!s) return;
-  row.querySelectorAll('button, select').forEach(b => b.disabled = true);
-  if (await kcSave(s, key)) { row.classList.add('ok'); row.querySelector('small').insertAdjacentHTML('beforeend', ` · <span class="okmark">✓ ${esc(key || 'not checked')}</span>`); }
-  else row.querySelectorAll('button, select').forEach(b => b.disabled = false);
-}
-$('#kcList').addEventListener('click', e => {
-  const row = e.target.closest('.kcrow'); if (!row) return;
-  if (e.target.closest('[data-ok]')) return kcDone(row, row.querySelector('select').value);
-  if (e.target.closest('[data-undo]')) return kcDone(row, '');
-  const crop = e.target.closest('.kccrop');
-  if (crop && crop.dataset.full) kcCache.get(crop.dataset.full).then(r => kcBigShow(`<img src="${r.full}" alt="">`)).catch(() => {});
-  if (e.target.closest('[data-pdf]')) kcAll(songIndex.get(row.dataset.k));
-});
-$('#kcList').addEventListener('change', e => { const sel = e.target.closest('select'); if (sel && sel.value) kcDone(e.target.closest('.kcrow'), sel.value); });
-function kcBigShow(html) { $('#kcBigBody').innerHTML = html; $('#kcBig').classList.add('show'); $('#kcBig').scrollTo(0, 0); }
-$('#kcBigClose').onclick = () => $('#kcBig').classList.remove('show');
 
 // ------------------------------------------------------------------ chords on the slide pictures
 // The words on each slide picture are read (OCR) and lined up with the chord sheet; each chord is put
@@ -5367,37 +5225,6 @@ $('#scRedo').onclick = async () => {
   delete scIndex[e.s.key]; scData.delete(e.s.key); scOpen(e.s);
 };
 $('#scClose').onclick = () => { $('#scEdit').classList.remove('show'); const e = scEd; if (e && e.dirty) { clearTimeout(scSaveT); scSave(e.s, e.data, scIndex[e.s.key] && scIndex[e.s.key].status === 'ok' ? 'ok' : undefined).catch(() => toast('Couldn\'t save the last change')); } scEd = null; if ($('#scPanel').classList.contains('show')) scRender(); };
-// every page of the song's sheet music, drawn here (the web app's viewer can't show PDFs itself)
-async function kcAll(s) {
-  if (!s) return;
-  const files = s.sheets.slice().sort((a, b) => a.label.localeCompare(b.label) || (a.page || 0) - (b.page || 0));
-  kcBigShow('<div class="vmsg">Opening the sheet music…</div>');
-  const want = s.key; $('#kcBig').dataset.k = want;
-  const out = [];
-  for (const x of files) {
-    try {
-      if (x.ext === 'pdf') {
-        let buf;
-        try { const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw 0; buf = await r.arrayBuffer(); }
-        catch { const r = await api('file', { id: x.id }); if (!r.ok) throw new Error(r.error || 'not found'); buf = Uint8Array.from(atob(r.data), ch => ch.charCodeAt(0)).buffer; }
-        const lib = await prPdf(), doc = await lib.getDocument({ data: new Uint8Array(buf) }).promise;
-        for (let i = 1; i <= doc.numPages; i++) {
-          const page = await doc.getPage(i), vp = page.getViewport({ scale: 1400 / page.getViewport({ scale: 1 }).width });
-          const c = document.createElement('canvas'); c.width = 1400; c.height = Math.round(vp.height);
-          const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-          await page.render({ canvasContext: ctx, viewport: vp }).promise;
-          out.push(`<img src="${c.toDataURL('image/jpeg', .85)}" alt="">`); c.width = c.height = 0;
-        }
-      } else {
-        let src; try { const r = await fetch(mediaUrl(x.id)); if (!r.ok) throw 0; src = URL.createObjectURL(await r.blob()); } catch { src = await relayFile(x.id); }
-        out.push(`<img src="${src}" alt="">`);
-      }
-    } catch (e) { out.push(`<div class="vmsg">Couldn't open ${esc(x.name)}${e && e.message ? ' (' + esc(e.message) + ')' : ''}</div>`); }
-    if ($('#kcBig').dataset.k !== want || !$('#kcBig').classList.contains('show')) return;
-    $('#kcBigBody').innerHTML = out.join('') + (x === files[files.length - 1] ? '' : '<div class="vmsg">Loading…</div>');
-  }
-  $('#kcBigBody').insertAdjacentHTML('beforeend', files.map(x => `<p style="text-align:center"><a style="color:#ddd" href="https://drive.google.com/file/d/${encodeURIComponent(x.id)}/view" target="_blank" rel="noopener">Open “${esc(x.name)}” in Drive</a></p>`).join(''));
-}
 // ---- remote control (phone side)
 let rm = null;   // { code, sid, es, st }
 function rmMsg(html) { $('#rmBody').innerHTML = `<div class="vmsg">${html}</div>`; }
@@ -5545,12 +5372,14 @@ function mtStaffLines() {
 }
 const MT_FONT = `'Noto Music', 'Bravura', 'Segoe UI Symbol', 'Apple Symbols', serif`;
 const mtClef = clef => `<text class="mtclef" data-clef="${clef}" x="0" y="0" font-family="${MT_FONT}" font-size="${MT_S * 4}" fill="#000">${clef === 'bass' ? '\u{1D122}' : '\u{1D11E}'}</text>`;
-function mtFitClef(svg) {   // whatever font drew the clef: scale it onto the staff
+function mtFitClef(svg) {   // whatever font drew the clef: scale its inked shape onto the staff (measured on a canvas)
+  const cx = (mtFitClef.c ||= document.createElement('canvas').getContext('2d'));
   svg.querySelectorAll('.mtclef').forEach(c => {
     try {
-      const bb = c.getBBox(); if (!bb.height) return;
-      const bass = c.dataset.clef === 'bass', want = bass ? MT_S * 3.1 : (MT_BOT - MT_TOP) + MT_S * 2.9, top = bass ? MT_TOP - MT_S * 0.1 : MT_TOP - MT_S * 1.5;
-      const sc = want / bb.height; c.setAttribute('transform', `translate(${MT_X0 + 8 - bb.x * sc} ${top - bb.y * sc}) scale(${sc})`);
+      const fs = MT_S * 4; cx.font = `${fs}px ${MT_FONT}`;
+      const m = cx.measureText(c.textContent), asc = m.actualBoundingBoxAscent, h = asc + m.actualBoundingBoxDescent; if (!h) return;
+      const bass = c.dataset.clef === 'bass', want = bass ? MT_S * 3.15 : (MT_BOT - MT_TOP) + MT_S * 2.9, top = bass ? MT_TOP - MT_S * 0.05 : MT_TOP - MT_S * 1.5;
+      const sc = want / h; c.setAttribute('transform', `translate(${MT_X0 + 8 + m.actualBoundingBoxLeft * sc} ${top + asc * sc}) scale(${sc})`);
     } catch {}
   });
 }
