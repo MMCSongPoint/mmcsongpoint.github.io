@@ -4055,7 +4055,7 @@ function renderNoteSongs() {
   $('#notePresent').style.display = !(window.Native && window.Native.isAndroid) && n.songs.some(r => (songIndex.get(r.key) || {}).slides?.length) ? '' : 'none';
   $('#noteDelete').style.display = n.isNew || !canEditList(n) ? 'none' : '';
   $('#noteEdit').style.display = canEditList(n) ? '' : 'none';
-  $('#noteShare').style.display = !n.isNew && (isMine(n) || meUser().admin) ? '' : 'none';
+  $('#noteShare').style.display = !n.isNew && !isGuest() && isMine(n) ? '' : 'none';   // only the person who made the list shares or unshares it
   $('#noteShare').textContent = n.shared ? 'Stop sharing' : 'Share with everyone';
   $('#noteOffline').innerHTML = offlineIds.has(n.id) ? '✓ Downloaded' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>Download';
   $('#noteOffline').title = offlineIds.has(n.id) ? 'Saved on this device for offline use. Tap to remove the download.' : 'Save this song list on this device for offline use';
