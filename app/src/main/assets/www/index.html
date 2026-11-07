@@ -3938,7 +3938,7 @@ let offlineIds = new Set(store.get('offlineLists', notes.map(n => n.id)));   // 
 let pendingIds = new Set(store.get('pendingLists', []));
 const meUser = () => (store.get('auth', {}).user || {});
 const isMine = n => !n.owner || n.owner === meUser().username;
-const canEditList = n => !isGuest() && isMine(n) || (!!meUser().admin && n.shared);
+const canEditList = n => !isGuest() && isMine(n);   // only the person who made a list changes it (others can make a copy)
 let editing = null, editingDirty = false, picking = null;
 const userName = () => (store.get('auth', {}).user || {}).name || '';
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };

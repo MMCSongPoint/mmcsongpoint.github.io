@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 41 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 42 }); }
 
 function doPost(e) {
   var d;
@@ -922,7 +922,7 @@ function listOut_(x) {
   n.id = x.id; n.owner = x.owner; n.ownerName = x.ownerName; n.shared = x.shared; n.updated = x.updated;
   return n;
 }
-function listCanEdit_(me, x) { return x.owner === me.username || (me.admin && x.shared); }
+function listCanEdit_(me, x) { return x.owner === me.username; }
 function listsGet_(me) {
   var lists = [], deleted = [];
   listRows_().forEach(function (x) {
@@ -941,7 +941,7 @@ function listWrite_(me, n, rows, onlyIfNewer) {
   var id = String(n.id || ''); if (!id) return { error: 'No list given.' };
   var x = rows.filter(function (r) { return r.id === id; })[0];
   if (x && x.deleted) return { error: 'This song list was deleted.' };
-  if (x && !listCanEdit_(me, x)) return { error: 'Only the person who made this list (or an admin) can change it.' };
+  if (x && !listCanEdit_(me, x)) return { error: 'Only the person who made this list can change it. Make a copy to change it.' };
   if (x && onlyIfNewer && (Number(n.updated) || 0) <= x.updated) return { row: x };
   var c = listClean_(n), now = Date.now();
   var row = [id, x ? x.owner : me.username, x ? x.ownerName : (me.name || me.username), c.title, c.date, x ? x.shared : !!n.shared, now, false, JSON.stringify(c)];
@@ -967,7 +967,7 @@ function listShare_(me, d) {
   try {
     var x = listRows_().filter(function (r) { return r.id === String(d.id || '') && !r.deleted; })[0];
     if (!x) return { ok: false, error: 'No such song list.' };
-    if (x.owner !== me.username && !me.admin) return { ok: false, error: 'Only the person who made this list can share it.' };
+    if (x.owner !== me.username) return { ok: false, error: 'Only the person who made this list can share it.' };
     var sh = tab_(LISTS, LHEAD); sh.getRange(x.row, 6, 1, 2).setValues([[!!d.shared, Date.now()]]);
     x.shared = !!d.shared; x.updated = Date.now();
     return { ok: true, list: listOut_(x) };
@@ -978,7 +978,7 @@ function listDelete_(me, d) {
   try {
     var x = listRows_().filter(function (r) { return r.id === String(d.id || ''); })[0];
     if (!x || x.deleted) return { ok: true };
-    if (!listCanEdit_(me, x)) return { ok: false, error: 'Only the person who made this list (or an admin) can delete it.' };
+    if (!listCanEdit_(me, x)) return { ok: false, error: 'Only the person who made this list can delete it.' };
     tab_(LISTS, LHEAD).getRange(x.row, 7, 1, 2).setValues([[Date.now(), true]]);
     return { ok: true };
   } finally { lock.releaseLock(); }
