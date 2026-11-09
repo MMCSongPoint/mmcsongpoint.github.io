@@ -2169,7 +2169,7 @@ function transposeChord(c, semis, table) {
   return c.replace(/^(\(?)([A-G][#b♯♭]?)([^/()]*)(?:\/([A-G][#b♯♭]?))?(\)?)$/, (m, o, r, q, b, cl) =>
     o + table[(notePc(r) + semis) % 12] + q + (b ? '/' + table[(notePc(b) + semis) % 12] : '') + cl);
 }
-const SECTION_RE = /^(verse|chorus|refrain|bridge|intro|outro|tag|pre-?chorus|ending|interlude|instrumental|coda|vamp)(\s*\d*)\s*:?\s*$/i;
+const SECTION_RE = /^(verse|chorus|refrain|bridge|intro|outro|tag|pre-?chorus|ending|interlude|instrumental|coda|vamp)(\s*(?:\d+[a-z]?)?)\s*:?\s*$/i;   // "Chorus 1a", "Verse 2b" too
 // ChordPro (and OnSong-style) text -> { meta, blocks: [{ type, label, lines }] }
 function parseChordPro(text) {
   const meta = {}, blocks = []; let cur = null, mode = null;
@@ -3654,9 +3654,10 @@ function perfFollowSection(st) {
   const arranged = !!(chordFile && arrFor(chordFile)) && chordView === 'arranged';
   const auto = !arranged && chordChart ? chartSections(chordChart) : [];
   const labels = blocks.map((b, i) => { const l = b.querySelector('.clabel'); const a = auto.find(x => x.i === i); return (a && a.label) || (l ? l.textContent : ''); });
-  const want = secKey(st.slideSection), base = want.replace(/\d+$/, '');
+  const want = secKey(st.slideSection), base = want.replace(/\d+[a-z]?$/, '');
   let cands = labels.map((l, i) => secKey(l) === want ? i : -1).filter(i => i >= 0);
   if (!cands.length) { const one = labels.map((l, i) => secKey(l) === base ? i : -1).filter(i => i >= 0); if (one.length === 1 && !labels.some(l => secKey(l).startsWith(base) && /\d$/.test(secKey(l)))) cands = one; }
+  if (!cands.length && !/\d/.test(want)) cands = labels.map((l, i) => secKey(l).replace(/\d+[a-z]?$/, '') === want ? i : -1).filter(i => i >= 0);   // "Chorus" on the slide, "Chorus 1a" / "1b" in the chart
   if (!cands.length) return false;
   // another slide of the part already showing: stay put (the top of the part stays at the top)
   if (st.song === perf.slideSong && perf.slideKey === want && perf.slideBlock != null && cands.includes(perf.slideBlock)) { perf.slideNo = st.slideNo; return true; }
@@ -3778,9 +3779,9 @@ async function svShow(s) {
 }
 function svBlock(chart, sec) {   // the chord sheet's part for a slide's section ("Verse 2", "Chorus"…)
   if (!chart || !sec) return null;
-  const want = secKey(sec), base = want.replace(/\d+$/, ''), blocks = chart.blocks.filter(b => b.lines.some(l => l.kind === 'lyric'));
+  const want = secKey(sec), base = want.replace(/\d+[a-z]?$/, ''), blocks = chart.blocks.filter(b => b.lines.some(l => l.kind === 'lyric'));
   const exact = blocks.find(b => secKey(b.label) === want); if (exact) return exact;
-  const same = blocks.filter(b => secKey(b.label).replace(/\d+$/, '') === base);
+  const same = blocks.filter(b => secKey(b.label).replace(/\d+[a-z]?$/, '') === base);
   return same.length === 1 || base === 'chorus' ? same[0] : null;
 }
 function svDraw() {
