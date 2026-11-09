@@ -3125,30 +3125,47 @@ function slideSection(note, text) {
 }
 // ---- slide pictures: Slide Images/<book>/<song>/slide-01.png … (made with PowerPoint by "Save slides as pictures").
 // A song's slides are its folder there; the pictures load straight from Drive. (Speaker slides someone adds still go through the server.)
-const simgFor = f => f && f.ext === 'img' ? { f: f.id } : null;
+const simgFor = f => f && f.ext === 'img' ? { f: f.id, m: String(f.modified || '') } : null;
 // admins: pictures added since are made viewable by link (Drive for desktop uploads them private)
 function shareNewPictures() { if (!isAdmin() || Date.now() - store.get('simgShareAt', 0) < 12 * 3600e3) return; store.set('simgShareAt', Date.now()); api('slideImagesShare', { seconds: 240 }).catch(() => {}); }
 const simgLists = new Map();   // song folder -> Promise<{ pngs: [ids], json: id }>
+// Slides are kept on this device (browser storage) once loaded: opening or presenting a song again needs nothing from Drive.
+const SIMG_CACHE = 'songpoint-slides-v1', simgKey = k => `https://songpoint.local/slides/${encodeURIComponent(k)}`;
+async function simgCacheGet(k) { try { if (!window.caches) return null; const r = await (await caches.open(SIMG_CACHE)).match(simgKey(k)); return r || null; } catch { return null; } }
+async function simgCachePut(k, body, type) { try { if (window.caches) await (await caches.open(SIMG_CACHE)).put(simgKey(k), new Response(body, { headers: { 'Content-Type': type } })); } catch {} }
 function simgList(x) {
   if (!simgLists.has(x.f)) {
-    const p = driveList(x.f).then(files => {
+    const lk = `list/${x.f}/${x.m || ''}`;   // the folder's list of pictures, kept until the folder changes
+    const p = (async () => {
+      const hit = await simgCacheGet(lk); if (hit) { try { return await hit.json(); } catch {} }
+      const files = await driveList(x.f);
       const pngs = files.filter(g => /^slide-\d+\.png$/i.test(g.name)).sort((a, b) => parseInt(a.name.slice(6)) - parseInt(b.name.slice(6))).map(g => g.id);
       const j = files.find(g => g.name === 'slides.json');
       if (!pngs.length) throw new Error('No pictures');
-      return { pngs, json: j ? j.id : '' };
-    });
+      const out = { pngs, json: j ? j.id : '' };
+      simgCachePut(lk, JSON.stringify(out), 'application/json');
+      return out;
+    })();
     simgLists.set(x.f, p); p.catch(() => simgLists.delete(x.f));
   }
   return simgLists.get(x.f);
 }
 // a picture (or slides.json) straight from Drive; when Drive won't hand files to this device, through the server instead
 async function simgGet(id) {
+  const hit = await simgCacheGet(id); if (hit) return await hit.blob();   // already on this device (a file id never changes content)
+  let blob = null;
   if (!driveBlocked()) {
-    try { const r = await fetch(mediaUrl(id)); if (r.ok) return await r.blob(); throw new Error('HTTP ' + r.status); }
-    catch (e) { if (!canRelay()) throw e; driveBlockedUntil = Date.now() + 30 * 60 * 1000; }
+    // Drive answers in well under a second when it's willing; if it hasn't started answering in 3 s, use the server
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 3000);
+    try { const r = await fetch(mediaUrl(id), { signal: ac.signal }); clearTimeout(t); if (!r.ok) throw new Error('HTTP ' + r.status); blob = await r.blob(); }
+    catch (e) { clearTimeout(t); if (!canRelay()) throw e; driveBlockedUntil = Date.now() + 30 * 60 * 1000; }
   }
-  const r = await api('file', { id }); if (!r.ok) throw new Error(r.error || 'Couldn\'t load the slide');
-  return await (await fetch(`data:${r.mime};base64,${r.data}`)).blob();
+  if (!blob) {
+    const r = await api('file', { id }); if (!r.ok) throw new Error(r.error || 'Couldn\'t load the slide');
+    blob = await (await fetch(`data:${r.mime};base64,${r.data}`)).blob();
+  }
+  simgCachePut(id, blob, blob.type || 'application/octet-stream');
+  return blob;
 }
 async function simgDeck(x) {
   const l = await simgList(x);
