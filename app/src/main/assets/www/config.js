@@ -19,6 +19,7 @@ window.HYMNAL_CONFIG = {
 
   // Slide pictures (Slide Images), one folder per song in the same book folders.
   slideImagesFolder: "1ushl4sKjW03TOb00Q6-n60Uz6jlcfZgU",   // Slide Images: one folder of slide pictures per song (made with "Save slides as pictures")
+  slidesProxy: "https://songpoint-slides.worshipteammmc.workers.dev",   // Cloudflare Worker that serves (and keeps a copy of) the slide pictures; Drive and the server are the fallbacks
 
   // Where the Android app looks for updates (GitHub releases).
   updateRepo: "MMCSongPoint/mmcsongpoint.github.io",

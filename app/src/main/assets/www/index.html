@@ -3154,11 +3154,18 @@ function simgList(x) {
   return simgLists.get(x.f);
 }
 // a picture (or slides.json) straight from Drive; when Drive won't hand files to this device, through the server instead
+let proxyBlockedUntil = 0;
 async function simgGet(ver) {   // "fileId@modifiedTime"
   const id = ver.split('@')[0];
   const hit = await simgCacheGet(ver); if (hit) return await hit.blob();   // this version is already on this device
   let blob = null;
-  if (!driveBlocked()) {
+  if (CFG.slidesProxy && Date.now() > proxyBlockedUntil) {
+    // our Cloudflare copy of the Slide Images folder: fast, and doesn't depend on Drive being willing
+    const mod = ver.slice(id.length + 1), ac = new AbortController(), t = setTimeout(() => ac.abort(), 5000);
+    try { const r = await fetch(`${CFG.slidesProxy}/f/${id}?v=${encodeURIComponent(mod)}`, { signal: ac.signal }); clearTimeout(t); if (!r.ok) throw new Error('HTTP ' + r.status); blob = await r.blob(); }
+    catch (e) { clearTimeout(t); proxyBlockedUntil = Date.now() + 10 * 60 * 1000; }
+  }
+  if (!blob && !driveBlocked()) {
     // Drive answers in well under a second when it's willing; if it hasn't started answering in 3 s, use the server
     const ac = new AbortController(), t = setTimeout(() => ac.abort(), 3000);
     try { const r = await fetch(mediaUrl(id), { signal: ac.signal }); clearTimeout(t); if (!r.ok) throw new Error('HTTP ' + r.status); blob = await r.blob(); }
