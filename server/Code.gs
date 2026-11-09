@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 45 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 46 }); }
 
 function doPost(e) {
   var d;
@@ -843,7 +843,8 @@ function file_(d) {
   var f = DriveApp.getFileById(String(d.id || ''));
   var mime = f.getMimeType();
   var chordFile = /\.(cho|crd|chopro|chordpro|pro|onsong)$/i.test(f.getName());
-  if (!chordFile && !/^(audio\/|image\/|application\/pdf$)/.test(mime)) return { ok: false, error: 'Not a song or sheet music file.' };
+  var slideInfo = f.getName() === 'slides.json';   // a song's slide pictures come with this
+  if (!chordFile && !slideInfo && !/^(audio\/|image\/|application\/pdf$)/.test(mime)) return { ok: false, error: 'Not a song or sheet music file.' };
   if (f.getSize() > 30 * 1024 * 1024) return { ok: false, error: 'File is too large.' };
   return { ok: true, mime: mime, name: f.getName(), data: Utilities.base64Encode(f.getBlob().getBytes()) };
 }

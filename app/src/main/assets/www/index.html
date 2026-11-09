@@ -3141,11 +3141,20 @@ function simgList(x) {
   }
   return simgLists.get(x.f);
 }
+// a picture (or slides.json) straight from Drive; when Drive won't hand files to this device, through the server instead
+async function simgGet(id) {
+  if (!driveBlocked()) {
+    try { const r = await fetch(mediaUrl(id)); if (r.ok) return await r.blob(); throw new Error('HTTP ' + r.status); }
+    catch (e) { if (!canRelay()) throw e; driveBlockedUntil = Date.now() + 30 * 60 * 1000; }
+  }
+  const r = await api('file', { id }); if (!r.ok) throw new Error(r.error || 'Couldn\'t load the slide');
+  return await (await fetch(`data:${r.mime};base64,${r.data}`)).blob();
+}
 async function simgDeck(x) {
   const l = await simgList(x);
-  let info = {}; if (l.json) { try { info = await (await fetch(mediaUrl(l.json))).json(); } catch {} }
+  let info = {}; if (l.json) { try { info = JSON.parse(await (await simgGet(l.json)).text()); } catch {} }
   const imgs = new Array(l.pngs.length); let next = 0;
-  const one = async () => { while (next < l.pngs.length) { const i = next++; const r = await fetch(mediaUrl(l.pngs[i])); if (!r.ok) throw new Error('Picture ' + (i + 1) + ': HTTP ' + r.status); imgs[i] = URL.createObjectURL(await r.blob()); } };
+  const one = async () => { while (next < l.pngs.length) { const i = next++; imgs[i] = URL.createObjectURL(await simgGet(l.pngs[i])); } };
   await Promise.all([one(), one(), one(), one()]);
   const texts = info.texts || [], notes = info.notes || [];
   return { imgs, texts, sections: imgs.map((_, i) => slideSection(notes[i], texts[i])), src: 'png' };
@@ -5358,7 +5367,7 @@ async function rmImg(key, idx, el, big) {
   try {
     const f = prFile(it), cached = deckCache.get(f.id), x = simgFor(f);
     let src = cached && !cached.then ? cached.imgs[idx] : '';
-    if (!src && x) { try { const l = await simgList(x); src = l.pngs[idx] ? mediaUrl(l.pngs[idx]) : ''; } catch {} }
+    if (!src && x) { try { const l = await simgList(x); src = l.pngs[idx] ? URL.createObjectURL(await simgGet(l.pngs[idx])) : ''; } catch {} }
     if (!src) src = await rmPage(f, idx);
     if (el.dataset.want === want) el.innerHTML = src ? `<img src="${src}" alt="">` : '';
   } catch (e) { if (el.dataset.want === want) el.innerHTML = big ? `<span class="rmload">Couldn't load this slide${e && e.message ? ': ' + esc(e.message) : ''}</span>` : ''; }
