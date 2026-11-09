@@ -3155,7 +3155,7 @@ async function simgDeck(x) {
   let info = {}; if (l.json) { try { info = JSON.parse(await (await simgGet(l.json)).text()); } catch {} }
   const imgs = new Array(l.pngs.length); let next = 0;
   const one = async () => { while (next < l.pngs.length) { const i = next++; imgs[i] = URL.createObjectURL(await simgGet(l.pngs[i])); } };
-  await Promise.all([one(), one(), one(), one()]);
+  await Promise.all(Array.from({ length: driveBlocked() ? 8 : 4 }, one));   // through the server: more at once
   const texts = info.texts || [], notes = info.notes || [];
   return { imgs, texts, sections: imgs.map((_, i) => slideSection(notes[i], texts[i])), src: 'png' };
 }
