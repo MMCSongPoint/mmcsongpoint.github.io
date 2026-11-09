@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 44 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 45 }); }
 
 function doPost(e) {
   var d;
@@ -1199,10 +1199,9 @@ function slideImagesIndex_() {
 // Pictures uploaded by Google Drive for desktop are private: make each one viewable by link (like the PowerPoints in Song Slides),
 // so phones load them straight from Drive. Several runs at once each take every of-th file.
 function slideImagesShare_(seconds, part, of) {
-  var t0 = Date.now(), limit = Math.min(seconds, 300) * 1000, it = folder_(SIMG).getFilesByName('_index.json');
-  if (!it.hasNext()) return { ok: false, error: 'Make the list of pictures first.' };
-  var idx = JSON.parse(it.next().getBlob().getDataAsString()), folders = {};
-  Object.keys(idx.decks).forEach(function (k) { folders[idx.decks[k].f] = 1; });
+  var t0 = Date.now(), limit = Math.min(seconds, 300) * 1000, FOLDER = "mimeType = 'application/vnd.google-apps.folder' and trashed = false", folders = {};
+  var books = driveAll_("'" + folder_(SIMG).getId() + "' in parents and " + FOLDER, 'id').map(function (b) { return b.id; });   // Slide Images/<book>/<song>
+  for (var i = 0; i < books.length; i += 30) driveAll_('(' + books.slice(i, i + 30).map(function (id) { return "'" + id + "' in parents"; }).join(' or ') + ') and ' + FOLDER, 'id').forEach(function (f) { folders[f.id] = 1; });
   var done = 0, left = 0, tok = null, err = '', hash = function (id) { var h = 0; for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100003; return h; };
   do {
     var r = Drive.Files.list({ q: "((name contains 'slide-' and mimeType = 'image/png') or name = 'slides.json') and visibility = 'limited' and trashed = false", fields: 'nextPageToken, files(id,parents)', pageSize: 1000, pageToken: tok });

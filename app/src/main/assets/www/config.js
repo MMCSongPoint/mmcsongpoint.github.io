@@ -17,8 +17,8 @@ window.HYMNAL_CONFIG = {
   // Shared folder with chord charts (ChordPro, incl. SongSelect .txt downloads), in book folders (e.g. SFP, Misc).
   chordsFolder: "1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ",
 
-  // Shared folder with PowerPoint slides (.ppt / .pptx), in the same book folders.
-  slidesFolder: "1Hx53-izNpUViULSykFtNfmP0B_4ZNSf6",
+  // Slide pictures (Slide Images), one folder per song in the same book folders.
+  slideImagesFolder: "1ushl4sKjW03TOb00Q6-n60Uz6jlcfZgU",   // Slide Images: one folder of slide pictures per song (made with "Save slides as pictures")
 
   // Where the Android app looks for updates (GitHub releases).
   updateRepo: "MMCSongPoint/mmcsongpoint.github.io",

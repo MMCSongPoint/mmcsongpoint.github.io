@@ -1307,13 +1307,6 @@ function parseChordFile(filename, anyTxt = false) {
   const p = parseName(stem + '.x');
   return { ext, number: p.number, title: p.title };
 }
-// Slide files: "0243 Our God Reigns-SFP.ppt", "As The Deer.pptx"
-function parseSlide(filename) {
-  const ext = (filename.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
-  if (ext !== 'ppt' && ext !== 'pptx') return null;
-  const p = parseName(filename.slice(0, -(ext.length + 1)) + '.x');
-  return { ext, number: p.number, title: p.title };
-}
 function partRank(p) {
   p = p.toLowerCase();
   const i = PART_ORDER.findIndex(n => p.startsWith(n));
@@ -1419,7 +1412,7 @@ function buildIndex() {
     const main = s.parts.filter(p => partRank(p.part) <= 1);
     s.title = s.parts.length ? (main.length ? main : s.parts).map(p => p.title).sort((a, b) => a.length - b.length)[0]
       : (s.sheets.find(x => x.title) || s.chords.find(x => x.title) || s.slides.find(x => x.title) || {}).title || `Hymn ${s.number}`;
-    s.slides.sort((a, b) => (a.ext === 'pptx' ? 0 : 1) - (b.ext === 'pptx' ? 0 : 1));
+    s.slides.sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));   // "0057 … -SFP" before "0057 … -w-opt end-SFP"
     s.nTitle = normalize(s.title);
     const byNum = s.number && keyNumbers.get(s.collection + '|' + s.number);
     const listed = (byNum && { key: byNum[0], change: byNum[1] }) || keyList.get(s.collection + '|' + s.nTitle) || keyList.get(s.collection + '|' + normalize(baseTitle(s.title)));
@@ -1536,23 +1529,23 @@ async function sync(manual = false) {
         setSyncLine(`Checking chords… ${chords.length} charts`);
       }
     }
+    // slides: Slide Images/<book>/<song>/slide-01.png … (one folder of pictures per song; the folder is the song's slides)
     const slides = [];
-    if (CFG.slidesFolder) {
+    if (CFG.slideImagesFolder) {
       setSyncLine('Checking slides…');
-      const stack3 = [{ id: CFG.slidesFolder, collection: null }];
-      while (stack3.length) {
-        const { id, collection } = stack3.shift();
-        for (const f of await driveList(id)) {
-          if (f.mimeType === 'application/vnd.google-apps.folder') { stack3.push({ id: f.id, collection: collection || f.name }); continue; }
-          const p = parseSlide(f.name); if (!p) continue;
-          const coll = seenColl.find(c => normalize(c) === normalize(collection || 'Other')) || collection || 'Other';
-          slides.push({ id: f.id, name: f.name, collection: coll, number: p.number, title: p.title, ext: p.ext, modified: f.modifiedTime || '' });
+      for (const b of await driveList(CFG.slideImagesFolder)) {
+        if (b.mimeType !== 'application/vnd.google-apps.folder') continue;
+        const coll = seenColl.find(c => normalize(c) === normalize(b.name)) || b.name;
+        for (const f of await driveList(b.id)) {
+          if (f.mimeType !== 'application/vnd.google-apps.folder') continue;
+          const p = parseName(f.name + '.x');
+          slides.push({ id: f.id, name: f.name, collection: coll, number: p.number, title: p.title, ext: 'img', modified: f.modifiedTime || '' });
         }
-        setSyncLine(`Checking slides… ${slides.length} files`);
+        setSyncLine(`Checking slides… ${slides.length} songs`);
       }
     }
     const before = library.tracks.length + (library.sheets || []).length + (library.slides || []).length + (library.chords || []).length;
-    library = { tracks, sheets, chords, slides, collections: seenColl, synced: Date.now() };
+    library = { tracks, sheets, chords, slides, slidesV: 2, collections: seenColl, synced: Date.now() };
     store.set('library', library);
     buildIndex(); renderTabs(); search();
     setSyncLine(`${summary()} · last refreshed just now`);
@@ -3130,24 +3123,11 @@ function slideSection(note, text) {
   }
   return '';
 }
-// ---- slide pictures: Slide Images/<book>/<song>/slide-01.png ... (made with PowerPoint by "Save slides as pictures").
-// The server keeps a list of which PowerPoint has pictures where; a deck with pictures newer than the PowerPoint loads them
-// straight from Drive (fast). Anything else goes the old way: the server makes a PDF and the app draws it.
-let simg = store.get('simgIdx', null), simgAt = store.get('simgAt', 0);
-async function loadSimg(force) {
-  if (!force && simg && Date.now() - simgAt < 3 * 3600e3) return;
-  try {
-    const r = await api('slideImagesIndex');
-    if (r.ok && r.index) { simg = r.index; simgAt = Date.now(); try { store.set('simgIdx', simg); store.set('simgAt', simgAt); } catch {} }
-    // admins keep the list current (new pictures, changed PowerPoints)
-    if (isAdmin() && (!simg || Date.now() - simg.built > 12 * 3600e3)) api('slideImagesIndexBuild').then(b => { if (b.ok) { loadSimg(true); api('slideImagesShare', { seconds: 240 }).catch(() => {}); } }).catch(() => {});   // new pictures: viewable by link
-  } catch {}
-}
-function simgFor(f) {
-  const x = f && simg && simg.decks && simg.decks[f.id]; if (!x) return null;
-  const mod = Math.max(Date.parse(f.modified || '') || 0, x.u || 0);
-  return x.t + 120000 >= mod ? x : null;   // pictures older than the PowerPoint: not used
-}
+// ---- slide pictures: Slide Images/<book>/<song>/slide-01.png … (made with PowerPoint by "Save slides as pictures").
+// A song's slides are its folder there; the pictures load straight from Drive. (Speaker slides someone adds still go through the server.)
+const simgFor = f => f && f.ext === 'img' ? { f: f.id } : null;
+// admins: pictures added since are made viewable by link (Drive for desktop uploads them private)
+function shareNewPictures() { if (!isAdmin() || Date.now() - store.get('simgShareAt', 0) < 12 * 3600e3) return; store.set('simgShareAt', Date.now()); api('slideImagesShare', { seconds: 240 }).catch(() => {}); }
 const simgLists = new Map();   // song folder -> Promise<{ pngs: [ids], json: id }>
 function simgList(x) {
   if (!simgLists.has(x.f)) {
@@ -3194,7 +3174,7 @@ function prDeck(s) {
   if (deckCache.has(f.id)) return deckCache.get(f.id);
   const p = (async () => {
     const x = simgFor(f);
-    if (x) { try { return slideSecsApply(f, await simgDeck(x)); } catch (e) { console.warn('Slide pictures didn\'t load, using the PDF', e); } }
+    if (x) return slideSecsApply(f, await simgDeck(x));
     const r = await api('slideDeck', { id: f.id });
     if (!r.ok) throw new Error(r.error || 'Couldn\'t open the slides');
     const lib = await prPdf(), bytes = Uint8Array.from(atob(r.pdf), c => c.charCodeAt(0));
@@ -5013,7 +4993,7 @@ function scFresh(s) {   // placed for the slides as they are now
   const x = s && scIndex[s.key], f = s && prFile(s), c = s && s.chords && s.chords[0];
   return !!(x && f && c && x.deck === f.id && x.deckMod === scDeckMod(f) && x.chart === c.id);
 }
-const scDeckMod = f => String(f.modified || '') + (simgFor(f) ? '|png' : '');   // placed on the slide pictures, or on the PDF drawing
+const scDeckMod = f => String(f.modified || '') + (simgFor(f) ? '|png' : '');   // placed on the slide pictures
 const scUsable = s => scFresh(s) && (scIndex[s.key].status !== 'check' || isAdmin());
 function scGet(s) {
   if (!scData.has(s.key)) { const p = api('slideChordsGet', { song: s.key }).then(r => r.ok ? r.data : null); scData.set(s.key, p); p.catch(() => scData.delete(s.key)); }
@@ -6149,7 +6129,7 @@ const CHECKS = [
   { id: 'mp3', label: 'MP3', test: s => !s.parts.length && !isTextDoc(s) },
   { id: 'sheet', label: 'Sheet music', test: s => !s.sheets.length },
   { id: 'key', label: 'Key', test: s => !s.musicKey && !isTextDoc(s) },
-  { id: 'ppt', label: 'PowerPoint', test: s => !s.slides.length && !isTextDoc(s) },
+  { id: 'ppt', label: 'Slides', test: s => !s.slides.length && !isTextDoc(s) },
 ];
 let checkIgnored = new Set(store.get('checkIgnored', [])), checkFilter = '', checkBook = '', checkLimit = 150;
 function checkRows() {
@@ -6378,13 +6358,13 @@ $('#noteSlides').onclick = async () => {
 // ------------------------------------------------------------------ start
 let started = false;
 function startApp(fresh = false) {
-  if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000 || !library.sheets || (CFG.slidesFolder && !library.slides) || (CFG.chordsFolder && !library.chords)) sync();
+  if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000 || !library.sheets || (CFG.slideImagesFolder && (!library.slides || library.slidesV !== 2)) || (CFG.chordsFolder && !library.chords)) sync();
   if (!started || fresh) {
     started = true; flushLog();
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
     if (navigator.onLine && auth.token) loadKnown();
-    if (navigator.onLine && auth.token) { loadKeyChecks(); loadScIndex(); loadSimg(); loadSlideSecs(); }
+    if (navigator.onLine && auth.token) { loadKeyChecks(); loadScIndex(); loadSlideSecs(); shareNewPictures(); }
     if (navigator.onLine && auth.token) loadApproved();
     if (navigator.onLine && auth.token) loadArrangements(true);
     if (navigator.onLine && auth.token) loadLists();
