@@ -225,6 +225,7 @@
   .svimg img { width: 100%; max-height: 52vh; object-fit: contain; display: block; }
   .svmeta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 8px 14px 0; font-size: 13px; color: var(--muted); }
   .svok { color: #3aa76d; font-weight: 600; }
+  .svsec { font: inherit; font-size: 14px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); }
   .svwords { flex: 1; padding: 10px 16px 16px; font-size: 18px; line-height: 1.45; color: var(--text); }
   .svlab { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
   .svgap { height: .6em; }
@@ -3169,6 +3170,23 @@ async function simgDeck(x) {
   const texts = info.texts || [], notes = info.notes || [];
   return { imgs, texts, sections: imgs.map((_, i) => slideSection(notes[i], texts[i])), src: 'png' };
 }
+// Which part each slide is (Verse 1, Chorus…): an admin can correct it in the Slides tab; saved on the server per PowerPoint
+let slideSecs = store.get('slideSecs', {});
+function slideSecsApply(f, d) {
+  if (!d) return d;
+  d.fid = f.id; d.fmod = String(f.modified || ''); if (!d.autoSections) d.autoSections = d.sections.slice();
+  const o = slideSecs[f.id];
+  d.sections = o && o.mod === d.fmod && o.sections.length === d.imgs.length ? o.sections.slice() : d.autoSections.slice();
+  return d;
+}
+async function loadSlideSecs() {
+  try {
+    const r = await api('slideSections'); if (!r.ok) return;
+    slideSecs = r.sections || {}; store.set('slideSecs', slideSecs);
+    for (const p of deckCache.values()) Promise.resolve(p).then(d => { if (d && d.fid) slideSecsApply({ id: d.fid, modified: d.fmod }, d); }).catch(() => {});
+    if (sv && sv.d) svDraw();
+  } catch {}
+}
 // One song's slides: its pictures (above), or the server sends a PDF (and each slide's words) and each page is drawn once as a full-HD picture.
 const deckCache = new Map();   // slide decks by file id (the presenter's, and a musician's "View Slides")
 function prDeck(s) {
@@ -3176,7 +3194,7 @@ function prDeck(s) {
   if (deckCache.has(f.id)) return deckCache.get(f.id);
   const p = (async () => {
     const x = simgFor(f);
-    if (x) { try { return await simgDeck(x); } catch (e) { console.warn('Slide pictures didn\'t load, using the PDF', e); } }
+    if (x) { try { return slideSecsApply(f, await simgDeck(x)); } catch (e) { console.warn('Slide pictures didn\'t load, using the PDF', e); } }
     const r = await api('slideDeck', { id: f.id });
     if (!r.ok) throw new Error(r.error || 'Couldn\'t open the slides');
     const lib = await prPdf(), bytes = Uint8Array.from(atob(r.pdf), c => c.charCodeAt(0));
@@ -3189,7 +3207,7 @@ function prDeck(s) {
       imgs.push(c.toDataURL('image/jpeg', 0.9)); c.width = c.height = 0;
     }
     const texts = r.texts || [], notes = r.notes || [];
-    return { imgs, texts, sections: imgs.map((_, i) => slideSection(notes[i], texts[i])) };
+    return slideSecsApply(f, { imgs, texts, sections: imgs.map((_, i) => slideSection(notes[i], texts[i])) });
   })();
   deckCache.set(f.id, p);
   p.catch(() => deckCache.delete(f.id));
@@ -3751,7 +3769,7 @@ const slidesOk = f => { const a = f && slidesApproved[f.id]; return a && a.mod =
 async function svShow(s) {
   const box = $('#vPages'), me = sv = { s, d: null, i: 0, chart: null };
   box.innerHTML = '<div class="vmsg">Getting the slides…</div>'; $('#vBody').scrollTo(0, 0);
-  loadSlidesApproved();
+  loadSlidesApproved(); loadSlideSecs();
   try { me.d = await prDeck(s); } catch (e) { if (sv === me) box.innerHTML = `<div class="vmsg">Couldn't open the slides${e && e.message ? ': ' + esc(e.message) : ''}.</div>`; return; }
   if (sv !== me || vSheet !== 'Slides') return;
   if (!me.d || !me.d.imgs.length) { box.innerHTML = '<div class="vmsg">No slides for this song.</div>'; return; }
@@ -3773,12 +3791,29 @@ function svDraw() {
     : `<div class="vmsg">${!me.s.chords.length ? 'This song has no chord sheet to show the words from.' : sec ? `No “${esc(sec)}” in the chord sheet.` : 'This slide isn\'t marked as a verse or chorus.'}</div>`;
   $('#vPages').innerHTML = `<div class="sv">
     <div class="svimg"><img src="${d.imgs[i]}" alt="Slide ${i + 1}"></div>
-    <div class="svmeta"><span>Slide ${i + 1} of ${n}${sec ? ' · ' + esc(sec) : ''}</span>${ok ? `<span class="svok">✓ Approved by ${esc(ok.by)}${ok.at ? ' ' + esc(shortDate(ok.at)) : ''}</span>` : ''}</div>
+    <div class="svmeta"><span>Slide ${i + 1} of ${n}${isAdmin() ? ' · ' + svSecPick(me, sec) : sec ? ' · ' + esc(sec) : ''}</span>${ok ? `<span class="svok">✓ Approved by ${esc(ok.by)}${ok.at ? ' ' + esc(shortDate(ok.at)) : ''}</span>` : ''}</div>
     <div class="svwords">${blk ? `<div class="svlab">${esc(blk.label)} · from the chord sheet</div>` : ''}${words}</div>
     <div class="svnav"><button class="pbtn ghost" data-sv="prev"${i ? '' : ' disabled'}>◀ Previous</button>${isAdmin() ? `<button class="pbtn ${ok ? 'ghost' : ''}" data-sv="ok">${ok ? 'Unapprove' : '✓ Approve slides'}</button>` : ''}<button class="pbtn ghost" data-sv="next"${i < n - 1 ? '' : ' disabled'}>Next ▶</button></div>
   </div>`;
 }
+function svSecPick(me, sec) {   // admins: which part this slide is, from the chord sheet's parts
+  const parts = me.chart ? [...new Set(me.chart.blocks.filter(b => b.lines.some(l => l.kind === 'lyric')).map(b => b.label).filter(Boolean))]
+    : ['Verse 1', 'Verse 2', 'Verse 3', 'Verse 4', 'Verse 5', 'Chorus', 'Bridge', 'Tag', 'Ending'];
+  const opts = ['', ...parts, ...(sec && !parts.includes(sec) ? [sec] : [])];
+  return `<select class="svsec" aria-label="Which part this slide is">${opts.map(o => `<option value="${esc(o)}"${o === sec ? ' selected' : ''}>${o ? esc(o) : '— no part (title, etc.) —'}</option>`).join('')}</select>`;
+}
 function svStep(dir) { if (!sv || !sv.d) return; const j = sv.i + dir; if (j < 0 || j >= sv.d.imgs.length) return; sv.i = j; svDraw(); }
+$('#vPages').addEventListener('change', async e => {
+  const sel = e.target.closest('.svsec'); if (!sel || !sv || !sv.d) return;
+  const me = sv, d = me.d, s = me.s, f = prFile(s), old = d.sections.slice();
+  d.sections[me.i] = sel.value; svDraw();
+  try {
+    const r = await api('setSlideSections', { deck: f.id, song: s.key, title: s.title, mod: String(f.modified || ''), sections: d.sections });
+    if (!r.ok) throw new Error(r.error);
+    slideSecs[f.id] = { mod: String(f.modified || ''), sections: d.sections.slice(), by: userName() }; store.set('slideSecs', slideSecs);
+    toast(`Slide ${me.i + 1}: ${sel.value || 'no part'}`, 1400);
+  } catch (err) { d.sections = old; if (sv === me) svDraw(); toast((err && err.message) || 'Couldn\'t save. Check the internet connection.'); }
+});
 $('#vPages').addEventListener('click', async e => {
   const b = e.target.closest('[data-sv]'); if (!b || !sv) return;
   if (b.dataset.sv === 'prev') return svStep(-1);
@@ -6348,7 +6383,7 @@ function startApp(fresh = false) {
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
     if (navigator.onLine && auth.token) loadKnown();
-    if (navigator.onLine && auth.token) { loadKeyChecks(); loadScIndex(); loadSimg(); }
+    if (navigator.onLine && auth.token) { loadKeyChecks(); loadScIndex(); loadSimg(); loadSlideSecs(); }
     if (navigator.onLine && auth.token) loadApproved();
     if (navigator.onLine && auth.token) loadArrangements(true);
     if (navigator.onLine && auth.token) loadLists();

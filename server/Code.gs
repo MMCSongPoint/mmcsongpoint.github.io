@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 43 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 44 }); }
 
 function doPost(e) {
   var d;
@@ -162,6 +162,7 @@ function handle_(d) {
   if (a === 'getKeyChecks') return { ok: true, keys: keyChecks_() };
   if (a === 'mp3Approved') return { ok: true, reviewed: mp3Reviewed_() };
   if (a === 'slidesApproved') return { ok: true, approved: slidesApproved_() };
+  if (a === 'slideSections') return { ok: true, sections: slideSections_() };
   if (a === 'file') return file_(d);
   if (a === 'slideDeck') return slideDeck_(d);
   if (a === 'slideUpload') return slideUpload_(me, d);
@@ -201,6 +202,7 @@ function handle_(d) {
   if (a === 'setKnown') return setKnown_(me, d);
   if (a === 'setKeyCheck') return setKeyCheck_(me, d);
   if (a === 'setSlidesApproved') return setSlidesApproved_(me, d);
+  if (a === 'setSlideSections') return setSlideSections_(me, d);
   if (a === 'slideImagesRun') return slideImagesRun_(Number(d.seconds) || 240, Number(d.part) || 0, Number(d.of) || 1);
   if (a === 'slideChordsSave') return slideChordsSave_(me, d);
   if (a === 'chordSave') return chordSave_(me, d);
@@ -646,6 +648,28 @@ function setSlidesApproved_(me, d) {
     }
   } finally { lock.releaseLock(); }
   return { ok: true, approved: slidesApproved_() };
+}
+
+/** Which part of the song each slide is (Verse 1, Chorus…), set by an admin in the Slides tab: PowerPoint file id -> labels by slide. */
+var SSEC = 'Slide Sections', SSHEAD = ['Deck ID', 'Song', 'Title', 'Deck modified', 'Sections', 'By', 'When'];
+function slideSections_() {
+  var sh = tab_(SSEC, SSHEAD), n = sh.getLastRow() - 1, out = {};
+  if (n < 1) return out;
+  sh.getRange(2, 1, n, 7).getValues().forEach(function (r) { if (r[0]) { try { out[String(r[0])] = { mod: String(r[3]), sections: JSON.parse(String(r[4] || '[]')), by: String(r[5] || '') }; } catch (e) {} } });
+  return out;
+}
+function setSlideSections_(me, d) {
+  var deck = String(d.deck || ''), secs = d.sections;
+  if (!deck || !Array.isArray(secs) || secs.length > 300) return { ok: false, error: 'Nothing to save.' };
+  secs = secs.map(function (x) { return String(x || '').slice(0, 40); });
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(SSEC, SSHEAD), n = sh.getLastRow() - 1;
+    var ids = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [], i = ids.indexOf(deck);
+    var row = [deck, String(d.song || ''), String(d.title || ''), "'" + String(d.mod || ''), JSON.stringify(secs), me.name || me.username, new Date()];
+    if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
+  } finally { lock.releaseLock(); }
+  return { ok: true };
 }
 
 /** "Songs we know" changes made in the app (on top of the list built into the app): key -> known yes/no. */
