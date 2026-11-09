@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 42 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 43 }); }
 
 function doPost(e) {
   var d;
@@ -161,6 +161,7 @@ function handle_(d) {
   if (a === 'getKnown') return { ok: true, known: known_() };
   if (a === 'getKeyChecks') return { ok: true, keys: keyChecks_() };
   if (a === 'mp3Approved') return { ok: true, reviewed: mp3Reviewed_() };
+  if (a === 'slidesApproved') return { ok: true, approved: slidesApproved_() };
   if (a === 'file') return file_(d);
   if (a === 'slideDeck') return slideDeck_(d);
   if (a === 'slideUpload') return slideUpload_(me, d);
@@ -199,6 +200,7 @@ function handle_(d) {
   if (a === 'setTextDoc') return setTextDoc_(me, d);
   if (a === 'setKnown') return setKnown_(me, d);
   if (a === 'setKeyCheck') return setKeyCheck_(me, d);
+  if (a === 'setSlidesApproved') return setSlidesApproved_(me, d);
   if (a === 'slideImagesRun') return slideImagesRun_(Number(d.seconds) || 240, Number(d.part) || 0, Number(d.of) || 1);
   if (a === 'slideChordsSave') return slideChordsSave_(me, d);
   if (a === 'chordSave') return chordSave_(me, d);
@@ -621,6 +623,29 @@ function slideChordsSave_(me, d) {
     if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
   } finally { lock.releaseLock(); }
   return { ok: true };
+}
+
+/** Slides checked by an admin (the Slides tab in the song viewer): PowerPoint file id -> who and when, and the file's date then. */
+var SAPP = 'Slides Approved', SAHEAD = ['Deck ID', 'Song', 'Title', 'Book', 'Deck modified', 'Approved by', 'When'];
+function slidesApproved_() {
+  var sh = tab_(SAPP, SAHEAD), n = sh.getLastRow() - 1, out = {};
+  if (n < 1) return out;
+  sh.getRange(2, 1, n, 7).getValues().forEach(function (r) { if (r[0]) out[String(r[0])] = { song: String(r[1]), mod: String(r[4]), by: String(r[5] || ''), at: r[6] ? new Date(r[6]).toISOString() : '' }; });
+  return out;
+}
+function setSlidesApproved_(me, d) {
+  var deck = String(d.deck || ''); if (!deck) return { ok: false, error: 'No slides given.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(SAPP, SAHEAD), n = sh.getLastRow() - 1;
+    var ids = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [], i = ids.indexOf(deck);
+    if (!d.approved) { if (i >= 0) sh.deleteRow(i + 2); }
+    else {
+      var row = [deck, String(d.song || ''), String(d.title || ''), String(d.book || ''), "'" + String(d.mod || ''), me.name || me.username, new Date()];
+      if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
+    }
+  } finally { lock.releaseLock(); }
+  return { ok: true, approved: slidesApproved_() };
 }
 
 /** "Songs we know" changes made in the app (on top of the list built into the app): key -> known yes/no. */

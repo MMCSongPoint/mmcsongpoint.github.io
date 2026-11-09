@@ -219,6 +219,17 @@
   .viewer.chordmode .vbody { background: var(--bg); }
   .viewer.chordmode .zoom, .viewer.chordmode #vDownload { display: none; }
   .viewer.chordmode .pages { width: 100% !important; }
+  .viewer.slidemode .vbody { background: var(--bg); }
+  .sv { display: flex; flex-direction: column; min-height: calc(100vh - 100px); min-height: calc(100dvh - 100px); max-width: 900px; margin: 0 auto; }
+  .svimg { background: #000; display: flex; justify-content: center; }
+  .svimg img { width: 100%; max-height: 52vh; object-fit: contain; display: block; }
+  .svmeta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 8px 14px 0; font-size: 13px; color: var(--muted); }
+  .svok { color: #3aa76d; font-weight: 600; }
+  .svwords { flex: 1; padding: 10px 16px 16px; font-size: 18px; line-height: 1.45; color: var(--text); }
+  .svlab { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .svgap { height: .6em; }
+  .svnav { position: sticky; bottom: 0; display: flex; gap: 8px; justify-content: space-between; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); }
+  .svnav .pbtn { flex: 1; padding: 12px 8px; } .svnav .pbtn:disabled { opacity: .4; }
   .chart { padding: 10px 16px 120px; color: var(--text); line-height: 1.25; max-width: 900px; margin: 0 auto; }
   .cbar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 0 10px; background: var(--bg); font-size: 15px; }
   .cbar button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; min-width: 36px; height: 36px; font-size: 15px; font-weight: 700; padding: 0 8px; }
@@ -2332,6 +2343,7 @@ async function showChords(x) {
 }
 function drawChords() {
   if (typeof scRefit === 'function') scRefit();
+  if (vSheet === 'Slides') return;   // the Slides tab is showing
   if (!viewing || !chordChart || !$('#viewer').classList.contains('chordmode')) return;
   const s = viewing, k = chordKeyState(s, chordChart), m = chordChart.meta;
   const arr = chordFile && arrFor(chordFile), useArr = !!arr && chordView === 'arranged';
@@ -3685,9 +3697,10 @@ function openViewer(s, keepOpen = false, list = null, mode = null) {
   // group pages by label (e.g. "Vocal · G", "Lead · Ab"); numbered hymns are one group
   const groups = [...new Set(s.sheets.map(x => x.label))];
   s.chords.forEach((x, i) => groups.push(i ? `Chords ${i + 1}` : 'Chords'));
+  if (prFile(s)) groups.push('Slides');
   $('#vTabs').innerHTML = groups.length > 1 ? groups.map((g, i) => `<button class="pp${i ? '' : ' now'}" data-g="${esc(g)}">${esc(g)}</button>`).join('') : '';
   const wantChords = (viewerMode === 'chords' || !s.sheets.length) && s.chords.length;
-  showSheetGroup(wantChords ? 'Chords' : groups[0]);
+  showSheetGroup(viewerMode === 'slides' && prFile(s) ? 'Slides' : wantChords ? 'Chords' : groups[0]);
   $('#viewer').classList.add('show'); updatePlayerMode(); requestAnimationFrame(fitPages);
   if (perf && perf.role === 'guest' && viewSlides) { pipKey = ''; perfSlideView(perf.last); }   // back in the viewer: slides again
   if (N && N.keepScreenOn) N.keepScreenOn(true);
@@ -3695,8 +3708,11 @@ function openViewer(s, keepOpen = false, list = null, mode = null) {
 function showSheetGroup(label) {
   vSheet = label; setZoom(1);
   document.querySelectorAll('#vTabs .pp').forEach(b => b.classList.toggle('now', b.dataset.g === label));
-  const isChords = /^Chords( \d+)?$/.test(label) && viewing.chords.length;
-  $('#viewer').classList.toggle('chordmode', !!isChords);
+  const isChords = /^Chords( \d+)?$/.test(label) && viewing.chords.length, isSlides = label === 'Slides';
+  $('#viewer').classList.toggle('chordmode', !!isChords || isSlides);
+  $('#viewer').classList.toggle('slidemode', isSlides);
+  if (isSlides) return svShow(viewing);
+  sv = null;
   if (isChords) return showChords(viewing.chords[(+(label.split(' ')[1]) || 1) - 1]);
   const pages = viewing.sheets.filter(x => x.label === label);
   const box = $('#vPages'); box.innerHTML = '';
@@ -3728,6 +3744,56 @@ function showSheetGroup(label) {
   }
   perfAfterDraw();
 }
+// ---- Slides tab: one slide at a time, with that part's words from the chord sheet under it (for checking slides)
+let sv = null, slidesApproved = store.get('slidesApproved', {});
+async function loadSlidesApproved() { try { const r = await api('slidesApproved'); if (r.ok) { slidesApproved = r.approved || {}; store.set('slidesApproved', slidesApproved); if (sv && sv.d) svDraw(); } } catch {} }
+const slidesOk = f => { const a = f && slidesApproved[f.id]; return a && a.mod === String(f.modified || '') ? a : null; };
+async function svShow(s) {
+  const box = $('#vPages'), me = sv = { s, d: null, i: 0, chart: null };
+  box.innerHTML = '<div class="vmsg">Getting the slides…</div>'; $('#vBody').scrollTo(0, 0);
+  loadSlidesApproved();
+  try { me.d = await prDeck(s); } catch (e) { if (sv === me) box.innerHTML = `<div class="vmsg">Couldn't open the slides${e && e.message ? ': ' + esc(e.message) : ''}.</div>`; return; }
+  if (sv !== me || vSheet !== 'Slides') return;
+  if (!me.d || !me.d.imgs.length) { box.innerHTML = '<div class="vmsg">No slides for this song.</div>'; return; }
+  if (s.chords.length) { try { me.chart = parseChordPro(await loadChordText(s.chords[0])); } catch {} }
+  if (sv === me) svDraw();
+}
+function svBlock(chart, sec) {   // the chord sheet's part for a slide's section ("Verse 2", "Chorus"…)
+  if (!chart || !sec) return null;
+  const want = secKey(sec), base = want.replace(/\d+$/, ''), blocks = chart.blocks.filter(b => b.lines.some(l => l.kind === 'lyric'));
+  const exact = blocks.find(b => secKey(b.label) === want); if (exact) return exact;
+  const same = blocks.filter(b => secKey(b.label).replace(/\d+$/, '') === base);
+  return same.length === 1 || base === 'chorus' ? same[0] : null;
+}
+function svDraw() {
+  const me = sv, d = me.d, n = d.imgs.length, i = Math.max(0, Math.min(n - 1, me.i)), sec = d.sections[i] || '', f = prFile(me.s), ok = slidesOk(f);
+  me.i = i;
+  const blk = svBlock(me.chart, sec);
+  const words = blk ? blk.lines.map(l => l.kind === 'lyric' ? `<div class="svl">${esc(l.segs.map(x => x[1]).join('').replace(/\s+-\s+/g, '').replace(/\s+/g, ' ').trim())}</div>` : l.kind === 'blank' ? '<div class="svgap"></div>' : '').join('')
+    : `<div class="vmsg">${!me.s.chords.length ? 'This song has no chord sheet to show the words from.' : sec ? `No “${esc(sec)}” in the chord sheet.` : 'This slide isn\'t marked as a verse or chorus.'}</div>`;
+  $('#vPages').innerHTML = `<div class="sv">
+    <div class="svimg"><img src="${d.imgs[i]}" alt="Slide ${i + 1}"></div>
+    <div class="svmeta"><span>Slide ${i + 1} of ${n}${sec ? ' · ' + esc(sec) : ''}</span>${ok ? `<span class="svok">✓ Approved by ${esc(ok.by)}${ok.at ? ' ' + esc(shortDate(ok.at)) : ''}</span>` : ''}</div>
+    <div class="svwords">${blk ? `<div class="svlab">${esc(blk.label)} · from the chord sheet</div>` : ''}${words}</div>
+    <div class="svnav"><button class="pbtn ghost" data-sv="prev"${i ? '' : ' disabled'}>◀ Previous</button>${isAdmin() ? `<button class="pbtn ${ok ? 'ghost' : ''}" data-sv="ok">${ok ? 'Unapprove' : '✓ Approve slides'}</button>` : ''}<button class="pbtn ghost" data-sv="next"${i < n - 1 ? '' : ' disabled'}>Next ▶</button></div>
+  </div>`;
+}
+function svStep(dir) { if (!sv || !sv.d) return; const j = sv.i + dir; if (j < 0 || j >= sv.d.imgs.length) return; sv.i = j; svDraw(); }
+$('#vPages').addEventListener('click', async e => {
+  const b = e.target.closest('[data-sv]'); if (!b || !sv) return;
+  if (b.dataset.sv === 'prev') return svStep(-1);
+  if (b.dataset.sv === 'next') return svStep(1);
+  if (b.dataset.sv === 'ok') {
+    const s = sv.s, f = prFile(s), on = !slidesOk(f); b.disabled = true;
+    try {
+      const r = await api('setSlidesApproved', { deck: f.id, song: s.key, title: s.title, book: s.collection, mod: String(f.modified || ''), approved: on });
+      if (!r.ok) throw new Error(r.error);
+      slidesApproved = r.approved || {}; store.set('slidesApproved', slidesApproved);
+      toast(on ? `Slides approved for ${s.title}` : 'Approval removed', 1800);
+    } catch (err) { toast((err && err.message) || 'Couldn\'t save. Check the internet connection.'); }
+    if (sv && sv.s === s) svDraw();
+  }
+});
 // Save the sheet music being shown (PDF or image) to the device itself.
 async function downloadSheet() {
   if (!viewing) return;
@@ -3756,7 +3822,7 @@ function closeViewer() {
   if (N && N.keepScreenOn) N.keepScreenOn(false);
 }
 $('#vClose').onclick = closeViewer;
-$('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (!b) return; perfDetach(true); viewerMode = /^Chords/.test(b.dataset.g) ? 'chords' : 'sheet'; showSheetGroup(b.dataset.g); });
+$('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (!b) return; perfDetach(true); viewerMode = b.dataset.g === 'Slides' ? 'slides' : /^Chords/.test(b.dataset.g) ? 'chords' : 'sheet'; showSheetGroup(b.dataset.g); });
 $('#vPlay').onclick = () => {
   if (!viewing || !viewing.parts.length) return;
   if (now && viewing.parts.includes(now.part)) return togglePlay();
@@ -3883,6 +3949,7 @@ document.addEventListener('keydown', e => {
   const fwd = PEDAL_FWD.includes(e.key), back = PEDAL_BACK.includes(e.key);
   if (!fwd && !back) return;
   e.preventDefault();
+  if (sv && sv.d && vSheet === 'Slides') return svStep(fwd ? 1 : -1);   // Slides tab: next / previous slide
   const body = $('#vBody'), max = body.scrollHeight - body.clientHeight, page = Math.round(body.clientHeight * 0.75);
   if (pedalMode === 'split' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) return viewerStep(e.key === 'ArrowRight' ? 1 : -1);
   if (fwd) {
