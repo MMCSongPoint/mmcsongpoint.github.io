@@ -3135,14 +3135,17 @@ async function simgCacheGet(k) { try { if (!window.caches) return null; const r 
 async function simgCachePut(k, body, type) { try { if (window.caches) await (await caches.open(SIMG_CACHE)).put(simgKey(k), new Response(body, { headers: { 'Content-Type': type } })); } catch {} }
 function simgList(x) {
   if (!simgLists.has(x.f)) {
-    const lk = `list/${x.f}/${x.m || ''}`;   // the folder's list of pictures, kept until the folder changes
+    const lk = `list/${x.f}`;   // the folder's list of pictures: asked fresh each time (one small request), the saved one when offline
     const p = (async () => {
-      const hit = await simgCacheGet(lk); if (hit) { try { return await hit.json(); } catch {} }
-      const files = await driveList(x.f);
-      const pngs = files.filter(g => /^slide-\d+\.png$/i.test(g.name)).sort((a, b) => parseInt(a.name.slice(6)) - parseInt(b.name.slice(6))).map(g => g.id);
+      let files;
+      try { files = await driveList(x.f); }
+      catch (e) { const hit = await simgCacheGet(lk); if (hit) { try { return await hit.json(); } catch {} } throw e; }
+      // each picture is kept on the device by its id and its date, so a slide replaced or edited in Drive is fetched again
+      const ver = g => g.id + '@' + (g.modifiedTime || '');
+      const pngs = files.filter(g => /^slide-\d+\.png$/i.test(g.name)).sort((a, b) => parseInt(a.name.slice(6)) - parseInt(b.name.slice(6))).map(ver);
       const j = files.find(g => g.name === 'slides.json');
       if (!pngs.length) throw new Error('No pictures');
-      const out = { pngs, json: j ? j.id : '' };
+      const out = { pngs, json: j ? ver(j) : '' };
       simgCachePut(lk, JSON.stringify(out), 'application/json');
       return out;
     })();
@@ -3151,8 +3154,9 @@ function simgList(x) {
   return simgLists.get(x.f);
 }
 // a picture (or slides.json) straight from Drive; when Drive won't hand files to this device, through the server instead
-async function simgGet(id) {
-  const hit = await simgCacheGet(id); if (hit) return await hit.blob();   // already on this device (a file id never changes content)
+async function simgGet(ver) {   // "fileId@modifiedTime"
+  const id = ver.split('@')[0];
+  const hit = await simgCacheGet(ver); if (hit) return await hit.blob();   // this version is already on this device
   let blob = null;
   if (!driveBlocked()) {
     // Drive answers in well under a second when it's willing; if it hasn't started answering in 3 s, use the server
@@ -3164,7 +3168,7 @@ async function simgGet(id) {
     const r = await api('file', { id }); if (!r.ok) throw new Error(r.error || 'Couldn\'t load the slide');
     blob = await (await fetch(`data:${r.mime};base64,${r.data}`)).blob();
   }
-  simgCachePut(id, blob, blob.type || 'application/octet-stream');
+  simgCachePut(ver, blob, blob.type || 'application/octet-stream');
   return blob;
 }
 async function simgDeck(x) {
