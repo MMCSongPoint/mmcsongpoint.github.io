@@ -669,6 +669,9 @@
   .ucard .acts2 button { font-size: 13px; padding: 6px 10px; }
   .temp { font-family: ui-monospace, monospace; font-size: 18px; background: var(--row); border: 1px dashed var(--accent-text); border-radius: 10px; padding: 10px; text-align: center; margin: 8px 0; user-select: all; -webkit-user-select: all; }
   .slidechip { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-left: 6px; }
+  .slidechip.warn { position: relative; margin-right: 5px; }
+  .chipwarn { position: absolute; top: -6px; right: -7px; width: 12px; height: 12px; border-radius: 50%; background: #e0393e; color: #fff; font: italic 700 9px/12px Georgia, serif; text-align: center; box-shadow: 0 0 0 1.5px var(--panel); }
+  .sub:has(.chipwarn), .nsong .title:has(.chipwarn) { padding-top: 6px; margin-top: -6px; }   /* room for the ⓘ (these rows clip what sticks out) */
   .busybox { position: fixed; inset: 0; z-index: 95; background: var(--scrim); display: none; place-items: center; }
   .busybox.show { display: grid; }
   .busybox > div { background: var(--panel); border-radius: 16px; padding: 22px 24px; width: min(330px, 88vw); text-align: center; }
@@ -1768,7 +1771,12 @@ const LIMIT_STEP = 200;
 let limit = LIMIT_STEP;
 // One song row (main list, Favorites and Offline screens all use it).
 // what a song has, as small chips (shown while picking songs for a list)
-const fileChips = s => [s.sheets.length && 'Sheet Music', s.chords && s.chords.length && 'Chords', s.parts.length && 'MP3', s.slides.length && 'Slides'].filter(Boolean).map(t => `<span class="slidechip">${t}</span>`).join('');
+// a red ⓘ on the pill: MP3s not reviewed yet (AI-generated), slides not approved yet
+const INFO_DOT = t => `<i class="chipwarn" title="${t}" aria-label="${t}">i</i>`;
+const mp3Unchecked = s => s.parts.some(p => isAiTrack(p, s));
+const slidesUnchecked = s => { const f = s.slides.length && prFile(s); return !!f && !slidesOk(f); };
+const fileChips = s => [s.sheets.length && ['Sheet Music'], s.chords && s.chords.length && ['Chords'], s.parts.length && ['MP3', mp3Unchecked(s) && 'MP3s not reviewed yet'], s.slides.length && ['Slides', slidesUnchecked(s) && 'Slides not approved yet']]
+  .filter(Boolean).map(([t, w]) => `<span class="slidechip${w ? ' warn' : ''}">${t}${w ? INFO_DOT(w) : ''}</span>`).join('');
 // On a narrow screen, tapping a song's name shows everything (title, book, what it has); tapping again folds it back.
 const openRows = new Set();
 const narrow = () => window.matchMedia('(max-width: 640px)').matches;
@@ -3868,7 +3876,8 @@ function showSheetGroup(label) {
 }
 // ---- Slides tab: one slide at a time, with that part's words from the chord sheet under it (for checking slides)
 let sv = null, slidesApproved = store.get('slidesApproved', {});
-async function loadSlidesApproved() { try { const r = await api('slidesApproved'); if (r.ok) { slidesApproved = r.approved || {}; store.set('slidesApproved', slidesApproved); if (sv && sv.d) svDraw(); } } catch {} }
+async function loadSlidesApproved() { try { const r = await api('slidesApproved'); if (r.ok) { slidesApproved = r.approved || {}; store.set('slidesApproved', slidesApproved); if (sv && sv.d) svDraw(); approvalsChanged(); } } catch {} }
+function approvalsChanged() { render(); if (editing && $('#notePanel').classList.contains('show')) renderNoteSongs(); }
 const slidesOk = f => { const a = f && slidesApproved[f.id]; return a && a.mod === String(f.modified || '') ? a : null; };
 async function svShow(s) {
   const box = $('#vPages'), me = sv = { s, d: null, i: 0, chart: null };
@@ -3927,7 +3936,7 @@ $('#vPages').addEventListener('click', async e => {
     try {
       const r = await api('setSlidesApproved', { deck: f.id, song: s.key, title: s.title, book: s.collection, mod: String(f.modified || ''), approved: on });
       if (!r.ok) throw new Error(r.error);
-      slidesApproved = r.approved || {}; store.set('slidesApproved', slidesApproved);
+      slidesApproved = r.approved || {}; store.set('slidesApproved', slidesApproved); approvalsChanged();
       toast(on ? `Slides approved for ${s.title}` : 'Approval removed', 1800);
     } catch (err) { toast((err && err.message) || 'Couldn\'t save. Check the internet connection.'); }
     if (sv && sv.s === s) svDraw();
@@ -4258,7 +4267,7 @@ function renderNoteSongs() {
     const s = songIndex.get(r.key);
     return `<div class="nsong${s ? '' : ' missing'}${noteViewing ? ' view' : ''}" data-i="${i}">
       ${noteViewing ? '' : '<div class="handle" aria-label="Drag to reorder" title="Drag to reorder">≡</div>'}
-      <div class="info"><div class="title t">${esc(songLabel(r))}${s && s.slides.length ? '<span class="slidechip">slides</span>' : ''}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}${r.arr && r.arr.order && r.arr.order.length ? ` · <span class="listord">${esc(r.arr.order.map(x => x.label).join(' → '))}</span>` : ''}</div></div>
+      <div class="info"><div class="title t">${esc(songLabel(r))}${s && s.slides.length ? `<span class="slidechip${slidesUnchecked(s) ? ' warn' : ''}">slides${slidesUnchecked(s) ? INFO_DOT('Slides not approved yet') : ''}</span>` : ''}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}${r.arr && r.arr.order && r.arr.order.length ? ` · <span class="listord">${esc(r.arr.order.map(x => x.label).join(' → '))}</span>` : ''}</div></div>
       <div class="ctl">
         ${s ? keyButton(s) : ''}
         ${s && s.chords.length && canEditList(n) ? `<button data-act="order" class="sm${r.arr ? ' on' : ''}" aria-label="Section order for this list" title="Section order for this song list only">${ICON_ORDER}</button>` : ''}
@@ -5011,7 +5020,7 @@ function renderNowTitle() {
   if (!now) return;
   $('#nowTitle').innerHTML = `<span class="tt">${esc((now.song.number ? now.song.number + '. ' : '') + now.song.title)}</span>` + (isAiTrack(now.part, now.song) ? SPARKLE : '');
 }
-function setApproved(map) { mp3Approved = map || {}; store.set('mp3Approved', mp3Approved); renderNowTitle(); }
+function setApproved(map) { mp3Approved = map || {}; store.set('mp3Approved', mp3Approved); renderNowTitle(); if (typeof approvalsChanged === 'function') approvalsChanged(); }
 async function loadApproved() { try { const r = await api('mp3Approved'); if (r.ok) setApproved(r.reviewed); } catch {} }
 // reviewed = played to the end and marked "sounded good" (and the file hasn't been replaced since)
 const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id] || t.modified <= rvReviewed[t.id]);
@@ -6501,7 +6510,7 @@ function startApp(fresh = false) {
     if (navigator.onLine && auth.token) loadTextDocs();
     if (navigator.onLine && auth.token) loadKnown();
     if (navigator.onLine && auth.token) { loadKeyChecks(); loadScIndex(); loadSlideSecs(); shareNewPictures(); }
-    if (navigator.onLine && auth.token) loadApproved();
+    if (navigator.onLine && auth.token) { loadApproved(); loadSlidesApproved(); }
     if (navigator.onLine && auth.token) loadArrangements(true);
     if (navigator.onLine && auth.token) loadLists();
     if (navigator.onLine && auth.token) api('me').then(r => { if (r.ok) { auth.user = r.user; saveAuth(); renderWelcome(); } }).catch(() => {});
