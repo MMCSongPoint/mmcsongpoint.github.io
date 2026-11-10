@@ -846,7 +846,7 @@
     <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="notePresent">Present</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <div class="nview viewonly"><div class="vtext" id="viewText"></div></div>
-    <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Share with everyone</button><button class="pbtn ghost" id="notePeople">Share with people</button><button class="pbtn ghost" id="noteOffline">Download</button><button class="pbtn ghost" id="noteCopy">Make a copy</button></div>
+    <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Make public</button><button class="pbtn ghost" id="notePeople">Share</button><button class="pbtn ghost" id="noteOffline">Download</button><button class="pbtn ghost" id="noteCopy">Make a copy</button></div>
     <label class="field editonly"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
     <p style="color:var(--muted);font-size:13px" id="noteStatus"></p>
     <div class="row2 editonly"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete song list</button></div>
@@ -955,7 +955,7 @@
 
 <div class="wheelbox" id="shareBox">
   <div class="wheel arrbox">
-    <h3>Share with people</h3>
+    <h3>Share</h3>
     <p>They'll see this song list under “Shared With Me”. Only you can change it.</p>
     <input id="shareQ" type="search" placeholder="Search names">
     <div class="sharelist" id="shareList"></div>
@@ -4296,7 +4296,7 @@ const sharedWithText = n => (n.sharedWith || []).map(personName).join(', ');
 function renderNotes() {
   const sort = l => [...l].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.updated || 0) - (a.updated || 0));
   const card = n => `<div class="card" data-id="${esc(n.id)}">
-      <div class="t">${esc(n.title || 'Untitled')}${isMine(n) && n.shared ? '<span class="lbadge">Shared</span>' : isMine(n) && (n.sharedWith || []).length ? `<span class="lbadge" title="Shared with ${esc(sharedWithText(n))}">Shared with ${n.sharedWith.length}</span>` : ''}${offlineIds.has(n.id) && listSaving(n) ? `<span class="lbadge off" title="Downloading…" aria-label="Downloading"><span class="spinic" style="display:inline-flex">${ICON_SAVING.replace(/18/g, '15')}</span></span>` : offlineIds.has(n.id) ? '<span class="lbadge off" title="Downloaded: kept on this device for offline use" aria-label="Downloaded for offline use"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg></span>' : ''}${pendingIds.has(n.id) ? '<span class="lbadge wait" title="Will upload when you\'re online">Not uploaded</span>' : ''}</div>
+      <div class="t">${esc(n.title || 'Untitled')}${isMine(n) && n.shared ? '<span class="lbadge">Public</span>' : isMine(n) && (n.sharedWith || []).length ? `<span class="lbadge" title="Shared with ${esc(sharedWithText(n))}">Shared with ${n.sharedWith.length}</span>` : ''}${offlineIds.has(n.id) && listSaving(n) ? `<span class="lbadge off" title="Downloading…" aria-label="Downloading"><span class="spinic" style="display:inline-flex">${ICON_SAVING.replace(/18/g, '15')}</span></span>` : offlineIds.has(n.id) ? '<span class="lbadge off" title="Downloaded: kept on this device for offline use" aria-label="Downloaded for offline use"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg></span>' : ''}${pendingIds.has(n.id) ? '<span class="lbadge wait" title="Will upload when you\'re online">Not uploaded</span>' : ''}</div>
       <div class="m">${esc(longDate(n.date))} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}${!isMine(n) && n.ownerName ? ' · by ' + esc(n.ownerName) : n.leader ? ' · ' + esc(n.leader) : ''}</div>
       ${n.songs.length ? `<div class="songsline">${esc(n.songs.map(songLabel).join(' · '))}</div>` : ''}
     </div>`;
@@ -4353,9 +4353,11 @@ function renderNoteSongs() {
   $('#noteDelete').style.display = n.isNew || !canEditList(n) ? 'none' : '';
   $('#noteEdit').style.display = canEditList(n) ? '' : 'none';
   $('#noteShare').style.display = !n.isNew && !isGuest() && isMine(n) ? '' : 'none';   // only the person who made the list shares or unshares it
-  $('#noteShare').textContent = n.shared ? 'Stop sharing with everyone' : 'Share with everyone';
+  $('#noteShare').textContent = n.shared ? 'Make private' : 'Make public';
+  $('#noteShare').title = n.shared ? 'Everyone can see this song list. Tap so only you (and the people you shared it with) can.' : 'Let everyone see this song list';
   $('#notePeople').style.display = $('#noteShare').style.display;
-  $('#notePeople').textContent = (n.sharedWith || []).length ? `Shared with ${n.sharedWith.length} ${n.sharedWith.length === 1 ? 'person' : 'people'}` : 'Share with people';
+  $('#notePeople').textContent = (n.sharedWith || []).length ? `Share · ${n.sharedWith.length}` : 'Share';
+  $('#notePeople').title = (n.sharedWith || []).length ? `Shared with ${sharedWithText(n)}` : 'Share this song list with particular people';
   const saving = offlineIds.has(n.id) && listSaving(n);
   $('#noteOffline').innerHTML = saving ? `<span class="spinic" style="display:inline-flex;vertical-align:-3px;margin-right:6px">${ICON_SAVING}</span>Downloading…`
     : offlineIds.has(n.id) ? `<span style="display:inline-flex;vertical-align:-3px;margin-right:6px">${ICON_SAVED}</span>Downloaded`
@@ -4363,7 +4365,7 @@ function renderNoteSongs() {
   $('#noteOffline').title = offlineIds.has(n.id) ? 'Saved on this device for offline use. Tap to remove the download.' : 'Save this song list on this device for offline use';
   $('#noteOffline').classList.toggle('on', offlineIds.has(n.id) && !saving);
   $('#noteCopy').style.display = n.isNew ? 'none' : '';
-  $('#noteStatus').textContent = n.isNew ? '' : `${!isMine(n) && n.ownerName ? `Made by ${n.ownerName}. ` : ''}${n.shared ? 'Shared with everyone. ' : (n.sharedWith || []).length ? (isMine(n) ? `Shared with ${sharedWithText(n)}. ` : 'Shared with you. ') : 'Only you can see it. '}Last saved${n.leader ? ' by ' + n.leader : ''} ${n.updated ? new Date(n.updated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}.`;
+  $('#noteStatus').textContent = n.isNew ? '' : `${!isMine(n) && n.ownerName ? `Made by ${n.ownerName}. ` : ''}${n.shared ? 'Public: everyone can see it. ' : (n.sharedWith || []).length ? (isMine(n) ? `Shared with ${sharedWithText(n)}. ` : 'Shared with you. ') : 'Only you can see it. '}Last saved${n.leader ? ' by ' + n.leader : ''} ${n.updated ? new Date(n.updated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}.`;
   const withSlides = n.songs.filter(r => (songIndex.get(r.key) || {}).slides?.length).length;
   $('#noteSlides').disabled = !withSlides;
   $('#slidesInfo').textContent = !n.songs.length ? '' : withSlides === n.songs.length ? `All ${withSlides} songs have slides.`
@@ -4497,7 +4499,7 @@ $('#noteShare').onclick = async () => {
     if (!r.ok) return toast(r.error || 'Couldn\'t change sharing', 4000);
     const m = notes.find(x => x.id === n.id); if (m) Object.assign(m, r.list);
     editing = JSON.parse(JSON.stringify(m || r.list)); saveNotes(); renderNoteSongs(); renderNotes();
-    toast(r.list.shared ? 'Shared: everyone can now see this song list' : (r.list.sharedWith || []).length ? `No longer shared with everyone (still shared with ${sharedWithText(r.list)})` : 'Only you can see this song list now');
+    toast(r.list.shared ? 'Public: everyone can now see this song list' : (r.list.sharedWith || []).length ? `Private: only you and ${sharedWithText(r.list)} can see it` : 'Private: only you can see this song list now');
   } catch { toast('Connect to the internet to change sharing'); }
 };
 let shareSel = null;
