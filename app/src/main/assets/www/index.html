@@ -3236,8 +3236,7 @@ $('#vPerform').onclick = async () => {
     return perfLeave();
   }
   if (isGuest()) return openPerfJoin();   // guests can follow, not lead
-  const c = await choose('Perform', '',
-    [{ label: 'Host', value: 'host', primary: true }, { label: 'Join', value: 'join' }, { label: 'Cancel', value: 'cancel' }]);
+  const c = await choose('', '', [{ label: 'Host', value: 'host', primary: true }, { label: 'Join', value: 'join' }]);   // tap outside to cancel
   if (c === 'host') perfHostStart(); else if (c === 'join') openPerfJoin();
 };
 $('#dPerform').onclick = () => { closeDrawer(); if (perf && perf.role === 'guest') return perfFollow(); openPerfJoin(); };
@@ -6584,7 +6583,8 @@ function deliverFile(name, base64, mime) {
 // In-app choice box: resolves with the chosen button's value (or 'cancel').
 function choose(title, text, buttons) {
   return new Promise(res => {
-    $('#choiceTitle').textContent = title; $('#choiceText').textContent = text; $('#choiceText').style.display = text ? '' : 'none';
+    $('#choiceTitle').textContent = title; $('#choiceTitle').style.display = title ? '' : 'none';
+    $('#choiceText').textContent = text; $('#choiceText').style.display = text ? '' : 'none';
     $('#choiceBtns').innerHTML = buttons.map((b, i) => `<button class="pbtn${b.primary ? '' : ' ghost'}" data-i="${i}">${esc(b.label)}</button>`).join('');
     const done = v => { $('#choiceBox').classList.remove('show'); choose.pending = null; res(v); };
     choose.pending = () => done('cancel');
