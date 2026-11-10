@@ -956,7 +956,6 @@
 <div class="wheelbox" id="shareBox">
   <div class="wheel arrbox">
     <h3>Share</h3>
-    <p>They'll see this song list under “Shared With Me”. Only you can change it.</p>
     <input id="shareQ" type="search" placeholder="Search names">
     <div class="sharelist" id="shareList"></div>
     <div class="row2"><button class="pbtn ghost" id="shareCancel">Cancel</button><button class="pbtn" id="shareSave">Save</button></div>
@@ -4511,8 +4510,8 @@ $('#noteShare').onclick = async () => {
 let shareSel = null;
 function renderShareList() {
   const q = normalize($('#shareQ').value || ''), me = meUser().username;
-  const l = people.filter(p => p.username !== me && (!q || normalize(p.name + ' ' + p.username).includes(q))).sort((a, b) => a.name.localeCompare(b.name));
-  $('#shareList').innerHTML = l.length ? l.map(p => `<label><input type="checkbox" data-u="${esc(p.username)}"${shareSel.has(p.username) ? ' checked' : ''}> ${esc(p.name)}<small>${esc(p.username)}</small></label>`).join('')
+  const l = people.filter(p => p.username !== me && (!q || normalize(p.name).includes(q))).sort((a, b) => a.name.localeCompare(b.name));
+  $('#shareList').innerHTML = l.length ? l.map(p => `<label><input type="checkbox" data-u="${esc(p.username)}"${shareSel.has(p.username) ? ' checked' : ''}> ${esc(p.name)}</label>`).join('')
     : `<div class="vmsg">${people.length ? 'No one by that name' : 'Loading people…'}</div>`;
 }
 $('#notePeople').onclick = async () => {
