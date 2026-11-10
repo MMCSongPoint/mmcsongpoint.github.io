@@ -3106,7 +3106,7 @@ function perfShow(st) {
 }
 // Followers glide to the leader's place instead of jumping: small moves ease in, big ones are capped at a
 // readable speed so a quick flick by the leader doesn't throw everyone off. A new song opens right at the spot.
-const PERF_MAX_SPEED = 560;     // pixels per second, at most (was 800; 30% slower)
+const PERF_MAX_SPEED = 392;     // pixels per second, at most (was 800, then 560; 30% slower each time)
 const PERF_EASE = 0.16;         // seconds: how quickly small adjustments settle
 let perfGlideRAF = 0, perfGlideTarget = null;
 function perfGlide(target, instant) {
