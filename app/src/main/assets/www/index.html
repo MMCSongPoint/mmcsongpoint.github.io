@@ -298,7 +298,7 @@
   .qrbox { position: fixed; inset: 0; z-index: 95; display: none; place-items: center; background: rgba(0,0,0,.88); }
   .qrbox.show { display: grid; }
   .qrcard { background: #fff; color: #111; border-radius: 18px; padding: 22px 26px 18px; text-align: center; max-width: 94vw; max-height: 96vh; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .qrcard svg { width: min(70vh, 82vw); height: min(70vh, 82vw); display: block; }
+  .qrcard svg { width: min(42vh, 70vw, 360px); height: min(42vh, 70vw, 360px); display: block; margin: 6px 0; }
   .qrcard h3 { margin: 0; font-size: 22px; } .qrcard p { margin: 0; color: #444; font-size: 15px; }
   .qrcard .qrc { font-size: 17px; } .qrcard .qrc b { font-size: 26px; letter-spacing: .1em; }
   .qrcard .qrurl { font-size: 13px; color: #777; word-break: break-all; }
@@ -970,8 +970,6 @@
     <h3>Scan to follow along</h3>
     <div id="qrImg"></div>
     <p class="qrc">or open SongPoint and join with code <b id="qrCodeTxt"></b></p>
-    <p>No sign-in needed. Point your phone's camera at the code.</p>
-    <p class="qrurl" id="qrUrl"></p>
     <button class="pbtn" id="qrClose">Close</button>
   </div>
 </div>
@@ -3168,7 +3166,7 @@ async function showJoinQr() {
   try { await loadQr(); } catch { return toast('Couldn\'t make the QR code. Check your internet connection.'); }
   const q = qrcode(0, 'M'); q.addData(url); q.make();
   $('#qrImg').innerHTML = q.createSvgTag({ margin: 3, scalable: true });
-  $('#qrCodeTxt').textContent = perf.code; $('#qrUrl').textContent = url;
+  $('#qrCodeTxt').textContent = perf.code;
   $('#qrBox').classList.add('show');
 }
 const closeJoinQr = () => $('#qrBox').classList.remove('show');
