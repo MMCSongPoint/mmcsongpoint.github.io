@@ -3936,6 +3936,7 @@ const hasMusic = s => !!(s && (s.sheets.length || (s.chords && s.chords.length))
 let viewerMode = 'sheet';   // 'chords' once the chords tab is picked (stays while swiping through a list)
 function openViewer(s, keepOpen = false, list = null, mode = null) {
   if (!hasMusic(s)) return toast('No sheet music for this song yet');
+  if (typeof keyGlideStop === 'function') keyGlideStop();
   if (mode) viewerMode = mode;
   if (list) { viewerList = list; viewerNoteId = viewerNoteNext; } else if (!(keepOpen && viewerList && viewerList.includes(s))) { viewerList = null; viewerNoteId = null; }
   viewerNoteNext = null;
@@ -4233,14 +4234,49 @@ document.addEventListener('keydown', e => {
   if (sv && sv.d && vSheet === 'Slides') return svStep(fwd ? 1 : -1);   // Slides tab: next / previous slide
   const body = $('#vBody'), max = body.scrollHeight - body.clientHeight, page = Math.round(body.clientHeight * 0.75);
   if (pedalMode === 'split' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) return viewerStep(e.key === 'ArrowRight' ? 1 : -1);
+  const cur = keyGlideTarget != null ? keyGlideTarget : body.scrollTop;   // pressing again while gliding goes on from where it's heading
+  // chords: to the start of the next / previous part (Verse 2, Chorus…); sheet music: about a screen
+  const starts = sectionStarts();
   if (fwd) {
-    if (body.scrollTop >= max - 4) { if (pedalMode === 'smart') viewerStep(1); return; }
-    body.scrollBy({ top: page, behavior: 'smooth' });
+    if (cur >= max - 4) { keyGlideStop(); if (pedalMode === 'smart') viewerStep(1); return; }
+    const next = starts ? starts.find(y => y > cur + 8) : cur + page;
+    keyGlide(next == null ? max : next);
   } else {
-    if (body.scrollTop <= 4) { if (pedalMode === 'smart') viewerStep(-1); return; }
-    body.scrollBy({ top: -page, behavior: 'smooth' });
+    if (cur <= 4) { keyGlideStop(); if (pedalMode === 'smart') viewerStep(-1); return; }
+    const prev = starts ? [...starts].reverse().find(y => y < cur - 8) : cur - page;
+    keyGlide(prev == null ? 0 : prev);
   }
 });
+// Where each part of the chord chart starts (scroll positions, just under the sticky key bar); null when not on chords.
+function sectionStarts() {
+  const blocks = [...document.querySelectorAll('#vPages .chart section.cblock')];
+  if (!blocks.length || !$('#viewer').classList.contains('chordmode')) return null;
+  const body = $('#vBody'), top = body.getBoundingClientRect().top + perfTopInset();
+  return blocks.map(b => Math.max(0, Math.round(body.scrollTop + b.getBoundingClientRect().top - top - 6))).sort((a, b) => a - b);
+}
+// Same glide as following a leader: eases in, never faster than PERF_MAX_SPEED.
+let keyGlideRAF = 0, keyGlideTarget = null;
+function keyGlideStop() { cancelAnimationFrame(keyGlideRAF); keyGlideRAF = 0; keyGlideTarget = null; }
+function keyGlide(target) {
+  const body = $('#vBody');
+  keyGlideTarget = Math.max(0, Math.min(target, body.scrollHeight - body.clientHeight));
+  if (keyGlideRAF) return;
+  let last = performance.now();
+  const step = t => {
+    const dt = Math.min(0.05, (t - last) / 1000); last = t;
+    if (keyGlideTarget == null) { keyGlideRAF = 0; return; }
+    const c = body.scrollTop, dist = keyGlideTarget - c;
+    if (Math.abs(dist) < 0.5) { body.scrollTop = keyGlideTarget; keyGlideStop(); return; }
+    let move = dist * (1 - Math.exp(-dt / PERF_EASE));
+    const cap = PERF_MAX_SPEED * dt;
+    if (Math.abs(move) > cap) move = Math.sign(dist) * cap;
+    if (Math.abs(move) < 0.5) move = Math.sign(dist) * Math.min(Math.abs(dist), 0.5);
+    body.scrollTop = c + move;
+    keyGlideRAF = requestAnimationFrame(step);
+  };
+  keyGlideRAF = requestAnimationFrame(step);
+}
+['touchstart', 'wheel', 'mousedown'].forEach(t => $('#vBody').addEventListener(t, keyGlideStop, { passive: true }));   // your own scrolling takes over
 $('#themeSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   theme = b.dataset.t; store.set('theme', theme); applyTheme();
