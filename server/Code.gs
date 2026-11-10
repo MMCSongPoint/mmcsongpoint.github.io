@@ -126,7 +126,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 46 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 47 }); }
 
 function doPost(e) {
   var d;
@@ -984,7 +984,17 @@ function listsGet_(me) {
 function listClean_(n) {
   return { title: String(n.title || 'Untitled').slice(0, 80), date: String(n.date || '').slice(0, 10), text: String(n.text || '').slice(0, 4000),
     version: Number(n.version) || 1, created: Number(n.created) || Date.now(), leader: String(n.leader || '').slice(0, 40),
-    songs: (n.songs || []).slice(0, 200).map(function (r) { return { key: String(r.key || ''), book: String(r.book || ''), number: String(r.number || ''), title: String(r.title || '') }; }) };
+    songs: (n.songs || []).slice(0, 200).map(function (r) {
+      var o = { key: String(r.key || ''), book: String(r.book || ''), number: String(r.number || ''), title: String(r.title || '') };
+      var a = listArrClean_(r.arr); if (a) o.arr = a;
+      return o;
+    }) };
+}
+// A song's section order for this list only (the song's usual order and other lists aren't changed).
+function listArrClean_(a) {
+  if (!a || !a.order || !a.order.length) return null;
+  return { order: a.order.slice(0, 60).map(function (x) { return { i: Number(x.i) || 0, label: String(x.label || '').slice(0, 60) }; }),
+    key: String(a.key || '').slice(0, 8), note: String(a.note || '').slice(0, 1000), by: String(a.by || '').slice(0, 40), at: String(a.at || '').slice(0, 30) };
 }
 // Writes one list. Returns the stored row, or { error }.
 function listWrite_(me, n, rows, onlyIfNewer) {
