@@ -279,6 +279,9 @@
   .lbadge { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 99px; font-size: 11px; font-weight: 700; vertical-align: 2px; background: var(--mark); color: var(--accent-text); }
   .lbadge.off { background: rgba(95, 207, 150, .18); color: var(--ok); padding: 3px 6px; line-height: 0; vertical-align: 1px; }
   .lbadge.wait { background: rgba(255, 170, 60, .2); color: #e0a040; }
+  .kpgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 14px; }
+  .kpgrid button { padding: 12px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 17px; font-weight: 700; cursor: pointer; }
+  .kpgrid button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .ltabs { display: flex; gap: 8px; margin: 0 0 12px; }
   .ltabs .pp { font-size: 14px; padding: 7px 14px; cursor: pointer; } .ltabs .pp.now { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .sharelist { max-height: 46vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0 12px; }
@@ -960,6 +963,15 @@
     <p id="wheelSub">Scroll to choose, then tap Play to hear it.</p>
     <div class="wsel"><div class="wscroll" id="wheelScroll"></div></div>
     <div class="row2"><button class="pbtn ghost" id="wheelReset">Reset</button><button class="pbtn ghost" id="wheelPlay">▶ Play</button><button class="pbtn" id="wheelDone">Done</button></div>
+  </div>
+</div>
+
+<div class="wheelbox" id="keyPickBox">
+  <div class="wheel arrbox">
+    <h3 id="kpTitle">Saved Key</h3>
+    <p id="kpInfo"></p>
+    <div class="kpgrid" id="kpGrid"></div>
+    <div class="row2"><button class="pbtn ghost" id="kpReset">Use Original</button><button class="pbtn ghost" id="kpCancel">Cancel</button></div>
   </div>
 </div>
 
@@ -4634,6 +4646,33 @@ $('#noteShare').onclick = async () => {
     toast(r.list.shared ? 'Public: everyone can now see this song list' : (r.list.sharedWith || []).length ? `Private: only you and ${sharedWithText(r.list)} can see it` : 'Private: only you can see this song list now');
   } catch { toast('Connect to the internet to change sharing'); }
 };
+// ---- admins: change a song's saved key (the key button, starting note and chords' home key, for everyone)
+let kpSong = null;
+function openKeyPick(s) {
+  if (!isAdmin()) return;
+  kpSong = s;
+  const cur = s.musicKey || '', orig = s.keyOrig || '', by = keyChecks[s.key];
+  $('#kpTitle').textContent = `Saved Key · ${s.title}`;
+  $('#kpInfo').textContent = (orig ? `Original: ${orig.replace('b', '♭').replace('#', '♯')}.` : 'No key in the files.') + (by && by.by ? ` Last set by ${by.by}${by.at ? ' on ' + shortDate(by.at) : ''}.` : '') + ' Changes it for everyone.';
+  $('#kpGrid').innerHTML = MAJOR_NAMES.map(k => `<button data-k="${k}" class="${k === cur ? 'on' : ''}">${k.replace('b', '♭').replace('#', '♯')}</button>`).join('');
+  $('#kpReset').style.display = by ? '' : 'none';
+  $('#keyPickBox').classList.add('show');
+}
+const closeKeyPick = () => { $('#keyPickBox').classList.remove('show'); kpSong = null; };
+async function saveKeyPick(key) {
+  const s = kpSong; if (!s) return; closeKeyPick();
+  if (!navigator.onLine) return toast('Connect to the internet to change the key');
+  try {
+    const r = await api('setKeyCheck', { song: s.key, key, title: s.title, book: s.collection, was: s.keyOrig || '' });
+    if (!r.ok) throw new Error(r.error);
+    applyKeyChecks(r.keys); renderViewerKey && viewing === s && renderViewerKey();
+    toast(key ? `${s.title}: saved key is now ${key.replace('b', '♭').replace('#', '♯')}` : `${s.title}: back to the original key`);
+  } catch (e) { toast(e.message || 'Couldn\'t save the key', 4000); }
+}
+$('#kpGrid').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) saveKeyPick(b.dataset.k); });
+$('#kpReset').onclick = () => saveKeyPick('');
+$('#kpCancel').onclick = closeKeyPick;
+$('#keyPickBox').addEventListener('click', e => { if (e.target.id === 'keyPickBox') closeKeyPick(); });
 let shareSel = null;
 function renderShareList() {
   const q = normalize($('#shareQ').value || ''), me = meUser().username;
@@ -4972,6 +5011,7 @@ window.handleBack = () => {
   if ($('#pipeBox').classList.contains('show')) { closePipe(); return true; }
   if ($('#qrBox').classList.contains('show')) { closeJoinQr(); return true; }
   if ($('#shareBox').classList.contains('show')) { closeShareBox(); return true; }
+  if ($('#keyPickBox').classList.contains('show')) { closeKeyPick(); return true; }
   if ($('#arrBox').classList.contains('show')) { closeArrange(); return true; }
   if ($('#perfBox').classList.contains('show')) { closePerfJoin(); return true; }
   if (pr) { $('#prExit').click(); return true; }
@@ -6076,6 +6116,7 @@ function openRowMenu(s, btn) {
     + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (Tap to Cancel)' : saved ? 'Remove Offline Copy' : 'Save for Offline'}</button>` : '')
     + (isAdmin() ? `<button data-m="editchords"><span class="ic">✎</span>${s.chords.length ? 'Edit Chord Sheet' : 'Write a Chord Sheet'}</button>` : '')
     + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Replace Chord Sheet (Upload a File)' : 'Upload a Chord Sheet'}</button>`
+    + (isAdmin() ? `<button data-m="savedkey"><span class="ic">♯</span>Change Saved Key${s.musicKey ? ` (${esc(s.musicKey.replace('b', '♭').replace('#', '♯'))})` : ''}</button>` : '')
     + (isAdmin() ? `<button data-m="known"><span class="ic known">▍</span>${isKnown(s) ? 'Not a Song We Know' : 'Mark as a Song We Know'}</button>` : '')
     + (myLive && !(perf && perf.role === 'host') ? liveBtn(myLive) : '');
   const m = $('#rowMenu'); m.classList.add('show');
@@ -6130,6 +6171,7 @@ $('#rowMenu').addEventListener('click', e => {
       .catch(() => { applyKnown(before); toast('Couldn\'t save that. Check your connection.', 4000); });
   }
   else if (b.dataset.m === 'editchords') chEditOpen(s, s.chords[0] || null);
+  else if (b.dataset.m === 'savedkey') openKeyPick(s);
   else if (b.dataset.m === 'chords') { chordUploadSong = s; $('#chordFile').value = ''; $('#chordFile').click(); }
 });
 // ---- edit a chord sheet (admins): the ChordPro text, with the chart as it'll look next to it
