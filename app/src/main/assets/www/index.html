@@ -5419,6 +5419,7 @@ $('#scClose').onclick = () => { $('#scEdit').classList.remove('show'); const e =
 let rm = null;   // { code, sid, es, st }
 function rmMsg(html) { $('#rmBody').innerHTML = `<div class="vmsg">${html}</div>`; }
 async function openRemote() {
+  if (perf && perf.role === 'guest') await perfLeave('Stopped following: this device is the remote now');   // a remote doesn't follow along too
   closeDrawer(); openPanel('remotePanel'); rmMsg('Looking for your presentation…');
   try { rm && rm.es && rm.es.close(); } catch {}
   rm = null;
