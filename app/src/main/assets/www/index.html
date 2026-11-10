@@ -4320,9 +4320,7 @@ function renderNotes() {
   $('#notesList').innerHTML = tab === 'mine'
     ? (mine.length ? mine.map(card).join('') : `<div class="empty"><b>No song lists yet</b>Tap “+ New” to start one for your next time leading.</div>`)
     : (others.length ? others.map(card).join('') : `<div class="empty"><b>Nothing shared with you yet</b>Song lists that others share with everyone, or with you, show up here.</div>`);
-  $('#notesInfo').textContent = navigator.onLine
-    ? 'Song lists are saved to the SongPoint server, so they follow you to any device you sign in on. Lists with the ⬇ icon are also downloaded to this device for offline use.'
-    : 'You\'re offline: showing the song lists kept on this device.';
+  $('#notesInfo').textContent = navigator.onLine ? '' : 'You\'re offline: showing the song lists kept on this device.';
 }
 $('#notesList').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) openNote(notes.find(n => n.id === c.dataset.id)); });
 
