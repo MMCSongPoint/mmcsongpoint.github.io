@@ -4241,14 +4241,15 @@ document.addEventListener('keydown', e => {
   const starts = sectionStarts();
   if (fwd) {
     const end = starts ? Math.min(max, contentEnd()) : max;   // chords: where the song's last line reaches the bottom of the screen
-    const next = starts ? starts.find(y => y > cur + 8) : null;
+    // from the top of the song the first part is already showing: go straight to the second
+    const next = starts ? starts.slice(cur <= 4 ? 1 : 0).find(y => y > cur + 8) : null;
     if (next != null) return keyGlide(next);
     if (cur >= end - 4) { keyGlideStop(); if (pedalMode === 'smart') viewerStep(1); return; }
     keyGlide(Math.min(end, cur + page));
   } else {
     if (cur <= 4) { keyGlideStop(); if (pedalMode === 'smart') viewerStep(-1); return; }
     const prev = starts ? [...starts].reverse().find(y => y < cur - 8) : cur - page;
-    keyGlide(prev == null ? 0 : prev);
+    keyGlide(prev == null || (starts && prev === starts[0]) ? 0 : prev);   // back to the first part = back to the top (title, key…)
   }
 });
 // The scroll position where the end of the song (its last line / copyright) sits at the bottom of the screen
