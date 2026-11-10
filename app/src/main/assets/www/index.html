@@ -3411,10 +3411,11 @@ function prArrFor(s, f) {
 async function prOrdered(s, deck) {
   const sec = deck.sections || [], plain = Object.assign({}, deck, { order: null, how: '' });
   if (prOrderMode !== 'chords' || !sec.some(Boolean) || !s.chords || !s.chords.length) return plain;
-  let labels;
+  let labels, allLabels;
   try {
     const f = s.chords[0], chart = parseChordPro(await loadChordText(f)), arr = prArrFor(s, f);
     labels = (arr ? resolveOrder(chart, arr.order) : chartSections(chart)).map(x => x.label);
+    allLabels = chartSections(chart).map(x => x.label);
     plain.how = arr ? 'arranged' : 'chords';
   } catch { return plain; }
   // the slides of each part: its first run in the PowerPoint
@@ -3427,16 +3428,21 @@ async function prOrdered(s, deck) {
   const out = [], used = new Set();
   for (const l of labels) { const r = find(l); if (r) { out.push(...r.idx); used.add(r); } }
   if (!used.size) return plain;
+  // parts the chord sheet has but this order leaves out (Verse 2 skipped) are left out of the slides too
+  const inChart = new Set(allLabels.map(find).filter(Boolean));
   // slides before the first part (a title slide) stay first; parts the chords don't have go after the part they followed
   const lead = runs[0] && !runs[0].k ? runs[0].idx : [];
   let prevEnd = -1;
-  runs.forEach(r => {
+  const lastChart = runs.reduce((m, r, i) => (used.has(r) || inChart.has(r) ? i : m), -1), tail = [];
+  runs.forEach((r, ri) => {
     if (r === runs[0] && !r.k) return;
     if (r.k && byKey.get(r.k) !== r) return;   // a repeat (chorus again): placed with its first time
     if (used.has(r)) { const at = out.indexOf(r.idx[0]); if (at >= 0) prevEnd = at + r.idx.length - 1; return; }
+    if (inChart.has(r)) return;
+    if (ri > lastChart) { tail.push(...r.idx); used.add(r); return; }   // after every part of the song (a tag, an ending): stays last
     out.splice(prevEnd + 1, 0, ...r.idx); used.add(r); prevEnd += r.idx.length;
   });
-  const order = [...lead.filter(i => !out.includes(i)), ...out];
+  const order = [...lead.filter(i => !out.includes(i)), ...out, ...tail];
   return Object.assign({}, deck, { imgs: order.map(i => deck.imgs[i]), texts: order.map(i => (deck.texts || [])[i]), sections: order.map(i => sec[i]), order, how: plain.how });
 }
 async function prShowSong(si, slide) {
