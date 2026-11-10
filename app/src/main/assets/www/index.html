@@ -234,6 +234,8 @@
   /* leading or following: just the slide (no part picker, words, Previous / Approve / Next) */
   body.insession .svmeta, body.insession .svwords, body.insession .svnav { display: none; }
   body.insession .svimg img { max-height: none; }
+  body.insession .viewer.following:not(.fpres) .svnav { display: flex; }   /* following (not a presentation) on your own slides: you move through them */
+  body.insession .svnav [data-sv=ok] { display: none; }
   .chart { padding: 10px 16px 120px; color: var(--text); line-height: 1.25; max-width: 900px; margin: 0 auto; }
   .cbar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 0 10px; background: var(--bg); font-size: 15px; }
   .cbar button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; min-width: 36px; height: 36px; font-size: 15px; font-weight: 700; padding: 0 8px; }
@@ -258,7 +260,7 @@
   .cblank { height: .7em; }
   .ctab { font-size: .8em; margin: 0; overflow-x: auto; }
   /* following a leader: just the music (tabs, buttons and song details come back with "Follow leader" off) */
-  .viewer.following .vtabs, .viewer.following .cbar, .viewer.following .cview, .viewer.following .cbody > .cmeta:not(.cfoot), .viewer.following .ctitle { display: none; }
+  .viewer.following.fpres .vtabs, .viewer.following .cbar, .viewer.following .cview, .viewer.following .cbody > .cmeta:not(.cfoot), .viewer.following .ctitle { display: none; }
   .viewer.following .chart { padding-top: 14px; }
   .lock .pwwrap { position: relative; margin-top: 10px; }
   .lock .pwwrap input { padding-left: 48px; padding-right: 48px; }
@@ -2966,8 +2968,18 @@ function perfPrefetch(st) {
     }
   })();
 }
+// Following a leader who isn't presenting, you can pick your own view (sheet music, chords or slides);
+// the song still follows the leader. Tap the leader's view again to follow their place too.
+function perfGroup(s, st) {
+  const v = !st.presenter && perf.myView; if (!v) return { g: st.group, mode: st.mode };
+  const sheets = [...new Set(s.sheets.map(x => x.label))];
+  const g = v === 'chords' && s.chords.length ? 'Chords' : v === 'slides' && prFile(s) ? 'Slides'
+    : v === 'sheet' && sheets.length ? (sheets.includes(st.group) ? st.group : sheets[0]) : null;
+  return g ? { g, mode: v } : { g: st.group, mode: st.mode };
+}
 function perfShow(st) {
   if (!st || st.closed) return;
+  $('#viewer').classList.toggle('fpres', !!st.presenter);
   if (st.listen) return listenApply(st);
   if (st.presenter && st.deckId) {   // a speaker's slides are up: musicians keep their place (View Slides shows them)
     if (perf.deckNote !== st.deckId) { perf.deckNote = st.deckId; if (!viewSlides) toast(`On screen now: ${st.deckTitle || 'speaker slides'}`, 3000); }
@@ -2977,24 +2989,25 @@ function perfShow(st) {
   perfSlideView(st); setTimeout(() => { if (perf && perf.last === st) perfSlideView(st); }, 0);
   const s = songIndex.get(st.song);
   if (!s) { if (perf.missing !== st.song) { perf.missing = st.song; toast('The leader\'s song isn\'t in your library yet. Pull down to refresh.', 4000); } return; }
-  const sig = [st.song, st.group, st.view, st.keyP, st.off, JSON.stringify(st.larr || null)].join('|');
+  const pg = perfGroup(s, st);
+  const sig = [st.song, pg.g, st.view, st.keyP, st.off, JSON.stringify(st.larr || null)].join('|');
   if (sig !== perf.sig) {
     perf.sig = sig;
     if (st.keyP == null) keyOverrides.delete(s.key); else keyOverrides.set(s.key, st.keyP);   // everyone shares the leader's key
     if (!st.presenter) { if (st.off) chordOffset.set(s.key, st.off); else chordOffset.delete(s.key); }
     chordView = st.view || chordView;
     perf.pendingSlide = st.presenter ? st : null;
-    perf.pendingPos = st.pos;
+    perf.pendingPos = pg.g === st.group ? st.pos : null;   // your own view: the leader's place doesn't apply
     const list = st.list ? st.list.map(k => songIndex.get(k)).filter(Boolean) : null;
-    if (viewing !== s || !$('#viewer').classList.contains('show')) openViewer(s, true, list, st.mode);
-    else if (st.group && vSheet !== st.group) showSheetGroup(st.group);
-    else if ($('#viewer').classList.contains('chordmode')) drawChords();
-    if (st.group && vSheet !== st.group) showSheetGroup(st.group);
+    if (viewing !== s || !$('#viewer').classList.contains('show')) openViewer(s, true, list, pg.mode);
+    else if (pg.g && vSheet !== pg.g) showSheetGroup(pg.g);
+    else if ($('#viewer').classList.contains('chordmode') && vSheet !== 'Slides') drawChords();
+    if (pg.g && vSheet !== pg.g) showSheetGroup(pg.g);
     renderViewerKey(); render(); if (now && now.song === s) applyShift();
     return;
   }
   if (st.presenter) { if (st.slideNo !== perf.lastSlideNo || st.slideText !== perf.lastSlideText || st.slideSection !== perf.lastSlideSection) { perf.lastSlideSection = st.slideSection; perf.lastSlideNo = st.slideNo; perf.lastSlideText = st.slideText; perfFollowSlide(st); } return; }
-  perfScrollTo(st.pos);
+  if (vSheet === st.group) perfScrollTo(st.pos);
 }
 // Followers glide to the leader's place instead of jumping: small moves ease in, big ones are capped at a
 // readable speed so a quick flick by the leader doesn't throw everyone off. A new song opens right at the spot.
@@ -3066,6 +3079,7 @@ function renderPerfBar() {
   $('#listenBtn').classList.toggle('on', !!(perf && (perf.listen || perf.ls)));
   $('#vPerform').classList.toggle('on', !!perf);
   $('#viewer').classList.toggle('following', !!perf && perf.role === 'guest' && perf.following);
+  $('#viewer').classList.toggle('fpres', !!(perf && perf.role === 'guest' && perf.last && perf.last.presenter));
   if (!perf || perf.role !== 'guest') $('#slidePip').classList.remove('show');
   if (!perf) { bar.innerHTML = ''; bar.classList.remove('show'); pill.classList.remove('show'); return; }
   let text, btns;
@@ -3947,7 +3961,16 @@ function closeViewer() {
   if (N && N.keepScreenOn) N.keepScreenOn(false);
 }
 $('#vClose').onclick = closeViewer;
-$('#vTabs').addEventListener('click', e => { const b = e.target.closest('.pp'); if (!b) return; perfDetach(true); viewerMode = b.dataset.g === 'Slides' ? 'slides' : /^Chords/.test(b.dataset.g) ? 'chords' : 'sheet'; showSheetGroup(b.dataset.g); });
+$('#vTabs').addEventListener('click', e => {
+  const b = e.target.closest('.pp'); if (!b) return;
+  if (perf && perf.role === 'guest' && perf.following && !(perf.last && perf.last.presenter)) {   // keep following, in your own view
+    const g = b.dataset.g, mode = g === 'Slides' ? 'slides' : /^Chords/.test(g) ? 'chords' : 'sheet';
+    perf.myView = g === (perf.last && perf.last.group) ? null : mode;
+    viewerMode = mode; showSheetGroup(g);
+    if (!perf.myView && perf.last) { perf.sig = null; perfShow(perf.last); }   // back to the leader's view and place
+    return;
+  }
+  perfDetach(true); viewerMode = b.dataset.g === 'Slides' ? 'slides' : /^Chords/.test(b.dataset.g) ? 'chords' : 'sheet'; showSheetGroup(b.dataset.g); });
 $('#vPlay').onclick = () => {
   if (!viewing || !viewing.parts.length) return;
   if (now && viewing.parts.includes(now.part)) return togglePlay();
