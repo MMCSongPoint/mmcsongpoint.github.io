@@ -152,10 +152,8 @@
   .dl { width: 38px; height: 38px; border: none; background: none; color: var(--muted); display: grid; place-items: center; border-radius: 8px; }
   .dl.done { color: var(--ok); }
   .dl.busy svg { animation: pulse 1s ease-in-out infinite; }
-  /* saved-for-offline mark on a song: spinning arrows while it saves, the download arrow once it's done */
-  .dlstate { width: 24px; height: 38px; display: grid; place-items: center; color: var(--muted); flex: none; }
-  .dlstate.done { color: var(--ok); }
-  .dlstate.busy svg { animation: spin 1s linear infinite; }
+  /* song list Download: spinning arrows while its songs save, the download arrow once they're done */
+  .spinic { animation: spin 1s linear infinite; }
   @keyframes pulse { 50% { opacity: .3; } }
   .acts { display: flex; align-items: center; }
   /* sheet-music icons: plain text colour (white in dark mode, black in light), not pink; dark mode: the name in "Welcome" is white */
@@ -1835,7 +1833,7 @@ function songRow(s, i, words = [], fuzzy = false, inPanel = false) {
       <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
       <div class="sub">${picking ? highlight(s.collection, words) + fileChips(s) : `${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${fileChips(s)}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}`}</div>
     </div>
-    <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${hasMusic(s) ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}${N && busy ? `<span class="dlstate busy" title="Saving for offline…" aria-label="Saving for offline">${ICON_SAVING}</span>` : N && allSaved && songFiles(s).length ? `<span class="dlstate done" title="Saved for offline" aria-label="Saved for offline">${ICON_SAVED}</span>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
+    <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${hasMusic(s) ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
     ${showParts ? `<div class="parts">${s.parts.map(p =>
       `<button class="pp${(playing ? now.part === p : chosenPart.get(s.key) === p.id) ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
   </div>`;
@@ -1927,7 +1925,7 @@ window.onNativeDownload = (id, ok) => {
   if (ok) downloaded.add(id);
   else if (!downloadFailedShown) { downloadFailedShown = true; toast('A download failed. Check your connection and try again.'); setTimeout(() => downloadFailedShown = false, 5000); }
   clearTimeout(window.onNativeDownload.t);
-  window.onNativeDownload.t = setTimeout(() => { renderTabs(); render(); updateSheet(); }, 150);
+  window.onNativeDownload.t = setTimeout(() => { renderTabs(); render(); updateSheet(); if (editing && $('#notePanel').classList.contains('show')) renderNoteSongs(); if ($('#notesPanel').classList.contains('show')) renderNotes(); }, 150);
 };
 let downloadFailedShown = false;
 
@@ -4298,7 +4296,7 @@ const sharedWithText = n => (n.sharedWith || []).map(personName).join(', ');
 function renderNotes() {
   const sort = l => [...l].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.updated || 0) - (a.updated || 0));
   const card = n => `<div class="card" data-id="${esc(n.id)}">
-      <div class="t">${esc(n.title || 'Untitled')}${isMine(n) && n.shared ? '<span class="lbadge">Shared</span>' : isMine(n) && (n.sharedWith || []).length ? `<span class="lbadge" title="Shared with ${esc(sharedWithText(n))}">Shared with ${n.sharedWith.length}</span>` : ''}${offlineIds.has(n.id) ? '<span class="lbadge off" title="Downloaded: kept on this device for offline use" aria-label="Downloaded for offline use"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg></span>' : ''}${pendingIds.has(n.id) ? '<span class="lbadge wait" title="Will upload when you\'re online">Not uploaded</span>' : ''}</div>
+      <div class="t">${esc(n.title || 'Untitled')}${isMine(n) && n.shared ? '<span class="lbadge">Shared</span>' : isMine(n) && (n.sharedWith || []).length ? `<span class="lbadge" title="Shared with ${esc(sharedWithText(n))}">Shared with ${n.sharedWith.length}</span>` : ''}${offlineIds.has(n.id) && listSaving(n) ? `<span class="lbadge off" title="Downloading…" aria-label="Downloading"><span class="spinic" style="display:inline-flex">${ICON_SAVING.replace(/18/g, '15')}</span></span>` : offlineIds.has(n.id) ? '<span class="lbadge off" title="Downloaded: kept on this device for offline use" aria-label="Downloaded for offline use"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg></span>' : ''}${pendingIds.has(n.id) ? '<span class="lbadge wait" title="Will upload when you\'re online">Not uploaded</span>' : ''}</div>
       <div class="m">${esc(longDate(n.date))} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}${!isMine(n) && n.ownerName ? ' · by ' + esc(n.ownerName) : n.leader ? ' · ' + esc(n.leader) : ''}</div>
       ${n.songs.length ? `<div class="songsline">${esc(n.songs.map(songLabel).join(' · '))}</div>` : ''}
     </div>`;
@@ -4358,9 +4356,12 @@ function renderNoteSongs() {
   $('#noteShare').textContent = n.shared ? 'Stop sharing with everyone' : 'Share with everyone';
   $('#notePeople').style.display = $('#noteShare').style.display;
   $('#notePeople').textContent = (n.sharedWith || []).length ? `Shared with ${n.sharedWith.length} ${n.sharedWith.length === 1 ? 'person' : 'people'}` : 'Share with people';
-  $('#noteOffline').innerHTML = offlineIds.has(n.id) ? '✓ Downloaded' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>Download';
+  const saving = offlineIds.has(n.id) && listSaving(n);
+  $('#noteOffline').innerHTML = saving ? `<span class="spinic" style="display:inline-flex;vertical-align:-3px;margin-right:6px">${ICON_SAVING}</span>Downloading…`
+    : offlineIds.has(n.id) ? `<span style="display:inline-flex;vertical-align:-3px;margin-right:6px">${ICON_SAVED}</span>Downloaded`
+    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>Download';
   $('#noteOffline').title = offlineIds.has(n.id) ? 'Saved on this device for offline use. Tap to remove the download.' : 'Save this song list on this device for offline use';
-  $('#noteOffline').classList.toggle('on', offlineIds.has(n.id));
+  $('#noteOffline').classList.toggle('on', offlineIds.has(n.id) && !saving);
   $('#noteCopy').style.display = n.isNew ? 'none' : '';
   $('#noteStatus').textContent = n.isNew ? '' : `${!isMine(n) && n.ownerName ? `Made by ${n.ownerName}. ` : ''}${n.shared ? 'Shared with everyone. ' : (n.sharedWith || []).length ? (isMine(n) ? `Shared with ${sharedWithText(n)}. ` : 'Shared with you. ') : 'Only you can see it. '}Last saved${n.leader ? ' by ' + n.leader : ''} ${n.updated ? new Date(n.updated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}.`;
   const withSlides = n.songs.filter(r => (songIndex.get(r.key) || {}).slides?.length).length;
@@ -4531,11 +4532,19 @@ $('#shareSave').onclick = async () => {
   } catch (e) { toast(e.message || 'Connect to the internet to change sharing', 4000); }
   finally { btn.disabled = false; }
 };
+// a downloaded list also saves its songs (recordings and sheet music) on this device
+function listFiles(n) { return n.songs.map(r => songIndex.get(r.key)).filter(Boolean).flatMap(songFiles); }
+function listSaving(n) { return !!N && listFiles(n).some(p => downloading.has(p.id)); }
 $('#noteOffline').onclick = () => {
   const id = editing.id;
-  if (offlineIds.has(id)) offlineIds.delete(id); else offlineIds.add(id);
-  saveNotes(); renderNoteSongs(); renderNotes();
-  toast(offlineIds.has(id) ? 'Downloaded to this device for offline use' : 'Download removed (the song list is still saved online)');
+  if (offlineIds.has(id)) {
+    offlineIds.delete(id); saveNotes(); renderNoteSongs(); renderNotes();
+    return toast('Download removed (the song list is still saved online)');
+  }
+  offlineIds.add(id); saveNotes();
+  const started = N && navigator.onLine ? downloadTracks(listFiles(editing)) : 0;
+  renderNoteSongs(); renderNotes();
+  toast(started ? 'Downloading the songs for offline use…' : 'Downloaded to this device for offline use');
 };
 $('#noteCopy').onclick = () => {
   const n = editing; if (!n) return;
