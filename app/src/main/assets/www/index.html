@@ -2424,6 +2424,7 @@ async function showChords(x) {
     if (arr && !(perf && perf.role === 'guest' && perf.following && !(perf.last && perf.last.presenter))) applyArrKey(viewing, arr);
     drawChords();
     if (arrangeWhenReady && viewing && arrangeWhenReady === viewing.key) { arrangeWhenReady = null; openArrange(); }
+    if (landAtLast) { landAtLast = false; requestAnimationFrame(() => { const st = sectionStarts(); if (st && st.length) $('#vBody').scrollTop = st[st.length - 1]; }); }
     loadArrangements();
   } catch { if (chordFile === x) box.innerHTML = `<div class="vmsg">Couldn't open the chords.${navigator.onLine ? '' : ' You\'re offline.'}</div>`; }
 }
@@ -4175,6 +4176,7 @@ $('#zOut').onclick = () => setZoom(zoom / 1.5);
     sw = null;
   });
 })();
+let landAtLast = false;   // going back a song with the keys / pedal: open it at its last part
 function viewerStep(d) {
   if (!viewerList || !viewing) return;
   perfDetach(true);
@@ -4184,6 +4186,11 @@ function viewerStep(d) {
   pane.style.transition = 'opacity .12s, transform .12s'; pane.style.opacity = 0; pane.style.transform = `translateX(${d > 0 ? -40 : 40}px)`;
   setTimeout(() => {
     openViewer(next, true, viewerList); setZoom(1); pane.scrollTo(0, 0);
+    if (landAtLast && !$('#viewer').classList.contains('chordmode')) {   // sheet music: the bottom of the last page, once the pages are in
+      landAtLast = false;
+      const imgs = [...document.querySelectorAll('#vPages img')];
+      Promise.all(imgs.map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; setTimeout(r, 4000); }))).then(() => { if (viewing === next) pane.scrollTop = pane.scrollHeight; });
+    }
     // Playing this song list? Swiping also moves the music to the song now on screen
     // (if the music is paused, the new song is loaded but stays paused).
     if (now && playAllQueue && queue === playAllQueue && next !== now.song && next.parts.length && queue.includes(next)) playTrack(next, pickPart(next), false, !audio.paused);
@@ -4247,7 +4254,7 @@ document.addEventListener('keydown', e => {
     if (cur >= end - 4) { keyGlideStop(); if (pedalMode === 'smart') viewerStep(1); return; }
     keyGlide(Math.min(end, cur + page));
   } else {
-    if (cur <= 4) { keyGlideStop(); if (pedalMode === 'smart') viewerStep(-1); return; }
+    if (cur <= 4) { keyGlideStop(); if (pedalMode === 'smart' && viewerList && viewerList.indexOf(viewing) > 0) { landAtLast = true; viewerStep(-1); } return; }   // back a song: at its last part
     const prev = starts ? [...starts].reverse().find(y => y < cur - 8) : cur - page;
     keyGlide(prev == null || (starts && prev === starts[0]) ? 0 : prev);   // back to the first part = back to the top (title, key…)
   }
