@@ -1837,7 +1837,7 @@ function songRow(s, i, words = [], fuzzy = false, inPanel = false) {
   const allSaved = songFiles(s).every(p => downloaded.has(p.id)), busy = songFiles(s).some(p => downloading.has(p.id));
   // the part buttons (Soprano, Alto…) only show on the song that's playing
   const showParts = s.parts.length > 1 && playing;
-  return `<div class="song${openRows.has(s.key) ? ' open' : ''}${i === sel && !inPanel ? ' sel' : ''}${playing ? ' playing' : ''}${isKnown(s) ? ' known' : ''}" data-i="${i}"${isKnown(s) ? ' title="A song we know well"' : ''}>
+  return `<div class="song${openRows.has(s.key) ? ' open' : ''}${i === sel && !inPanel ? ' sel' : ''}${playing ? ' playing' : ''}${isKnown(s) ? ' known' : ''}" data-i="${i}">
     ${audioLess ? '<span></span>'
       : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
     <div class="info"${audioLess && hasMusic(s) ? ' data-act="sheet"' : ''}>
