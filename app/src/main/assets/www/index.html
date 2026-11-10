@@ -231,6 +231,9 @@
   .svgap { height: .6em; }
   .svnav { position: sticky; bottom: 0; display: flex; gap: 8px; justify-content: space-between; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); }
   .svnav .pbtn { flex: 1; padding: 12px 8px; } .svnav .pbtn:disabled { opacity: .4; }
+  /* leading or following: just the slide (no part picker, words, Previous / Approve / Next) */
+  body.insession .svmeta, body.insession .svwords, body.insession .svnav { display: none; }
+  body.insession .svimg img { max-height: none; }
   .chart { padding: 10px 16px 120px; color: var(--text); line-height: 1.25; max-width: 900px; margin: 0 auto; }
   .cbar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 0 10px; background: var(--bg); font-size: 15px; }
   .cbar button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; min-width: 36px; height: 36px; font-size: 15px; font-weight: 700; padding: 0 8px; }
@@ -3056,6 +3059,7 @@ function perfFollow() {
 const noPlay = () => !!(perf && perf.role === 'guest' && !perf.ls && !perf.listenJoin);
 function renderPerfBar() {
   const np = noPlay(); document.body.classList.toggle('noplay', np);
+  document.body.classList.toggle('insession', !!perf);
   if (np && !audio.paused) audio.pause();
   if (pr) setTimeout(() => { if (pr) $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : ''; });
   const bar = $('#perfBar'), pill = $('#perfPill');
