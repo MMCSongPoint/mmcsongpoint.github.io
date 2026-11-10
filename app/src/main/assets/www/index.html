@@ -577,7 +577,7 @@
   body.songspanel .player, body.overpanel .player { z-index: 76; }
   body.overpanel .panel .pbody { padding-bottom: 210px; }
   body.guest #newNoteBtn, body.guest #noteEdit, body.guest #noteShare, body.guest #noteCopy, body.guest #noteDelete,
-  body.guest #dRemote, body.guest #notePresent, body.guest #noteSlides, body.guest #changePwBtn, body.guest #rowMenu [data-m=chords],
+  body.guest #dRemote, body.guest #notePresent, body.guest #noteHost, body.guest #noteSlides, body.guest #changePwBtn, body.guest #rowMenu [data-m=chords],
   body.guest #rowMenu [data-m=live], body.guest .chart [data-c=arrange], body.guest .chart [data-c=savekey] { display: none !important; }
   body.overviewer .player { z-index: 82; }
   body.overviewer .player.show ~ .viewer .vbody, body.overviewer .vbody { padding-bottom: 0; }
@@ -843,7 +843,7 @@
       <b>Songs</b><button class="pbtn ghost editonly" id="addSongsBtn">+ Add songs</button>
     </div>
     <div class="list" id="noteSongs"></div>
-    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="notePresent">Present</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
+    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="notePresent">Present</button><button class="pbtn ghost" id="noteHost">Start Hosting</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <div class="nview viewonly"><div class="vtext" id="viewText"></div></div>
     <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Make public</button><button class="pbtn ghost" id="notePeople">Share</button><button class="pbtn ghost" id="noteOffline">Download</button><button class="pbtn ghost" id="noteCopy">Make a copy</button></div>
@@ -2685,7 +2685,7 @@ async function listenStart() {
   perf = { role: 'host', listen: true, code: r.code, peer: r.peer, sid: r.sid || '', peers: new Map(), relayers: new Set(), seq: 0 };
   listenSnap(); renderPerfBar(); perfSync(); perfPollLoop(perf);
   const me = perf; setTimeout(() => clockSync(me).then(() => { if (perf === me && !me.lsWait) { listenSnap(); perfSync(); } }), 900);
-  choose(`Listening session ${r.code}`, `Others join with code ${r.code} (Menu › Perform › Follow someone, or the 👥 button in their player). Each picks their part. When you press Play, everyone starts together.`, [{ label: 'OK', value: 'ok', primary: true }]);
+  choose(`Listening session ${r.code}`, `Others join with code ${r.code} (Menu › Perform › Join, or the 👥 button in their player). Each picks their part. When you press Play, everyone starts together.`, [{ label: 'OK', value: 'ok', primary: true }]);
 }
 // what followers need: playing or not, where (pos, in seconds) at what moment (at, shared clock), and the speed
 function listenSnap(playAt) {
@@ -3236,8 +3236,8 @@ $('#vPerform').onclick = async () => {
     return perfLeave();
   }
   if (isGuest()) return openPerfJoin();   // guests can follow, not lead
-  const c = await choose('Perform', 'Lead: other devices follow your song, key and scrolling. Follow: join someone who is leading.',
-    [{ label: 'Lead from this device', value: 'host', primary: true }, { label: 'Follow someone', value: 'join' }, { label: 'Cancel', value: 'cancel' }]);
+  const c = await choose('Perform', '',
+    [{ label: 'Host', value: 'host', primary: true }, { label: 'Join', value: 'join' }, { label: 'Cancel', value: 'cancel' }]);
   if (c === 'host') perfHostStart(); else if (c === 'join') openPerfJoin();
 };
 $('#dPerform').onclick = () => { closeDrawer(); if (perf && perf.role === 'guest') return perfFollow(); openPerfJoin(); };
@@ -3794,6 +3794,14 @@ document.addEventListener('keydown', e => {
   if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter', 'ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace', 'b', 'B', '.'].includes(e.key)) { e.preventDefault(); e.stopImmediatePropagation(); prKey(e.key); }
 }, true);
 const listArrMap = n => { const m = {}; n.songs.forEach(r => { if (r.arr && r.arr.order && r.arr.order.length && !m[r.key]) m[r.key] = Object.assign({ listTitle: n.title || 'Song list' }, r.arr); }); return Object.keys(m).length ? m : null; };
+// Start Hosting: open the list's first song and lead a session; others join and follow along through the list
+$('#noteHost').onclick = async () => {
+  const list = editing.songs.map(x => songIndex.get(x.key)).filter(x => x && hasMusic(x)); if (!list.length) return;
+  if (perf && perf.role === 'guest') await perfLeave();
+  const first = list[0];
+  viewerNoteNext = editing.id; openViewer(first, false, list, first.chords.length ? 'chords' : 'sheet');
+  if (!perf) await perfHostStart();
+};
 $('#notePresent').onclick = () => presentList(editing.songs.map(r => songIndex.get(r.key)), listArrMap(editing));
 
 // ---- musicians: follow the slides in the chord chart (match the slide's words to a line of the chart)
@@ -4354,6 +4362,7 @@ function renderNoteSongs() {
   }).join('') : `<div class="empty" style="padding:22px"><b>No songs yet</b>Tap “+ Add songs”, then tap + next to each song.</div>`;
   $('#notePlay').disabled = !n.songs.some(r => (songIndex.get(r.key) || {}).parts?.length);
   $('#noteChords').style.display = n.songs.some(r => (songIndex.get(r.key) || {}).chords?.length) ? '' : 'none';
+  $('#noteHost').style.display = n.songs.some(r => { const x = songIndex.get(r.key); return x && hasMusic(x); }) ? '' : 'none';
   $('#notePresent').style.display = !(window.Native && window.Native.isAndroid) && n.songs.some(r => (songIndex.get(r.key) || {}).slides?.length) ? '' : 'none';
   $('#noteDelete').style.display = n.isNew || !canEditList(n) ? 'none' : '';
   $('#noteEdit').style.display = canEditList(n) ? '' : 'none';
@@ -6575,7 +6584,7 @@ function deliverFile(name, base64, mime) {
 // In-app choice box: resolves with the chosen button's value (or 'cancel').
 function choose(title, text, buttons) {
   return new Promise(res => {
-    $('#choiceTitle').textContent = title; $('#choiceText').textContent = text;
+    $('#choiceTitle').textContent = title; $('#choiceText').textContent = text; $('#choiceText').style.display = text ? '' : 'none';
     $('#choiceBtns').innerHTML = buttons.map((b, i) => `<button class="pbtn${b.primary ? '' : ' ghost'}" data-i="${i}">${esc(b.label)}</button>`).join('');
     const done = v => { $('#choiceBox').classList.remove('show'); choose.pending = null; res(v); };
     choose.pending = () => done('cancel');
