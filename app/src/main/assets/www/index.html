@@ -275,6 +275,12 @@
   .lbadge { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 99px; font-size: 11px; font-weight: 700; vertical-align: 2px; background: var(--mark); color: var(--accent-text); }
   .lbadge.off { background: rgba(95, 207, 150, .18); color: var(--ok); padding: 3px 6px; line-height: 0; vertical-align: 1px; }
   .lbadge.wait { background: rgba(255, 170, 60, .2); color: #e0a040; }
+  .ltabs { display: flex; gap: 8px; margin: 0 0 12px; }
+  .ltabs .pp { font-size: 14px; padding: 7px 14px; cursor: pointer; } .ltabs .pp.now { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .sharelist { max-height: 46vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0 12px; }
+  .sharelist label { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); cursor: pointer; }
+  .sharelist label:first-child { border-top: none; } .sharelist small { color: var(--muted); margin-left: auto; }
+  #shareQ { width: 100%; }
   .lhead { margin: 18px 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .listacts .pbtn.on { border-color: var(--ok); color: var(--ok); }
   .presenter { position: fixed; inset: 0; z-index: 88; background: #0d0a0c; color: #eee; display: none; flex-direction: column; }
@@ -283,6 +289,16 @@
   .prtitle { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 17px; }
   .prtitle span { color: #a8989f; font-size: 14px; }
   .prcode { color: #cbbcc2; font-size: 14px; } .prcode b { color: #fff; font-size: 18px; letter-spacing: .08em; }
+  .qrbtn { display: inline-grid; place-items: center; width: 30px; height: 30px; margin-left: 8px; vertical-align: middle; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; }
+  .qrbtn:hover { background: rgba(255,255,255,.18); }
+  .qrbox { position: fixed; inset: 0; z-index: 95; display: none; place-items: center; background: rgba(0,0,0,.88); }
+  .qrbox.show { display: grid; }
+  .qrcard { background: #fff; color: #111; border-radius: 18px; padding: 22px 26px 18px; text-align: center; max-width: 94vw; max-height: 96vh; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .qrcard svg { width: min(70vh, 82vw); height: min(70vh, 82vw); display: block; }
+  .qrcard h3 { margin: 0; font-size: 22px; } .qrcard p { margin: 0; color: #444; font-size: 15px; }
+  .qrcard .qrc { font-size: 17px; } .qrcard .qrc b { font-size: 26px; letter-spacing: .1em; }
+  .qrcard .qrurl { font-size: 13px; color: #777; word-break: break-all; }
+  .qrcard .pbtn { margin-top: 6px; }
   #prBlank.on { background: #fff; color: #000; }
   .prbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr minmax(300px, .55fr); gap: 12px; padding: 12px; }
   .prleft { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
@@ -798,6 +814,7 @@
     <button class="pbtn" id="newNoteBtn">+ New</button>
   </div>
   <div class="pbody">
+    <div class="ltabs" id="listTabs"><button class="pp now" data-lt="mine">My Lists</button><button class="pp" data-lt="shared">Shared With Me</button></div>
     <div id="notesList"></div>
     <div class="row2" id="listIO" style="margin-top:20px">
       <button class="pbtn ghost" id="exportBtn">Export song lists</button>
@@ -827,7 +844,7 @@
     <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="notePresent">Present</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <div class="nview viewonly"><div class="vtext" id="viewText"></div></div>
-    <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Share with everyone</button><button class="pbtn ghost" id="noteOffline">Download</button><button class="pbtn ghost" id="noteCopy">Make a copy</button></div>
+    <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Share with everyone</button><button class="pbtn ghost" id="notePeople">Share with people</button><button class="pbtn ghost" id="noteOffline">Download</button><button class="pbtn ghost" id="noteCopy">Make a copy</button></div>
     <label class="field editonly"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
     <p style="color:var(--muted);font-size:13px" id="noteStatus"></p>
     <div class="row2 editonly"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete song list</button></div>
@@ -931,6 +948,27 @@
     <p id="wheelSub">Scroll to choose, then tap Play to hear it.</p>
     <div class="wsel"><div class="wscroll" id="wheelScroll"></div></div>
     <div class="row2"><button class="pbtn ghost" id="wheelReset">Reset</button><button class="pbtn ghost" id="wheelPlay">▶ Play</button><button class="pbtn" id="wheelDone">Done</button></div>
+  </div>
+</div>
+
+<div class="wheelbox" id="shareBox">
+  <div class="wheel arrbox">
+    <h3>Share with people</h3>
+    <p>They'll see this song list under “Shared With Me”. Only you can change it.</p>
+    <input id="shareQ" type="search" placeholder="Search names">
+    <div class="sharelist" id="shareList"></div>
+    <div class="row2"><button class="pbtn ghost" id="shareCancel">Cancel</button><button class="pbtn" id="shareSave">Save</button></div>
+  </div>
+</div>
+
+<div class="qrbox" id="qrBox" role="dialog" aria-label="QR code to follow along">
+  <div class="qrcard">
+    <h3>Scan to follow along</h3>
+    <div id="qrImg"></div>
+    <p class="qrc">or open SongPoint and join with code <b id="qrCodeTxt"></b></p>
+    <p>No sign-in needed. Point your phone's camera at the code.</p>
+    <p class="qrurl" id="qrUrl"></p>
+    <button class="pbtn" id="qrClose">Close</button>
   </div>
 </div>
 
@@ -3082,7 +3120,7 @@ function renderPerfBar() {
   const np = noPlay(); document.body.classList.toggle('noplay', np);
   document.body.classList.toggle('insession', !!perf);
   if (np && !audio.paused) audio.pause();
-  if (pr) setTimeout(() => { if (pr) $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : ''; });
+  if (pr) setTimeout(() => { if (pr) $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b><button class="qrbtn" data-qr aria-label="Show a QR code to join" title="Show a QR code to join">${QR_ICON}</button>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : ''; });
   const bar = $('#perfBar'), pill = $('#perfPill');
   $('#listenBtn').classList.toggle('on', !!(perf && (perf.listen || perf.ls)));
   $('#vPerform').classList.toggle('on', !!perf);
@@ -3095,7 +3133,7 @@ function renderPerfBar() {
     const n = perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0);
     const names = [...perf.peers.values()].filter(e => e.dc && e.dc.readyState === 'open').map(e => e.name);
     text = `<b>Leading</b> · code <b class="pcode">${esc(perf.code)}</b> · ${n ? `${n} following${names.length ? ': ' + esc(names.join(', ')) : ''}` : 'waiting for others to join'}`;
-    btns = '<button data-p="end">End</button>';
+    btns = `<button data-p="qr" aria-label="Show a QR code to join" title="Show a QR code to join" style="display:inline-flex;align-items:center;gap:6px">${QR_ICON} QR code</button><button data-p="end">End</button>`;
   } else {
     const how = perf.connected ? (perfOnline() ? '' : ' · lost the leader') : rtdbLive(perf) ? (perfOnline() ? '' : ' · lost the leader') : perf.relay ? (perfOnline() ? ' · through the server' : ' · lost the leader') : ' · connecting…';
     text = `<b>Following ${esc(perf.hostName)}</b> · ${esc(perf.code)}${how}`;
@@ -3111,10 +3149,32 @@ function renderPerfBar() {
   pill.textContent = perf.role === 'host' ? `● ${perf.listen ? 'Listening session' : 'Leading'} · ${perf.code}` : `● ${perf.ls ? 'Listening with' : 'Following'} ${perf.hostName}`;
   pill.classList.toggle('show', !viewing);
 }
+// ---- QR code to join: scanning it opens the web app, which joins this session (no sign-in needed: a visitor pass)
+let qrLib = null;
+const loadQr = () => qrLib || (qrLib = new Promise((ok, no) => {
+  if (window.qrcode) return ok();
+  const sc = document.createElement('script'); sc.src = 'qrcode.js'; sc.onload = () => ok(); sc.onerror = () => { qrLib = null; no(new Error('qr')); }; document.head.appendChild(sc);
+}));
+const joinUrl = code => (/^https?:$/.test(location.protocol) && !/appassets|androidplatform/.test(location.host) ? location.origin + location.pathname : 'https://mmcsongpoint.github.io/') + '?join=' + encodeURIComponent(code);
+async function showJoinQr() {
+  if (!perf || perf.role !== 'host') return;
+  const url = joinUrl(perf.code);
+  try { await loadQr(); } catch { return toast('Couldn\'t make the QR code. Check your internet connection.'); }
+  const q = qrcode(0, 'M'); q.addData(url); q.make();
+  $('#qrImg').innerHTML = q.createSvgTag({ margin: 3, scalable: true });
+  $('#qrCodeTxt').textContent = perf.code; $('#qrUrl').textContent = url;
+  $('#qrBox').classList.add('show');
+}
+const closeJoinQr = () => $('#qrBox').classList.remove('show');
+$('#qrClose').onclick = closeJoinQr;
+$('#qrBox').addEventListener('click', e => { if (e.target.id === 'qrBox') closeJoinQr(); });
+document.addEventListener('click', e => { if (e.target.closest('[data-qr]')) showJoinQr(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#qrBox').classList.contains('show')) { e.stopPropagation(); closeJoinQr(); } }, true);
 $('#perfBar').addEventListener('click', async e => {
   const b = e.target.closest('[data-p]'); if (!b) return;
   if (b.dataset.p === 'end') { const c = await choose('End the session?', 'Everyone following will stop following.', [{ label: 'End', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]); if (c === 'go') perfStop(); }
   else if (b.dataset.p === 'leave') perfLeave();
+  else if (b.dataset.p === 'qr') showJoinQr();
   else if (b.dataset.p === 'follow') perfFollow();
   else if (b.dataset.p === 'reconnect') perfReconnect();
   else if (b.dataset.p === 'scchords') { scOn = !scOn; store.set('slideChordsOn', scOn); renderPerfBar(); scPipKey = ''; if (perf && perf.last) scPip(perf.last, songIndex.get(perf.last.song)); }
@@ -3434,7 +3494,7 @@ function prRender() {
   const s = pr.songs[pr.si], deck = pr.deck, n = deck ? deck.imgs.length : 0;
   $('#prTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
   $('#prSub').textContent = ` · song ${pr.si + 1} of ${pr.songs.length}`;
-  $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : '';
+  $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b><button class="qrbtn" data-qr aria-label="Show a QR code to join" title="Show a QR code to join">${QR_ICON}</button>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : '';
   $('#prBlank').classList.toggle('on', pr.blank);
   prProjLabel();
   $('#prOrder').textContent = prOrderMode === 'chords' ? (deck && deck.how === 'arranged' ? 'Order: Arranged' : 'Order: Chords') : 'Order: PowerPoint';
@@ -4225,16 +4285,26 @@ function openPanel(id) { $('#' + id).classList.add('show'); if (typeof updatePla
 function closePanel(id) { $('#' + id).classList.remove('show'); if (typeof updatePlayerMode === 'function') updatePlayerMode(); }
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closePanel(b.dataset.close));
 
+let listTab = store.get('listTab', 'mine');
+$('#listTabs').addEventListener('click', e => { const b = e.target.closest('[data-lt]'); if (!b) return; listTab = b.dataset.lt; store.set('listTab', listTab); renderNotes(); });
+let people = store.get('people', []);   // everyone you can share with: { username, name }
+async function loadPeople() { try { const r = await api('listPeople'); if (r.ok) { people = r.people; store.set('people', people); } } catch {} return people; }
+const personName = u => (people.find(p => p.username === u) || {}).name || u;
+const sharedWithText = n => (n.sharedWith || []).map(personName).join(', ');
 function renderNotes() {
   const sort = l => [...l].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.updated || 0) - (a.updated || 0));
   const card = n => `<div class="card" data-id="${esc(n.id)}">
-      <div class="t">${esc(n.title || 'Untitled')}${n.shared ? '<span class="lbadge">Shared</span>' : ''}${offlineIds.has(n.id) ? '<span class="lbadge off" title="Downloaded: kept on this device for offline use" aria-label="Downloaded for offline use"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg></span>' : ''}${pendingIds.has(n.id) ? '<span class="lbadge wait" title="Will upload when you\'re online">Not uploaded</span>' : ''}</div>
+      <div class="t">${esc(n.title || 'Untitled')}${isMine(n) && n.shared ? '<span class="lbadge">Shared</span>' : isMine(n) && (n.sharedWith || []).length ? `<span class="lbadge" title="Shared with ${esc(sharedWithText(n))}">Shared with ${n.sharedWith.length}</span>` : ''}${offlineIds.has(n.id) ? '<span class="lbadge off" title="Downloaded: kept on this device for offline use" aria-label="Downloaded for offline use"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg></span>' : ''}${pendingIds.has(n.id) ? '<span class="lbadge wait" title="Will upload when you\'re online">Not uploaded</span>' : ''}</div>
       <div class="m">${esc(longDate(n.date))} · ${n.songs.length} song${n.songs.length === 1 ? '' : 's'}${!isMine(n) && n.ownerName ? ' · by ' + esc(n.ownerName) : n.leader ? ' · ' + esc(n.leader) : ''}</div>
       ${n.songs.length ? `<div class="songsline">${esc(n.songs.map(songLabel).join(' · '))}</div>` : ''}
     </div>`;
-  const mine = sort(notes.filter(isMine)), others = sort(notes.filter(n => !isMine(n) && n.shared));
-  $('#notesList').innerHTML = (mine.length ? mine.map(card).join('') : `<div class="empty"><b>No song lists yet</b>Tap “+ New” to start one for your next time leading.</div>`)
-    + (others.length ? `<h4 class="lhead">Shared by others</h4>${others.map(card).join('')}` : '');
+  const mine = sort(notes.filter(isMine)), others = sort(notes.filter(n => !isMine(n)));   // the server sends only lists shared with you
+  const tab = isGuest() ? 'shared' : listTab;
+  $('#listTabs').style.display = isGuest() ? 'none' : '';
+  document.querySelectorAll('#listTabs .pp').forEach(b => { b.classList.toggle('now', b.dataset.lt === tab); b.textContent = (b.dataset.lt === 'mine' ? 'My Lists' : 'Shared With Me') + ` (${b.dataset.lt === 'mine' ? mine.length : others.length})`; });
+  $('#notesList').innerHTML = tab === 'mine'
+    ? (mine.length ? mine.map(card).join('') : `<div class="empty"><b>No song lists yet</b>Tap “+ New” to start one for your next time leading.</div>`)
+    : (others.length ? others.map(card).join('') : `<div class="empty"><b>Nothing shared with you yet</b>Song lists that others share with everyone, or with you, show up here.</div>`);
   $('#notesInfo').textContent = navigator.onLine
     ? 'Song lists are saved to the SongPoint server, so they follow you to any device you sign in on. Lists with the ⬇ icon are also downloaded to this device for offline use.'
     : 'You\'re offline: showing the song lists kept on this device.';
@@ -4267,7 +4337,7 @@ function renderNoteSongs() {
     const s = songIndex.get(r.key);
     return `<div class="nsong${s ? '' : ' missing'}${noteViewing ? ' view' : ''}" data-i="${i}">
       ${noteViewing ? '' : '<div class="handle" aria-label="Drag to reorder" title="Drag to reorder">≡</div>'}
-      <div class="info"><div class="title t">${esc(songLabel(r))}${s && s.slides.length ? `<span class="slidechip${slidesUnchecked(s) ? ' warn' : ''}">slides${slidesUnchecked(s) ? INFO_DOT('Slides not approved yet') : ''}</span>` : ''}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}${r.arr && r.arr.order && r.arr.order.length ? ` · <span class="listord">${esc(r.arr.order.map(x => x.label).join(' → '))}</span>` : ''}</div></div>
+      <div class="info"><div class="title t">${esc(songLabel(r))}${s && s.chords && s.chords.length ? '<span class="slidechip">chords</span>' : ''}${s && s.slides.length ? `<span class="slidechip${slidesUnchecked(s) ? ' warn' : ''}">slides${slidesUnchecked(s) ? INFO_DOT('Slides not approved yet') : ''}</span>` : ''}</div><div class="sub">${esc(r.book)}${s ? '' : ' · no longer in the library'}${r.arr && r.arr.order && r.arr.order.length ? ` · <span class="listord">${esc(r.arr.order.map(x => x.label).join(' → '))}</span>` : ''}</div></div>
       <div class="ctl">
         ${s ? keyButton(s) : ''}
         ${s && s.chords.length && canEditList(n) ? `<button data-act="order" class="sm${r.arr ? ' on' : ''}" aria-label="Section order for this list" title="Section order for this song list only">${ICON_ORDER}</button>` : ''}
@@ -4281,12 +4351,14 @@ function renderNoteSongs() {
   $('#noteDelete').style.display = n.isNew || !canEditList(n) ? 'none' : '';
   $('#noteEdit').style.display = canEditList(n) ? '' : 'none';
   $('#noteShare').style.display = !n.isNew && !isGuest() && isMine(n) ? '' : 'none';   // only the person who made the list shares or unshares it
-  $('#noteShare').textContent = n.shared ? 'Stop sharing' : 'Share with everyone';
+  $('#noteShare').textContent = n.shared ? 'Stop sharing with everyone' : 'Share with everyone';
+  $('#notePeople').style.display = $('#noteShare').style.display;
+  $('#notePeople').textContent = (n.sharedWith || []).length ? `Shared with ${n.sharedWith.length} ${n.sharedWith.length === 1 ? 'person' : 'people'}` : 'Share with people';
   $('#noteOffline').innerHTML = offlineIds.has(n.id) ? '✓ Downloaded' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>Download';
   $('#noteOffline').title = offlineIds.has(n.id) ? 'Saved on this device for offline use. Tap to remove the download.' : 'Save this song list on this device for offline use';
   $('#noteOffline').classList.toggle('on', offlineIds.has(n.id));
   $('#noteCopy').style.display = n.isNew ? 'none' : '';
-  $('#noteStatus').textContent = n.isNew ? '' : `${!isMine(n) && n.ownerName ? `Made by ${n.ownerName}. ` : ''}${n.shared ? 'Shared with everyone. ' : 'Only you can see it. '}Last saved${n.leader ? ' by ' + n.leader : ''} ${n.updated ? new Date(n.updated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}.`;
+  $('#noteStatus').textContent = n.isNew ? '' : `${!isMine(n) && n.ownerName ? `Made by ${n.ownerName}. ` : ''}${n.shared ? 'Shared with everyone. ' : (n.sharedWith || []).length ? (isMine(n) ? `Shared with ${sharedWithText(n)}. ` : 'Shared with you. ') : 'Only you can see it. '}Last saved${n.leader ? ' by ' + n.leader : ''} ${n.updated ? new Date(n.updated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}.`;
   const withSlides = n.songs.filter(r => (songIndex.get(r.key) || {}).slides?.length).length;
   $('#noteSlides').disabled = !withSlides;
   $('#slidesInfo').textContent = !n.songs.length ? '' : withSlides === n.songs.length ? `All ${withSlides} songs have slides.`
@@ -4420,8 +4492,40 @@ $('#noteShare').onclick = async () => {
     if (!r.ok) return toast(r.error || 'Couldn\'t change sharing', 4000);
     const m = notes.find(x => x.id === n.id); if (m) Object.assign(m, r.list);
     editing = JSON.parse(JSON.stringify(m || r.list)); saveNotes(); renderNoteSongs(); renderNotes();
-    toast(r.list.shared ? 'Shared: everyone can now see this song list' : 'Only you can see this song list now');
+    toast(r.list.shared ? 'Shared: everyone can now see this song list' : (r.list.sharedWith || []).length ? `No longer shared with everyone (still shared with ${sharedWithText(r.list)})` : 'Only you can see this song list now');
   } catch { toast('Connect to the internet to change sharing'); }
+};
+let shareSel = null;
+function renderShareList() {
+  const q = normalize($('#shareQ').value || ''), me = meUser().username;
+  const l = people.filter(p => p.username !== me && (!q || normalize(p.name + ' ' + p.username).includes(q))).sort((a, b) => a.name.localeCompare(b.name));
+  $('#shareList').innerHTML = l.length ? l.map(p => `<label><input type="checkbox" data-u="${esc(p.username)}"${shareSel.has(p.username) ? ' checked' : ''}> ${esc(p.name)}<small>${esc(p.username)}</small></label>`).join('')
+    : `<div class="vmsg">${people.length ? 'No one by that name' : 'Loading people…'}</div>`;
+}
+$('#notePeople').onclick = async () => {
+  const n = editing; if (!n) return;
+  if (!navigator.onLine) return toast('Connect to the internet to change sharing');
+  shareSel = new Set(n.sharedWith || []); $('#shareQ').value = '';
+  renderShareList(); $('#shareBox').classList.add('show');
+  await loadPeople(); if (shareSel) renderShareList();
+};
+$('#shareQ').addEventListener('input', () => shareSel && renderShareList());
+$('#shareList').addEventListener('change', e => { const c = e.target.closest('[data-u]'); if (!c || !shareSel) return; if (c.checked) shareSel.add(c.dataset.u); else shareSel.delete(c.dataset.u); });
+const closeShareBox = () => { $('#shareBox').classList.remove('show'); shareSel = null; };
+$('#shareCancel').onclick = closeShareBox;
+$('#shareBox').addEventListener('click', e => { if (e.target.id === 'shareBox') closeShareBox(); });
+$('#shareSave').onclick = async () => {
+  const n = editing; if (!n || !shareSel) return;
+  const users = [...shareSel], btn = $('#shareSave'); btn.disabled = true;
+  try {
+    if (pendingIds.has(n.id)) await flushLists();
+    const r = await api('listShare', { id: n.id, users });
+    if (!r.ok) throw new Error(r.error || 'Couldn\'t change sharing');
+    const m = notes.find(x => x.id === n.id); if (m) Object.assign(m, r.list);
+    editing = JSON.parse(JSON.stringify(m || r.list)); saveNotes(); renderNoteSongs(); renderNotes(); closeShareBox();
+    toast(users.length ? `Shared with ${users.map(personName).join(', ')}` : 'No longer shared with particular people');
+  } catch (e) { toast(e.message || 'Connect to the internet to change sharing', 4000); }
+  finally { btn.disabled = false; }
 };
 $('#noteOffline').onclick = () => {
   const id = editing.id;
@@ -4604,8 +4708,10 @@ function renderWelcome() {
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
 }
 function signOut(expired = false) {
+  const visitor = !!(auth.user && auth.user.visitor);
   auth = {}; saveAuth(); renderWelcome(); closeSheet();
-  showLock('signin', expired ? 'Please sign in again.' : '');
+  if (visitor) $('#lockUser').value = '';
+  showLock('signin', visitor ? 'The session you were following has ended. Scan the leader\'s new QR code, or sign in.' : expired ? 'Please sign in again.' : '');
 }
 $('#signOutBtn').onclick = () => { if (confirm('Sign out of this device? Your song lists stay saved on the server.')) signOut(); };
 $('#changePwBtn').onclick = () => { closeSheet(); showLock('change'); };
@@ -4702,6 +4808,8 @@ window.handleBack = () => {
   if ($('#rowMenu').classList.contains('show')) { closeRowMenu(); return true; }
   if ($('#drawer').classList.contains('show')) { closeDrawer(); return true; }
   if ($('#pipeBox').classList.contains('show')) { closePipe(); return true; }
+  if ($('#qrBox').classList.contains('show')) { closeJoinQr(); return true; }
+  if ($('#shareBox').classList.contains('show')) { closeShareBox(); return true; }
   if ($('#arrBox').classList.contains('show')) { closeArrange(); return true; }
   if ($('#perfBox').classList.contains('show')) { closePerfJoin(); return true; }
   if (pr) { $('#prExit').click(); return true; }
@@ -4899,6 +5007,7 @@ function songKeyState(s) {
   return { i: -1, p: -1, label: '', changed: false };
 }
 const PIPE_ICON = '<svg class="pipe" viewBox="0 0 48 48" aria-hidden="true"><defs><mask id="pipeMask"><rect width="48" height="48" fill="#fff"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(0 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(30 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(60 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(90 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(120 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(150 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(180 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(210 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(240 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(270 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(300 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(330 24 24)"/><circle cx="24" cy="24" r="3.6"/><circle cx="24" cy="24" r="7.5" fill="none" stroke="#000" stroke-width="1.6"/><text x="24" y="17.2" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="9.5">C</text><path d="M24 31.5v6M21.8 35.3l2.2 2.4 2.2-2.4" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></mask></defs><circle cx="24" cy="24" r="22.5" fill="currentColor" mask="url(#pipeMask)"/></svg>';
+const QR_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 20h2M20 14h1" stroke-linecap="round"/></svg>';
 const ICON_ORDER = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 5l1.5-1V9M3.6 14.2a1.4 1.4 0 0 1 2.6.7c0 1-2.4 2-2.4 3.1h2.6"/></svg>';
 function keyButton(s) {
   if (isTextDoc(s)) return '';
@@ -6527,7 +6636,23 @@ if (N && N.ready) N.ready.then(() => { refreshDownloaded(); renderTabs(); render
 })();
 if (library.synced) setSyncLine(`${summary()} · last refreshed ${ago(library.synced)}`);
 renderWelcome();
-if (!auth.token) chooseLockMode();
+// Opened from a leader's QR code (…/?join=1234): join that session. Not signed in: a visitor pass, no account needed.
+const joinParam = (new URLSearchParams(location.search).get('join') || '').replace(/\D/g, '').slice(0, 6);
+if (joinParam) try { history.replaceState(null, '', location.pathname); } catch {}
+async function joinFromLink(code) {
+  if (!navigator.onLine) { toast('Connect to the internet to join'); return auth.token ? startApp() : chooseLockMode(); }
+  if (!auth.token || (auth.user && auth.user.visitor)) {
+    let r = {}; try { r = await api('visitorJoin', { code }); } catch {}
+    if (!r.ok) { auth = {}; saveAuth(); renderWelcome(); showLock('signin', r.error || 'Couldn\'t join. Check your internet connection and scan the code again.'); return; }
+    auth = { token: r.token, user: r.user }; saveAuth(); renderWelcome(); $('#lock').classList.remove('show');
+    usage = null; store.set('usage', null);
+  } else if (auth.user && auth.user.mustChange) return showLock('change');
+  if (!library.synced) { toast('Getting the songs ready…', 2500); try { await sync(); } catch {} }
+  startApp(true);
+  perfJoin(code);
+}
+if (joinParam) joinFromLink(joinParam);
+else if (!auth.token) chooseLockMode();
 else if (auth.user && auth.user.mustChange) showLock('change');
 else startApp();
 window.addEventListener('online', () => { if (!needsLogin() && Date.now() - library.synced > CFG.syncMinutes * 60000) sync(); });

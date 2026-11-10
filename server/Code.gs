@@ -13,7 +13,7 @@ var UHEAD = ['Username', 'Name', 'Admin', 'Salt', 'Hash', 'Must change password'
 var ROUNDS = 2000;
 // A guest account (shared, e.g. for visiting musicians): views songs and follows presentations; nothing else.
 var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSlides', 'finalizeSlides', 'chordUpload',
-  'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log', 'slideUpload'];
+  'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log', 'slideUpload', 'listPeople'];
 var CHORDS_FOLDER = '1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ';   // Chord Pro (one subfolder per book): uploaded chord sheets go here
 var SHARED_SLIDES_FOLDER = '1A_h83VBsar3VD4j2LQ2js8sbdrBAIGQc';   // built PowerPoints are saved here (PowerPoint Presentations)
 
@@ -100,7 +100,7 @@ function saveUser_(u) {
   else usersTab_().appendRow(row);
 }
 function publicUser_(u) {
-  return { username: u.username, name: u.name, admin: u.admin, guest: !!u.guest, mustChange: u.mustChange, disabled: u.disabled,
+  return { username: u.username, name: u.name, admin: u.admin, guest: !!u.guest, visitor: !!u.visitor, mustChange: u.mustChange, disabled: u.disabled,
     lastLogin: u.lastLogin ? new Date(u.lastLogin).toISOString() : '' };
 }
 function checkToken_(token) {
@@ -109,9 +109,21 @@ function checkToken_(token) {
   var payload;
   try { payload = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[0])).getDataAsString(); } catch (e) { return null; }
   if (!sameText_(b64_(Utilities.computeHmacSha256Signature(payload, key_())), parts[1])) return null;
-  var bits = payload.split('|'), u = findUser_(bits[0]);
+  var bits = payload.split('|');
+  if (bits[0].indexOf('visitor~') === 0) { var vc = bits[0].slice(8); return perfSession_(vc) ? visitorUser_(vc) : null; }   // only while that session runs
+  var u = findUser_(bits[0]);
   if (!u || u.disabled || Number(bits[1]) < u.validAfter) return null;
   return u;
+}
+// Visitors: someone scans the QR code on the leader's screen and follows along without an account. Their pass has
+// the guest account's limits (view songs, follow along) and stops working when that session ends.
+function visitorUser_(code) { return { username: 'visitor~' + code, name: 'Visitor', admin: false, guest: true, visitor: true, mustChange: false, disabled: false, validAfter: 0 }; }
+function visitorJoin_(d) {
+  var code = String(d.code || '').replace(/\D/g, ''), c = CacheService.getScriptCache(), n = Number(c.get('vfail') || 0);
+  if (n >= 40) return { ok: false, error: 'Too many tries. Wait a few minutes and scan the code again.' };
+  if (!perfSession_(code)) { c.put('vfail', String(n + 1), 600); return { ok: false, error: 'That session has ended. Ask the leader for the new code.' }; }
+  var u = visitorUser_(code);
+  return { ok: true, token: token_(u.username), user: publicUser_(u) };
 }
 function validUsername_(s) { return /^[a-z0-9][a-z0-9._-]{1,29}$/.test(s); }
 function validPassword_(s) { return typeof s === 'string' && s.length >= 6 && s.length <= 100; }
@@ -126,7 +138,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 47 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 48 }); }
 
 function doPost(e) {
   var d;
@@ -143,6 +155,7 @@ function handle_(d) {
   if (a === 'status') return { ok: true, needsSetup: users_().length === 0 };
   if (a === 'setup') return setupAdmin_(d);
   if (a === 'login') return login_(d);
+  if (a === 'visitorJoin') return visitorJoin_(d);
 
   var me = checkToken_(d.token);
   if (!me) return { ok: false, error: 'Please sign in again.', signedOut: true };
@@ -173,6 +186,7 @@ function handle_(d) {
   if (a === 'listSave') return listSave_(me, d);
   if (a === 'listDelete') return listDelete_(me, d);
   if (a === 'listShare') return listShare_(me, d);
+  if (a === 'listPeople') return { ok: true, people: users_().filter(function (u) { return !u.disabled && !u.guest; }).map(function (u) { return { username: u.username, name: u.name }; }) };
   if (a === 'listsImport') return listsImport_(me, d);
   if (a === 'perfHost') return perfHost_(me, d);
   if (a === 'perfJoin') return perfJoin_(d);
@@ -958,18 +972,19 @@ function perfEnd_(d) { var code = String(d.code || ''); pc_().removeAll(['ps:' +
 // ------------------------------------------------------------------ song lists (stored here; private unless shared)
 // Each list belongs to the person who made it. Shared lists can be seen by everyone; the owner and admins can change
 // them. Deleted lists are kept as a marked row so every device knows to drop its copy.
-var LISTS = 'SongLists', LHEAD = ['ID', 'Owner', 'Owner name', 'Title', 'Date used', 'Shared', 'Updated', 'Deleted', 'Data'];
+var LISTS = 'SongLists', LHEAD = ['ID', 'Owner', 'Owner name', 'Title', 'Date used', 'Shared', 'Updated', 'Deleted', 'Data', 'Shared with'];
 function listRows_() {
   var sh = tab_(LISTS, LHEAD), n = sh.getLastRow() - 1;
   if (n < 1) return [];
   return sh.getRange(2, 1, n, LHEAD.length).getValues().map(function (r, i) {
     return { row: i + 2, id: String(r[0]), owner: String(r[1]), ownerName: String(r[2]), shared: r[5] === true || r[5] === 'TRUE',
-      updated: Number(r[6]) || 0, deleted: r[7] === true || r[7] === 'TRUE', data: String(r[8] || '') };
+      updated: Number(r[6]) || 0, deleted: r[7] === true || r[7] === 'TRUE', data: String(r[8] || ''),
+      sharedWith: String(r[9] || '').split(',').map(function (u) { return u.trim(); }).filter(Boolean) };
   }).filter(function (x) { return x.id; });
 }
 function listOut_(x) {
   var n = {}; try { n = JSON.parse(x.data || '{}'); } catch (e) {}
-  n.id = x.id; n.owner = x.owner; n.ownerName = x.ownerName; n.shared = x.shared; n.updated = x.updated;
+  n.id = x.id; n.owner = x.owner; n.ownerName = x.ownerName; n.shared = x.shared; n.updated = x.updated; n.sharedWith = x.sharedWith || [];
   return n;
 }
 function listCanEdit_(me, x) { return x.owner === me.username; }
@@ -977,7 +992,7 @@ function listsGet_(me) {
   var lists = [], deleted = [];
   listRows_().forEach(function (x) {
     if (x.deleted) deleted.push(x.id);
-    else if (x.owner === me.username || x.shared) lists.push(listOut_(x));
+    else if (x.owner === me.username || x.shared || (x.sharedWith || []).indexOf(me.username) >= 0) lists.push(listOut_(x));
   });
   return { ok: true, lists: lists, deleted: deleted };
 }
@@ -1028,8 +1043,16 @@ function listShare_(me, d) {
     var x = listRows_().filter(function (r) { return r.id === String(d.id || '') && !r.deleted; })[0];
     if (!x) return { ok: false, error: 'No such song list.' };
     if (x.owner !== me.username) return { ok: false, error: 'Only the person who made this list can share it.' };
-    var sh = tab_(LISTS, LHEAD); sh.getRange(x.row, 6, 1, 2).setValues([[!!d.shared, Date.now()]]);
-    x.shared = !!d.shared; x.updated = Date.now();
+    var sh = tab_(LISTS, LHEAD), now = Date.now();
+    if (d.users) {   // share with particular people (usernames); "everyone" stays as it was
+      var ok = {}; users_().forEach(function (u) { if (!u.disabled && !u.guest) ok[u.username] = 1; });
+      var list = []; d.users.forEach(function (u) { u = String(u || '').trim().toLowerCase(); if (ok[u] && u !== x.owner && list.indexOf(u) < 0) list.push(u); });
+      if (sh.getRange(1, 10).getValue() !== 'Shared with') sh.getRange(1, 10).setValue('Shared with').setFontWeight('bold');
+      sh.getRange(x.row, 10).setValue(list.join(','));
+      x.sharedWith = list;
+    }
+    if (d.shared !== undefined) { sh.getRange(x.row, 6).setValue(!!d.shared); x.shared = !!d.shared; }
+    sh.getRange(x.row, 7).setValue(now); x.updated = now;
     return { ok: true, list: listOut_(x) };
   } finally { lock.releaseLock(); }
 }
@@ -1332,7 +1355,10 @@ function renameUser_(me, d) {
     if (findUser_(to)) return { ok: false, error: 'That username is taken.' };
     u.username = to; saveUser_(u);
     var sh = tab_(LISTS, LHEAD);
-    listRows_().forEach(function (x) { if (x.owner === from) sh.getRange(x.row, 2).setValue(to); });
+    listRows_().forEach(function (x) {
+      if (x.owner === from) sh.getRange(x.row, 2).setValue(to);
+      var i = (x.sharedWith || []).indexOf(from); if (i >= 0) { x.sharedWith[i] = to; sh.getRange(x.row, 10).setValue(x.sharedWith.join(',')); }
+    });
     var out = { ok: true, username: to };
     if (me.username === from) out.token = token_(to);
     return out;
