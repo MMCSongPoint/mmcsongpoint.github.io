@@ -1124,7 +1124,7 @@
 <div class="chedit" id="chEdit" data-v="edit">
   <div class="chebar"><b id="cheTitle"></b><span class="cgrp seg"><button class="pbtn ghost" data-v="edit">Edit</button><button class="pbtn ghost" data-v="preview">Preview</button></span><button class="pbtn ghost" id="cheCancel">Cancel</button><button class="pbtn" id="cheSave">Save</button></div>
   <div class="chebody"><textarea id="cheText" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Chord sheet"></textarea><div class="chepre" id="chePre"></div></div>
-  <div class="chehelp">Put each chord in square brackets just before the word or syllable it's played on: <code>[G]Amazing [G7]grace</code>. Put a part's name on its own line (<code>Verse 1</code>, <code>Chorus</code>). The key goes in <code>{key: G}</code>. Saving changes it for everyone; the old version is kept in Drive (Chord Sheet Backups).</div>
+  <div class="chehelp">Pasting a chord sheet with the chords on the line above the words? It's put into this format for you. Put each chord in square brackets just before the word or syllable it's played on: <code>[G]Amazing [G7]grace</code>. Put a part's name on its own line (<code>Verse 1</code>, <code>Chorus</code>). The key goes in <code>{key: G}</code>. Saving changes it for everyone; the old version is kept in Drive (Chord Sheet Backups).</div>
 </div>
 <div class="scedit" id="scEdit"><div class="scbar"><b id="scTitle"></b><small id="scStatus"></small><button class="pbtn ghost" id="scAdd">+ Chord</button><button class="pbtn ghost" id="scDel" style="display:none">Remove</button><button class="pbtn ghost" id="scRedo">Place Again</button><button class="pbtn" id="scOk">✓ Looks Right</button><button class="pbtn ghost" id="scClose">✕ Close</button></div><div id="scBody"></div></div>
 
@@ -6180,6 +6180,56 @@ function chEditName(s, text) {
   const km = (parseChordPro(text).meta.key || '').match(/^[A-G][#b]?m?/), key = km ? km[0] : '';
   return `${s.number ? String(s.number).padStart(4, '0') + ' ' : ''}${s.title.replace(/[\\/:*?"<>|]+/g, ' ').trim()}${key ? ' - ' + key : ''}.chordpro`;
 }
+// ---- "Chords over lyrics" (chords on their own line above the words, as most chord sites show them) → ChordPro
+const CO_CHORD = /^\(?[A-G](?:#|b|♯|♭)?(?:maj|min|mi|m|M|dim|aug|sus|add|°|ø|\+|-)?(?:\d{1,2})?(?:(?:maj|sus|add|b|#|\+|-)\d{1,2})*(?:\([^)]{1,8}\))?(?:\/[A-G](?:#|b|♯|♭)?)?\)?$/;
+const CO_EXTRA = /^(N\.?C\.?|x\d+|\d+x|\||\|\||\/|-+|\.+|%|:\|\|?|\|\|?:)$/i;
+const CO_HEAD = /^\s*[\[(]?\s*((?:pre[- ]?)?chorus|verse|bridge|intro|outro|tag|ending|interlude|refrain|instrumental|coda|turnaround|vamp|hook|post[- ]?chorus)\s*(\d+[a-z]?)?\s*(?:[x×]\s*\d+)?\s*[\])]?\s*:?\s*$/i;
+function coIsChordLine(line) {
+  const t = line.trim().split(/\s+/).filter(Boolean);
+  if (!t.length) return false;
+  let chords = 0;
+  for (const w of t) { if (CO_CHORD.test(w)) chords++; else if (!CO_EXTRA.test(w)) return false; }
+  return chords > 0;
+}
+function coLooksLike(text) {
+  const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+  const brackets = l => [...l.replace(/\[\/?(ch|tab)\]/g, '').matchAll(/\[([^\]]{1,12})\]/g)].some(m => CO_CHORD.test(m[1]));
+  if (lines.some(l => !CO_HEAD.test(l) && brackets(l))) return false;   // already ChordPro
+  return lines.filter(l => coIsChordLine(l)).length >= 2;
+}
+function coConvert(text) {
+  const lines = String(text || '').replace(/\r\n?/g, '\n').replace(/\[\/?(ch|tab)\]/g, '').replace(/\t/g, '    ').replace(/[♯]/g, '#').replace(/[♭]/g, 'b').split('\n').map(l => l.replace(/\s+$/, ''));
+  const out = [];
+  const chordsAt = line => { const r = []; const re = /\S+/g; let m; while ((m = re.exec(line))) r.push([m.index, m[0]]); return r; };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const h = line.match(CO_HEAD);
+    if (h) {   // "[Verse 1]", "Chorus:", "(Bridge)" → "Verse 1"
+      const name = h[1].replace(/\s+/g, ' ').replace(/^(\w)/, c => c.toUpperCase()).replace(/pre[- ]?chorus/i, 'Pre-Chorus').replace(/post[- ]?chorus/i, 'Post-Chorus');
+      if (out.length && out[out.length - 1] !== '') out.push('');
+      out.push(name + (h[2] ? ' ' + h[2] : '')); continue;
+    }
+    if (coIsChordLine(line)) {
+      const next = lines[i + 1];
+      if (next != null && next.trim() && !coIsChordLine(next) && !CO_HEAD.test(next)) {   // chords over a line of words: put each chord in the words
+        let words = next; const cs = chordsAt(line);
+        const width = Math.max(words.length, ...cs.map(([c]) => c));
+        words = words.padEnd(width, ' ');
+        for (let k = cs.length - 1; k >= 0; k--) {
+          let [c, ch] = cs[k];
+          if (words[c] === ' ' && words[c + 1] && words[c + 1] !== ' ') c++;   // just before a word: on the word
+          const bare = CO_EXTRA.test(ch) && !/^N\.?C/i.test(ch);
+          words = words.slice(0, c) + (bare ? '' : `[${ch.replace(/^\((.*)\)$/, '$1')}]`) + words.slice(c);
+        }
+        out.push(words.replace(/\s+$/, '').replace(/ {2,}/g, m => m.length > 2 ? ' ' : m)); i++; continue;
+      }
+      out.push(chordsAt(line).map(([, ch]) => CO_EXTRA.test(ch) && !/^N\.?C/i.test(ch) ? ch : `[${ch.replace(/^\((.*)\)$/, '$1')}]`).join(' '));   // chords alone (intro, turnaround)
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+}
 async function chEditOpen(s, x) {
   if (!s || !isAdmin()) return;
   if (!navigator.onLine) return toast('Connect to the internet to edit chord sheets');
@@ -6198,6 +6248,19 @@ function chPreview() {
   $('#chePre').innerHTML = `<div class="chart" style="font-size:${chordSize}px">${html}</div>`;
 }
 $('#cheText').addEventListener('input', () => { clearTimeout(chEdT); chEdT = setTimeout(chPreview, 250); });
+// Pasting a chord sheet with the chords on their own lines above the words: it goes in as ChordPro
+$('#cheText').addEventListener('paste', e => {
+  const t = e.clipboardData && e.clipboardData.getData('text/plain');
+  if (!t || !coLooksLike(t)) return;
+  e.preventDefault();
+  const out = coConvert(t), ta = $('#cheText');
+  ta.focus();
+  if (!document.execCommand('insertText', false, out)) {   // keeps Undo working where it can
+    const a = ta.selectionStart, b = ta.selectionEnd; ta.value = ta.value.slice(0, a) + out + ta.value.slice(b); ta.selectionStart = ta.selectionEnd = a + out.length;
+    ta.dispatchEvent(new Event('input'));
+  }
+  toast('Chords above the words were put into the words. Check the Preview.', 3500);
+});
 $('#cheText').addEventListener('keydown', e => {   // Tab puts in a tab instead of leaving the box
   if (e.key !== 'Tab') return; e.preventDefault();
   const el = e.target, a = el.selectionStart; el.setRangeText('\t', a, el.selectionEnd, 'end'); el.dispatchEvent(new Event('input'));
@@ -6251,6 +6314,8 @@ $('#chordFile').onchange = async e => {
   if (!navigator.onLine) return toast('Connect to the internet to upload');
   let text = '';
   try { text = await f.text(); } catch { return toast('Couldn\'t read that file'); }
+  let converted = false;
+  if (coLooksLike(text)) { text = coConvert(text); converted = true; }   // chords on their own lines above the words → ChordPro
   const chart = parseChordPro(text), hasChords = /\[[A-G][^\]]*\]/.test(text);
   if (!hasChords) return toast('That doesn\'t look like a chord sheet (no [chords] found). Use a ChordPro file.', 4500);
   const km = (chart.meta.key || '').match(/^[A-G][#b]?m?/), key = km ? km[0] : '';
@@ -6260,7 +6325,7 @@ $('#chordFile').onchange = async e => {
   // a song that already has a chord sheet: the new one replaces it (the one showing, if this song is open)
   const old = s.chords.length ? ((viewing === s && chordFile && s.chords.includes(chordFile)) ? chordFile : s.chords[0]) : null;
   const c = await choose(`${old ? 'Replace the chords' : 'Upload chords'} for “${s.title}”?`,
-    `${mismatch ? `⚠ This file is titled “${chart.meta.title}”, not “${s.title}”. Make sure it's the right song. ` : ''}${f.name}${chart.meta.title ? ` (${chart.meta.title}${key ? ', key of ' + key : ''})` : ''} will be saved for everyone as “${name}” in Chord Pro › ${s.collection}.${old ? ` It replaces the current chord sheet (“${old.name}”); the old one is kept in Drive (Chord Sheet Backups).` : ''}`,
+    `${mismatch ? `⚠ This file is titled “${chart.meta.title}”, not “${s.title}”. Make sure it's the right song. ` : ''}${f.name}${chart.meta.title ? ` (${chart.meta.title}${key ? ', key of ' + key : ''})` : ''} will be saved for everyone as “${name}” in Chord Pro › ${s.collection}.${converted ? ' The chords were above the words; they\'ve been put into the words (ChordPro).' : ''}${old ? ` It replaces the current chord sheet (“${old.name}”); the old one is kept in Drive (Chord Sheet Backups).` : ''}`,
     [{ label: old ? 'Replace' : 'Upload', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]);
   if (c !== 'go') return;
   toast('Uploading…', 1500);
