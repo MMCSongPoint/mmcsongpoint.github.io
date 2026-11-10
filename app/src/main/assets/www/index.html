@@ -2549,7 +2549,7 @@ async function openSlideArrange(n, s) {
   $('#arrTitle').textContent = `List Order · ${s.title}`;
   $('#arrInfo').textContent = `Only for the song list “${n.title || 'Untitled'}”. Made from the parts on the slides (this song has no chord sheet).`;
   $('#arrBy').textContent = cur && cur.by ? `Last saved by ${cur.by}${cur.at ? ' on ' + shortDate(cur.at) : ''}.` : '';
-  $('#arrRemove').style.display = cur ? '' : 'none'; $('#arrRemove').textContent = 'Use Slide Order';
+  $('#arrRemove').style.display = cur ? '' : 'none'; $('#arrRemove').textContent = 'Reset';
   $('#arrBox .arrkeyrow').style.display = 'none';
   renderArr(); $('#arrBox').classList.add('show');
 }
