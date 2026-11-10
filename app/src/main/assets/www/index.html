@@ -239,6 +239,8 @@
   body.insession .viewer.following:not(.fpres) .svnav { display: flex; }   /* following (not a presentation) on your own slides: you move through them */
   body.insession .svnav [data-sv=ok] { display: none; }
   .chart { padding: 10px 16px 120px; color: var(--text); line-height: 1.25; max-width: 900px; margin: 0 auto; }
+  /* room below the song so the last part can scroll to the top of any screen (leader and followers line up the same way) */
+  .viewer.chordmode .chart { padding-bottom: 85vh; padding-bottom: 85dvh; }
   .cbar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 0 10px; background: var(--bg); font-size: 15px; }
   .cbar button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; min-width: 36px; height: 36px; font-size: 15px; font-weight: 700; padding: 0 8px; }
   .cbar .cgrp { display: flex; align-items: center; gap: 0; border-radius: 8px; }
@@ -2883,8 +2885,8 @@ const perfTopInset = () => { const b = document.querySelector('#vPages .cbar'); 
 function perfAnchor() {
   const body = $('#vBody'), max = body.scrollHeight - body.clientHeight;
   if (body.scrollTop <= 2) return { top: 1 };
-  if (body.scrollTop >= max - 2) return { end: 1 };
-  if (!$('#viewer').classList.contains('chordmode')) return { r: body.scrollTop / Math.max(1, max) };
+  if (!$('#viewer').classList.contains('chordmode')) return body.scrollTop >= max - 2 ? { end: 1 } : { r: body.scrollTop / Math.max(1, max) };
+  // chords: always the line at the top of the screen (never "the bottom"), so a shorter screen doesn't miss lines
   const top = body.getBoundingClientRect().top + perfTopInset(), els = perfAnchorEls();
   for (let i = 0; i < els.length; i++) { const r = els[i].getBoundingClientRect(); if (r.height && r.bottom > top) return { ln: i, f: +Math.max(0, (top - r.top) / r.height).toFixed(3) }; }
   return { top: 1 };
@@ -4238,15 +4240,23 @@ document.addEventListener('keydown', e => {
   // chords: to the start of the next / previous part (Verse 2, Chorus…); sheet music: about a screen
   const starts = sectionStarts();
   if (fwd) {
-    if (cur >= max - 4) { keyGlideStop(); if (pedalMode === 'smart') viewerStep(1); return; }
-    const next = starts ? starts.find(y => y > cur + 8) : cur + page;
-    keyGlide(next == null ? max : next);
+    const end = starts ? Math.min(max, contentEnd()) : max;   // chords: where the song's last line reaches the bottom of the screen
+    const next = starts ? starts.find(y => y > cur + 8) : null;
+    if (next != null) return keyGlide(next);
+    if (cur >= end - 4) { keyGlideStop(); if (pedalMode === 'smart') viewerStep(1); return; }
+    keyGlide(Math.min(end, cur + page));
   } else {
     if (cur <= 4) { keyGlideStop(); if (pedalMode === 'smart') viewerStep(-1); return; }
     const prev = starts ? [...starts].reverse().find(y => y < cur - 8) : cur - page;
     keyGlide(prev == null ? 0 : prev);
   }
 });
+// The scroll position where the end of the song (its last line / copyright) sits at the bottom of the screen
+function contentEnd() {
+  const body = $('#vBody'), last = [...document.querySelectorAll('#vPages .chart .cblock, #vPages .chart .cfoot')].pop();
+  if (!last) return body.scrollHeight;
+  return Math.max(0, Math.round(body.scrollTop + last.getBoundingClientRect().bottom - body.getBoundingClientRect().bottom + 24));
+}
 // Where each part of the chord chart starts (scroll positions, just under the sticky key bar); null when not on chords.
 function sectionStarts() {
   const blocks = [...document.querySelectorAll('#vPages .chart section.cblock')];
