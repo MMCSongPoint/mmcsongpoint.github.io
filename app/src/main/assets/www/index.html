@@ -391,7 +391,7 @@
   .pdot.ok { background: #3ddc84; } .pdot.bad { background: #ff4d4d; }
   #vPerform.on { color: var(--accent-text); }
   .perfcode { width: 100%; box-sizing: border-box; font-size: 34px; letter-spacing: .4em; text-align: center; padding: 10px 0 10px .4em; margin: 4px 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-weight: 800; }
-  .perfpill { position: fixed; z-index: 70; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: none; background: var(--accent); color: #fff; border: none; border-radius: 99px; padding: 7px 14px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+  .perfpill { position: fixed; z-index: 70; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: none; background: var(--accent); color: #fff; border: none; border-radius: 99px; padding: 7px 14px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.3); user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   .perfpill.show { display: block; }
   .cview { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 8px; font-size: 14px; }
   .cview button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; height: 32px; padding: 0 10px; font-weight: 700; font-size: 14px; }
@@ -3266,11 +3266,27 @@ setInterval(() => {
 }, 3000);
 // Leader: keep a heartbeat on the server for followers who couldn't connect directly.
 setInterval(() => { if (perf && perf.role === 'host' && (perf.relayers.size || rtdbOn(perf))) perfRelayPush(true); }, 5000);
+// Hold the pill (or right-click it) to end the session, or leave it when following. Tap outside to cancel.
+async function perfPillMenu() {
+  if (!perf) return;
+  if (navigator.vibrate) navigator.vibrate(15);
+  const host = perf.role === 'host';
+  const c = await choose(`${host ? (perf.listen ? 'Listening Session' : 'Leading') : 'Following ' + (perf.hostName || '')} · ${perf.code}`, '',
+    host ? [{ label: 'End Session', value: 'end', primary: true }, ...(perf.listen ? [] : [{ label: 'QR Code', value: 'qr' }])] : [{ label: 'Leave', value: 'leave', primary: true }]);
+  if (c === 'end') perfStop(); else if (c === 'leave') perfLeave(); else if (c === 'qr') showJoinQr();
+}
+(() => {
+  const pill = $('#perfPill'); let t = 0, held = false;
+  pill.addEventListener('pointerdown', () => { held = false; clearTimeout(t); t = setTimeout(() => { held = true; perfPillMenu(); }, 550); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => pill.addEventListener(ev, () => clearTimeout(t)));
+  pill.addEventListener('contextmenu', e => { e.preventDefault(); clearTimeout(t); if (!held) { held = true; perfPillMenu(); } });
+  pill.addEventListener('click', e => { if (held) { held = false; e.stopImmediatePropagation(); } }, true);   // a hold isn't also a tap
+})();
 $('#perfPill').onclick = () => {
   if (!perf) return;
   if (perf.role === 'guest') { perfFollow(); if (!viewing) toast('Waiting for the leader to open a song…'); }
   else if (perf.listen) choose(`Listening session ${perf.code}`, 'Others join with this code and pick their part.', [{ label: 'End Session', value: 'end' }, { label: 'Keep Going', value: 'k', primary: true }]).then(c => { if (c === 'end') perfStop(); });
-  else toast('Open a song to lead. To end the session, tap End at the top of a song.', 3500);
+  else toast('Open a song to lead. To end the session, hold this button.', 3500);
 };
 function openPerfJoin() { $('#perfCode').value = ''; $('#perfBox').classList.add('show'); setTimeout(() => $('#perfCode').focus(), 50); }
 function closePerfJoin() { $('#perfBox').classList.remove('show'); }
