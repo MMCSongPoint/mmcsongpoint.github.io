@@ -14,6 +14,9 @@ var ROUNDS = 2000;
 // A guest account (shared, e.g. for visiting musicians): views songs and follows presentations; nothing else.
 var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSlides', 'finalizeSlides', 'chordUpload',
   'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log', 'slideUpload', 'listPeople'];
+// A visitor (joined by QR code, no account) can only follow the performance they joined.
+var VISITOR_OK = ['me', 'perfJoin', 'perfSend', 'perfPoll', 'perfState', 'file', 'slideDeck', 'deckFile', 'slideLive', 'getArrangements', 'slideSections',
+  'slidesApproved', 'mp3Approved', 'getKnown', 'getKeyChecks', 'getTextDocs', 'slideImagesIndex', 'slideChordsIndex', 'slideChordsGet'];
 var CHORDS_FOLDER = '1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ';   // Chord Pro (one subfolder per book): uploaded chord sheets go here
 var SHARED_SLIDES_FOLDER = '1A_h83VBsar3VD4j2LQ2js8sbdrBAIGQc';   // built PowerPoints are saved here (PowerPoint Presentations)
 
@@ -138,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 48 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 49 }); }
 
 function doPost(e) {
   var d;
@@ -160,6 +163,8 @@ function handle_(d) {
   var me = checkToken_(d.token);
   if (!me) return { ok: false, error: 'Please sign in again.', signedOut: true };
   if (a === 'me') return { ok: true, user: publicUser_(me) };
+  if (me.visitor && VISITOR_OK.indexOf(a) < 0) return { ok: false, error: 'Visitors can only follow the performance.' };
+  if (me.visitor && a === 'perfJoin' && String(d.code || '').replace(/\D/g, '') !== me.username.slice(8)) return { ok: false, error: 'Visitors can only follow the performance they joined.' };
   if (me.guest && GUEST_BLOCKED.indexOf(a) >= 0) return { ok: false, error: 'The guest account can view songs and follow along, but can\'t change things.' };
   if (a === 'changePassword') return changePassword_(me, d);
   if (me.mustChange) return { ok: false, error: 'Please choose a new password first.', mustChange: true };
