@@ -261,7 +261,7 @@
   .ccom { font-style: italic; color: var(--muted); margin: .2em 0 .4em; }
   .cblank { height: .7em; }
   .ctab { font-size: .8em; margin: 0; overflow-x: auto; }
-  /* following a leader: just the music (tabs, buttons and song details come back with "Follow leader" off) */
+  /* following a leader: just the music (tabs, buttons and song details come back with "Follow Leader" off) */
   .viewer.following.fpres .vtabs, .viewer.following .cbar, .viewer.following .cview, .viewer.following .cbody > .cmeta:not(.cfoot), .viewer.following .ctitle { display: none; }
   .viewer.following .chart { padding-top: 14px; }
   .lock .pwwrap { position: relative; margin-top: 10px; }
@@ -714,7 +714,7 @@
 <div class="wrap">
   <header>
     <div class="brand"><i id="brandIcon" role="button" aria-label="MMC SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">MMC SongPoint</span><svg id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-label="Syncing"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg></div>
-    <button class="hbtn" id="pipeBtn" title="Pitch pipe" aria-label="Pitch pipe"><span id="pipeBtnIcon"></span></button>
+    <button class="hbtn" id="pipeBtn" title="Pitch Pipe" aria-label="Pitch Pipe"><span id="pipeBtnIcon"></span></button>
     <button class="hbtn" id="menuBtn" title="Menu" aria-label="Menu"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </header>
   <div class="welcome" id="welcome"></div>
@@ -732,13 +732,13 @@
   <div class="meta-bar">
     <span class="stwrap"><span id="status"></span><button class="dl sm" id="dlTabBtn" style="display:none" aria-label="Save these songs for offline"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg></button></span>
     <select id="filt" aria-label="Show">
-      <option value="">All songs</option>
-      <option value="chords">With chord sheets</option>
-      <option value="known">Songs we know</option>
+      <option value="">All Songs</option>
+      <option value="chords">With Chord Sheets</option>
+      <option value="known">Songs We Know</option>
     </select>
     <select id="sort">
       <option value="title">Title A–Z</option>
-      <option value="number">Hymn number</option>
+      <option value="number">Hymn Number</option>
     </select>
   </div>
   <div class="list" id="list"></div>
@@ -754,7 +754,7 @@
       <button class="big mini-only" id="miniToggle" aria-label="Play or pause"></button>
       <button class="icon" id="miniBtn" title="Minimize player" aria-label="Minimize player"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></button>
       <div class="extras">
-        <button class="icon sm" id="musicBtn" title="Sheet music" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M10 17.5a1.5 1.5 0 1 1-1.5-1.5H10v-6l4-1"/></svg></button>
+        <button class="icon sm" id="musicBtn" title="Sheet Music" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M10 17.5a1.5 1.5 0 1 1-1.5-1.5H10v-6l4-1"/></svg></button>
         <button class="icon" id="listenBtn" title="Listen together (everyone in their own part)" aria-label="Listen together"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14.2c2.6.1 4.4 1.8 5 4.6"/></svg></button>
         <button class="icon" id="loopBtn" title="Repeat: off" aria-label="Repeat: off"><span class="lp">⟲</span><span class="lpn" id="loopN"></span></button>
         <select id="rate" title="Speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="0.85">0.85×</option><option value="1" selected>1×</option><option value="1.15">1.15×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option><option value="2">2×</option></select>
@@ -799,9 +799,9 @@
     <p id="lockMsg">Sign in to continue.</p>
     <input id="lockName" type="text" placeholder="Your name (shown on song lists)" autocomplete="name" autocapitalize="words" maxlength="40">
     <input id="lockUser" type="text" placeholder="Username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="30">
-    <div class="pwwrap"><input id="lockPw" type="password" placeholder="Password" autocomplete="current-password"><button type="button" class="eye" tabindex="-1" aria-label="Show password" title="Show password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
-    <div class="pwwrap"><input id="lockNew" type="password" placeholder="New password (at least 6 characters)" autocomplete="new-password"><button type="button" class="eye" tabindex="-1" aria-label="Show password" title="Show password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
-    <div class="pwwrap"><input id="lockNew2" type="password" placeholder="Type the new password again" autocomplete="new-password"><button type="button" class="eye" tabindex="-1" aria-label="Show password" title="Show password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
+    <div class="pwwrap"><input id="lockPw" type="password" placeholder="Password" autocomplete="current-password"><button type="button" class="eye" tabindex="-1" aria-label="Show Password" title="Show Password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
+    <div class="pwwrap"><input id="lockNew" type="password" placeholder="New password (at least 6 characters)" autocomplete="new-password"><button type="button" class="eye" tabindex="-1" aria-label="Show Password" title="Show Password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
+    <div class="pwwrap"><input id="lockNew2" type="password" placeholder="Type the new password again" autocomplete="new-password"><button type="button" class="eye" tabindex="-1" aria-label="Show Password" title="Show Password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
     <button type="submit" id="lockBtn">Sign in</button>
     <button type="button" class="link" id="lockAlt"></button>
     <div class="err" id="lockErr"></div>
@@ -820,8 +820,8 @@
     <div class="ltabs" id="listTabs"><button class="pp now" data-lt="mine">My Lists</button><button class="pp" data-lt="shared">Shared With Me</button></div>
     <div id="notesList"></div>
     <div class="row2" id="listIO" style="margin-top:20px">
-      <button class="pbtn ghost" id="exportBtn">Export song lists</button>
-      <button class="pbtn ghost" id="importBtn">Import song lists</button>
+      <button class="pbtn ghost" id="exportBtn">Export Song Lists</button>
+      <button class="pbtn ghost" id="importBtn">Import Song Lists</button>
       <input type="file" id="importFile" accept="application/json,.json,text/plain" hidden>
     </div>
     <p style="color:var(--muted);font-size:13px" id="notesInfo"></p>
@@ -839,18 +839,18 @@
   <div class="pbody">
     <div class="nview viewonly"><p class="vmeta" id="viewMeta"></p></div>
     <label class="field editonly"><span>Title</span><input id="noteTitle" placeholder="e.g. Sunday morning" maxlength="80"></label>
-    <label class="field editonly"><span>Date used</span><input id="noteDate" type="date"></label>
+    <label class="field editonly"><span>Date Used</span><input id="noteDate" type="date"></label>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 6px">
-      <b>Songs</b><button class="pbtn ghost editonly" id="addSongsBtn">+ Add songs</button>
+      <b>Songs</b><button class="pbtn ghost editonly" id="addSongsBtn">+ Add Songs</button>
     </div>
     <div class="list" id="noteSongs"></div>
-    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play all</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="notePresent">Present</button><button class="pbtn ghost" id="noteHost">Start Hosting</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
+    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play All</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="notePresent">Present</button><button class="pbtn ghost" id="noteHost">Start Hosting</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <div class="nview viewonly"><div class="vtext" id="viewText"></div></div>
-    <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Make public</button><button class="pbtn ghost" id="notePeople">Share</button><button class="pbtn ghost" id="noteOffline">Download</button><button class="pbtn ghost" id="noteCopy">Make a copy</button></div>
+    <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Make Public</button><button class="pbtn ghost" id="notePeople">Share</button><button class="pbtn ghost" id="noteOffline">Download</button><button class="pbtn ghost" id="noteCopy">Make a Copy</button></div>
     <label class="field editonly"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
     <p style="color:var(--muted);font-size:13px" id="noteStatus"></p>
-    <div class="row2 editonly"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete song list</button></div>
+    <div class="row2 editonly"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete Song List</button></div>
   </div>
 </div>
 
@@ -858,12 +858,12 @@
 <div class="panel" id="usagePanel">
   <div class="phead">
     <button class="icon" data-close="usagePanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>Song usage</h2>
+    <h2>Song Usage</h2>
     <button class="icon" id="usageRefresh" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
   </div>
   <div class="pbody">
     <div class="seg" id="scopeSeg" style="margin-bottom:8px"><button data-s="me" class="on">Mine</button><button data-s="all">Everyone</button></div>
-    <div class="seg" id="usageSeg" style="margin-bottom:12px"><button data-u="songs" class="on">Most used</button><button data-u="recent">Recent</button><button data-u="leaders">Leaders</button></div>
+    <div class="seg" id="usageSeg" style="margin-bottom:12px"><button data-u="songs" class="on">Most Used</button><button data-u="recent">Recent</button><button data-u="leaders">Leaders</button></div>
     <div id="usageBody"><div class="vmsg">Loading…</div></div>
   </div>
 </div>
@@ -872,7 +872,7 @@
 <div class="panel" id="checkPanel">
   <div class="phead">
     <button class="icon" data-close="checkPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>Library check</h2>
+    <h2>Library Check</h2>
     <button class="icon" id="checkRefresh" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
   </div>
   <div class="pbody">
@@ -890,7 +890,7 @@
 <div class="panel" id="recordsPanel">
   <div class="phead">
     <button class="icon" data-close="recordsPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>Usage records</h2>
+    <h2>Usage Records</h2>
     <button class="icon" id="recRefresh" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
   </div>
   <div class="pbody">
@@ -905,7 +905,7 @@
 <div class="panel" id="bugPanel">
   <div class="phead">
     <button class="icon" data-close="bugPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>Report a problem</h2>
+    <h2>Report a Problem</h2>
   </div>
   <div class="pbody">
     <p style="color:var(--muted);font-size:14px;margin:0 0 12px">Tell us what went wrong: type it, record a voice memo, or both. Your name, app version and device are included automatically.</p>
@@ -918,7 +918,7 @@
       <button class="pbtn ghost" id="bugRecDel" style="display:none">Delete</button>
     </div>
     <p id="bugRecNote" style="color:var(--muted);font-size:12.5px;margin:6px 0 0">Up to 3 minutes.</p>
-    <button class="pbtn" id="bugSend" style="width:100%;margin-top:22px;padding:12px">Send report</button>
+    <button class="pbtn" id="bugSend" style="width:100%;margin-top:22px;padding:12px">Send Report</button>
   </div>
 </div>
 
@@ -932,14 +932,14 @@
   <div class="pbody">
     <div class="card" id="tempBox" style="display:none"></div>
     <div class="card">
-      <b>Add a user</b>
+      <b>Add a User</b>
       <label class="field" style="margin-top:10px"><span>Name</span><input id="nuName" placeholder="e.g. Sam Smith" maxlength="40"></label>
-      <label class="field"><span>Username (for signing in)</span><input id="nuUser" placeholder="e.g. sam" autocapitalize="none" autocorrect="off" maxlength="30"></label>
+      <label class="field"><span>Username (For Signing In)</span><input id="nuUser" placeholder="e.g. sam" autocapitalize="none" autocorrect="off" maxlength="30"></label>
       <label class="field"><span>Password</span><div class="pwrow"><input id="nuPw" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="pbtn ghost" id="nuPwNew" title="Make up a new one" aria-label="Make up a new password">↻</button></div></label>
       <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" id="nuMust" checked> Ask them to choose their own password the first time they sign in</label>
       <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" id="nuAdmin"> Admin (can see everyone's usage and manage users)</label>
       <label style="display:flex;align-items:center;gap:8px;margin:0 0 12px"><input type="checkbox" id="nuGuest"> Guest (shared sign-in: can view songs and follow presentations, can't make lists, PowerPoints or chord sheets, or change the password)</label>
-      <button class="pbtn" id="nuCreate">Add user</button>
+      <button class="pbtn" id="nuCreate">Add User</button>
     </div>
     <div id="usersList"><div class="vmsg">Loading…</div></div>
   </div>
@@ -947,7 +947,7 @@
 
 <div class="wheelbox" id="wheelBox">
   <div class="wheel">
-    <h3 id="wheelTitle">Starting note</h3>
+    <h3 id="wheelTitle">Starting Note</h3>
     <p id="wheelSub">Scroll to choose, then tap Play to hear it.</p>
     <div class="wsel"><div class="wscroll" id="wheelScroll"></div></div>
     <div class="row2"><button class="pbtn ghost" id="wheelReset">Reset</button><button class="pbtn ghost" id="wheelPlay">▶ Play</button><button class="pbtn" id="wheelDone">Done</button></div>
@@ -965,7 +965,7 @@
 
 <div class="qrbox" id="qrBox" role="dialog" aria-label="QR code to follow along">
   <div class="qrcard">
-    <h3>Scan to follow along</h3>
+    <h3>Scan to Follow Along</h3>
     <div id="qrImg"></div>
     <p class="qrc">or open SongPoint and join with code <b id="qrCodeTxt"></b></p>
     <button class="pbtn" id="qrClose">Close</button>
@@ -974,22 +974,22 @@
 
 <div class="wheelbox" id="arrBox">
   <div class="wheel arrbox">
-    <h3 id="arrTitle">Section order</h3>
+    <h3 id="arrTitle">Section Order</h3>
     <p id="arrInfo">Saved for everyone. The original chart isn't changed.</p>
     <div class="arrlist" id="arrList"></div>
-    <div class="arrlbl">Add a section</div>
+    <div class="arrlbl">Add a Section</div>
     <div class="arradd" id="arrAdd"></div>
-    <div class="arrlbl">Note (optional)</div>
+    <div class="arrlbl">Note (Optional)</div>
     <textarea id="arrNote" class="arrnote" maxlength="1000" placeholder="e.g. Capo 2 for guitar · Last chorus a cappella · Tag the ending twice"></textarea>
     <div class="arrkeyrow"><span>Key</span><div class="cgrp"><button data-k="down" aria-label="Key down">−</button><b id="arrKey"></b><button data-k="up" aria-label="Key up">+</button></div></div>
     <p class="arrby" id="arrBy"></p>
-    <div class="row2"><button class="pbtn ghost" id="arrRemove">Use original</button><button class="pbtn ghost" id="arrCancel">Cancel</button><button class="pbtn" id="arrSave">Save</button></div>
+    <div class="row2"><button class="pbtn ghost" id="arrRemove">Use Original</button><button class="pbtn ghost" id="arrCancel">Cancel</button><button class="pbtn" id="arrSave">Save</button></div>
   </div>
 </div>
 
 <div class="wheelbox" id="perfBox">
   <div class="wheel">
-    <h3>Join a performance</h3>
+    <h3>Join a Performance</h3>
     <p>Type the 4-digit code shown on the leader's screen.</p>
     <input id="perfCode" class="perfcode" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000">
     <div class="row2"><button class="pbtn ghost" id="perfCancel">Cancel</button><button class="pbtn" id="perfGo">Join</button></div>
@@ -1008,13 +1008,13 @@
     <button class="pbtn" id="prProj">Start Slideshow</button>
   </div>
   <div class="prbody">
-    <div class="prleft"><div class="prsongs" id="prSongs"></div><button class="pbtn ghost pradd" id="prAdd">＋ Add slides</button>
+    <div class="prleft"><div class="prsongs" id="prSongs"></div><button class="pbtn ghost pradd" id="prAdd">＋ Add Slides</button>
       <input type="file" id="prFile" accept=".pptx,.ppt,.pdf,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden></div>
     <div class="prmain">
       <div class="prstage"><img id="prCur" alt=""><div class="prmsg" id="prMsg"></div></div>
       <div class="prnav"><button class="pbtn" id="prPrev">◀ Previous</button><span id="prPos"></span><button class="pbtn" id="prNext">Next ▶</button></div>
     </div>
-    <div class="prside"><div class="prlbl">Next</div><div class="prnext"><img id="prNextImg" alt=""><div class="prmsg sm" id="prNextMsg"></div></div><div class="prlbl">This song</div><div class="prthumbs" id="prThumbs"></div></div>
+    <div class="prside"><div class="prlbl">Next</div><div class="prnext"><img id="prNextImg" alt=""><div class="prmsg sm" id="prNextMsg"></div></div><div class="prlbl">This Song</div><div class="prthumbs" id="prThumbs"></div></div>
   </div>
 </div>
 
@@ -1024,12 +1024,12 @@
   <div class="dhead"><b>Menu</b><button class="icon" id="drawerClose" aria-label="Close menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
   <button class="ditem" id="dNotes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg>Song Lists</button>
   <button class="ditem" id="dSlides"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4M8 21h8M7 9h6M7 12h10"/></svg>PowerPoints</button>
-  <button class="ditem" id="dPerform"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>Join a performance</button>
-  <button class="ditem" id="dRemote"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10.5 7.5 13.5 9.5 10.5 11.5z"/><path d="M10 16h4"/></svg>Remote control</button>
+  <button class="ditem" id="dPerform"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>Join a Performance</button>
+  <button class="ditem" id="dRemote"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10.5 7.5 13.5 9.5 10.5 11.5z"/><path d="M10 16h4"/></svg>Remote Control</button>
   <button class="ditem" id="dClosing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Closing Songs</button>
   <button class="ditem" id="dTheory"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Music Theory</button>
   <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
-  <button class="ditem" id="dOffline"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Offline songs<small id="dOffCount"></small></button>
+  <button class="ditem" id="dOffline"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Offline Songs<small id="dOffCount"></small></button>
   <button class="ditem" id="dSettings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
 </nav>
 
@@ -1040,14 +1040,14 @@
 <div class="panel" id="remotePanel">
   <div class="phead">
     <button class="icon" data-close="remotePanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2 id="rmHead">Remote control</h2>
+    <h2 id="rmHead">Remote Control</h2>
     <button class="icon" id="rmRefresh" aria-label="Look again"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
   </div>
   <div class="pbody" id="rmBody"></div>
 </div>
 <div class="wheelbox" id="rmAddBox">
   <div class="wheel" style="width:min(420px,94vw)">
-    <h3>Add a song</h3>
+    <h3>Add a Song</h3>
     <input id="rmAddQ" type="search" placeholder="Title or hymn number" style="width:100%;margin:6px 0 8px">
     <div id="rmAddList" style="max-height:50vh;overflow:auto"></div>
     <div class="row2"><button class="pbtn ghost" id="rmAddClose">Close</button></div>
@@ -1058,7 +1058,7 @@
 <div class="panel" id="mp3Panel">
   <div class="phead">
     <button class="icon" data-close="mp3Panel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>MP3 review</h2>
+    <h2>MP3 Review</h2>
   </div>
   <div class="rvbar" id="rvBar">
     <div class="rvnow"><b id="rvTitle">Pick an MP3 below</b><small id="rvSub"></small></div>
@@ -1086,11 +1086,11 @@
 <div class="panel" id="scPanel">
   <div class="phead">
     <button class="icon" data-close="scPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>Chords on slides</h2>
+    <h2>Chords on Slides</h2>
   </div>
   <div class="pbody">
-    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">The app reads the words on each slide and puts the chord sheet's chords above the music. Musicians see them when they follow along with <b>View Slides</b>, in the key they pick. Songs marked <b>Needs checking</b> are hidden from musicians until you open them, fix anything that's off and tap <b>✓ Looks right</b>. Keep this screen open while it places them (about 20 seconds a song).</p>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><button class="pbtn" id="scGo">Place chords</button><span class="m" id="scProg" style="font-size:12.5px;color:var(--muted)"></span></div>
+    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">The app reads the words on each slide and puts the chord sheet's chords above the music. Musicians see them when they follow along with <b>View Slides</b>, in the key they pick. Songs marked <b>Needs Checking</b> are hidden from musicians until you open them, fix anything that's off and tap <b>✓ Looks Right</b>. Keep this screen open while it places them (about 20 seconds a song).</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><button class="pbtn" id="scGo">Place Chords</button><span class="m" id="scProg" style="font-size:12.5px;color:var(--muted)"></span></div>
     <p class="m" id="scCount" style="margin:0 0 6px;font-size:12.5px;color:var(--muted)"></p>
     <div class="chips" id="scFilters" style="margin:0 0 8px"></div>
     <input id="scQ" type="search" placeholder="Title or number" style="width:100%;margin-bottom:8px">
@@ -1103,7 +1103,7 @@
   <div class="chebody"><textarea id="cheText" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Chord sheet"></textarea><div class="chepre" id="chePre"></div></div>
   <div class="chehelp">Put each chord in square brackets just before the word or syllable it's played on: <code>[G]Amazing [G7]grace</code>. Put a part's name on its own line (<code>Verse 1</code>, <code>Chorus</code>). The key goes in <code>{key: G}</code>. Saving changes it for everyone; the old version is kept in Drive (Chord Sheet Backups).</div>
 </div>
-<div class="scedit" id="scEdit"><div class="scbar"><b id="scTitle"></b><small id="scStatus"></small><button class="pbtn ghost" id="scAdd">+ Chord</button><button class="pbtn ghost" id="scDel" style="display:none">Remove</button><button class="pbtn ghost" id="scRedo">Place again</button><button class="pbtn" id="scOk">✓ Looks right</button><button class="pbtn ghost" id="scClose">✕ Close</button></div><div id="scBody"></div></div>
+<div class="scedit" id="scEdit"><div class="scbar"><b id="scTitle"></b><small id="scStatus"></small><button class="pbtn ghost" id="scAdd">+ Chord</button><button class="pbtn ghost" id="scDel" style="display:none">Remove</button><button class="pbtn ghost" id="scRedo">Place Again</button><button class="pbtn" id="scOk">✓ Looks Right</button><button class="pbtn ghost" id="scClose">✕ Close</button></div><div id="scBody"></div></div>
 
 <!-- Closing songs: a plain list (known.js) -->
 <div class="panel" id="closingPanel">
@@ -1163,8 +1163,8 @@
 <!-- Pitch pipe tool -->
 <div class="pipebox" id="pipeBox">
   <div class="pipecard">
-    <div class="pipehead"><b>Pitch pipe</b><button class="icon" id="pipeClose" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-    <svg id="pipeDisc" viewBox="0 0 320 320" aria-label="Pitch pipe">
+    <div class="pipehead"><b>Pitch Pipe</b><button class="icon" id="pipeClose" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <svg id="pipeDisc" viewBox="0 0 320 320" aria-label="Pitch Pipe">
       <defs><radialGradient id="ppG" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#2a2a2a"/><stop offset="1" stop-color="#050505"/></radialGradient>
       <linearGradient id="ppNut" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1f1f1"/><stop offset="1" stop-color="#9a9a9a"/></linearGradient></defs>
       <circle cx="160" cy="162" r="156" fill="#000" opacity=".35"/>
@@ -1193,36 +1193,36 @@
   <h3>Settings</h3>
   <h4 style="margin-top:12px">Account</h4>
   <p id="acctLine" style="margin:0 0 4px"></p>
-  <button class="act" id="usersBtn">Manage users</button>
-  <button class="act" id="recordsBtn">Usage records (delete entries)</button>
-  <button class="act" id="checkBtn">Library check (missing files)</button>
-  <button class="act" id="mp3Btn">MP3 review (flag problems)</button>
-  <button class="act" id="scBtn">Chords on slides (place &amp; check)</button>
+  <button class="act" id="usersBtn">Manage Users</button>
+  <button class="act" id="recordsBtn">Usage Records (Delete Entries)</button>
+  <button class="act" id="checkBtn">Library Check (Missing Files)</button>
+  <button class="act" id="mp3Btn">MP3 Review (Flag Problems)</button>
+  <button class="act" id="scBtn">Chords on Slides (Place &amp; Check)</button>
   <a class="act" id="pptHelperBtn" href="helper/SongPoint-helper-setup.exe" download style="display:block;text-decoration:none;color:inherit">PowerPoint helper for the projector computer (Windows setup)</a>
-  <button class="act" id="changePwBtn">Change password</button>
-  <button class="act" id="signOutBtn">Sign out</button>
-  <h4 style="margin-top:12px">Song library</h4>
-  <button class="act" id="syncBtn">Refresh songs from Google Drive</button>
+  <button class="act" id="changePwBtn">Change Password</button>
+  <button class="act" id="signOutBtn">Sign Out</button>
+  <h4 style="margin-top:12px">Song Library</h4>
+  <button class="act" id="syncBtn">Refresh Songs from Google Drive</button>
   <p style="margin:6px 0 0;font-size:12.5px">Tip: you can also pull down from the top of the song list.</p>
-  <h4 style="margin-top:12px">Offline songs</h4>
+  <h4 style="margin-top:12px">Offline Songs</h4>
   <p id="storageInfo" style="margin-top:0"></p>
   <button class="act" id="dlPartBtn" style="display:none"></button>
-  <button class="act danger" id="clearDlBtn">Remove all saved songs</button>
+  <button class="act danger" id="clearDlBtn">Remove All Saved Songs</button>
   <h4>Appearance</h4>
   <div class="seg" id="themeSeg">
-    <button data-t="system">Match device</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
+    <button data-t="system">Match Device</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
   </div>
-  <h4>Foot pedal</h4>
+  <h4>Foot Pedal</h4>
   <div class="seg" id="pedalSeg">
-    <button data-m="smart">Scroll, then next song</button><button data-m="split">Separate song buttons</button>
+    <button data-m="smart">Scroll, Then Next Song</button><button data-m="split">Separate Song Buttons</button>
   </div>
   <p class="m pedalhelp" id="pedalHelp"></p>
   <h4>Share</h4>
-  <button class="act" id="copyLinkBtn">Copy web app link</button>
+  <button class="act" id="copyLinkBtn">Copy Web App Link</button>
   <h4>About</h4>
   <p id="versionLine" style="margin:0"></p>
-  <button class="act" id="checkUpdBtn" style="display:none">Check for updates</button>
-  <button class="act" id="bugBtn">Report a problem</button>
+  <button class="act" id="checkUpdBtn" style="display:none">Check for Updates</button>
+  <button class="act" id="bugBtn">Report a Problem</button>
   <p style="margin-top:12px" id="aboutLine"></p>
 </div>
 
@@ -1336,11 +1336,11 @@ function parseSheet(filename) {
   const stem = filename.slice(0, -(ext.length + 1)).replace(/_/g, ' ').trim();
   let m;
   if ((m = stem.match(/^#?(\d{1,5})([a-z]?)(?:\s*(?:p(?:age)?\s*)?(\d+))?$/i)))
-    return { ext, number: String(parseInt(m[1], 10)), title: '', label: 'Sheet music', page: +(m[3] || 0) };
+    return { ext, number: String(parseInt(m[1], 10)), title: '', label: 'Sheet Music', page: +(m[3] || 0) };
   let kind = '', key = '', title = stem;
   if ((m = stem.match(/^(.+?)-(vocal|lead|piano|choral|satb|chord|chords|guitar|[a-z]+)-([A-G][#b]?m?)$/i))) { title = m[1]; kind = m[2]; key = m[3]; }
   const p = parseName(title + '.x');
-  const label = kind ? `${kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase()} · ${key}` : 'Sheet music';
+  const label = kind ? `${kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase()} · ${key}` : 'Sheet Music';
   return { ext, number: p.number, title: p.title, label, page: 0, key };
 }
 // Chord charts (ChordPro / OnSong text): "0570 A Beautiful Life.cho", "As The Deer.chordpro"
@@ -1833,7 +1833,7 @@ function songRow(s, i, words = [], fuzzy = false, inPanel = false) {
       <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
       <div class="sub">${picking ? highlight(s.collection, words) + fileChips(s) : `${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${fileChips(s)}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}`}</div>
     </div>
-    <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${hasMusic(s) ? `<button class="dl sm" data-act="sheet" aria-label="Sheet music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
+    <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${hasMusic(s) ? `<button class="dl sm" data-act="sheet" aria-label="Sheet Music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
     ${showParts ? `<div class="parts">${s.parts.map(p =>
       `<button class="pp${(playing ? now.part === p : chosenPart.get(s.key) === p.id) ? ' now' : ''}${isMine && p === mine ? ' mine' : ''}" data-act="part" data-id="${esc(p.id)}">${highlight(p.part, words)}</button>`).join('')}</div>` : ''}
   </div>`;
@@ -2136,10 +2136,10 @@ $('#seek').addEventListener('input', () => { seeking = true; });
 $('#seek').addEventListener('change', e => { if (audio.duration) audio.currentTime = e.target.value / 1000 * audio.duration; seeking = false; });
 $('#toggleBtn').onclick = togglePlay;
 $('#listenBtn').onclick = async () => {
-  if (listenHosting()) { const c = await choose(`Listening session ${perf.code}`, 'Others join with this code and pick their part.', [{ label: 'End session', value: 'end' }, { label: 'Keep going', value: 'k', primary: true }]); if (c === 'end') perfStop(); return; }
-  if (listenGuest()) { const c = await choose(`Listening with ${perf.hostName}`, 'Pick your part with the part buttons in the player.', [{ label: 'Leave', value: 'leave' }, { label: 'Keep listening', value: 'k', primary: true }]); if (c === 'leave') perfLeave(); return; }
+  if (listenHosting()) { const c = await choose(`Listening session ${perf.code}`, 'Others join with this code and pick their part.', [{ label: 'End Session', value: 'end' }, { label: 'Keep Going', value: 'k', primary: true }]); if (c === 'end') perfStop(); return; }
+  if (listenGuest()) { const c = await choose(`Listening with ${perf.hostName}`, 'Pick your part with the part buttons in the player.', [{ label: 'Leave', value: 'leave' }, { label: 'Keep Listening', value: 'k', primary: true }]); if (c === 'leave') perfLeave(); return; }
   const c = await choose('Listen together', 'Start a session: others join with a code, each hears this song in their own part (Soprano, Alto, Tenor, Bass…), and your Play starts everyone at once. Or join someone else\'s.',
-    [{ label: 'Start a session', value: 'host', primary: true }, ...(isGuest() ? [] : []), { label: 'Join one', value: 'join' }, { label: 'Cancel', value: 'cancel' }]);
+    [{ label: 'Start a Session', value: 'host', primary: true }, ...(isGuest() ? [] : []), { label: 'Join One', value: 'join' }, { label: 'Cancel', value: 'cancel' }]);
   if (c === 'host') { if (isGuest()) return toast('The guest account can join a session but not start one'); listenStart(); }
   else if (c === 'join') openPerfJoin();
 };
@@ -2434,9 +2434,9 @@ function drawChords() {
     </div>
     <div class="cview">
       ${L || G ? `<div class="cgrp seg">${L ? `<button class="${shownView === 'list' ? 'on' : ''}" data-c="list" title="The order for ${esc(L.listTitle || 'this song list')}">List</button>` : ''}${G ? `<button class="${shownView === 'arranged' ? 'on' : ''}" data-c="arranged" title="The song's usual order">Arranged</button>` : ''}<button class="${shownView === 'original' ? 'on' : ''}" data-c="original">Original</button></div>` : ''}
-      <button data-c="arrange">${lEdit ? (L ? 'Edit list order' : 'List order') : G ? 'Edit order' : 'Section order'}</button>
-      ${isAdmin() && chordFile ? '<button data-c="editsheet" title="Change the chords or words (for everyone)">Edit sheet</button>' : ''}
-      ${keyMoved ? '<button class="ctog on" data-c="savekey">Save key</button>' : ''}
+      <button data-c="arrange">${lEdit ? (L ? 'Edit List Order' : 'List Order') : G ? 'Edit Order' : 'Section Order'}</button>
+      ${isAdmin() && chordFile ? '<button data-c="editsheet" title="Change the chords or words (for everyone)">Edit Sheet</button>' : ''}
+      ${keyMoved ? '<button class="ctog on" data-c="savekey">Save Key</button>' : ''}
     </div>
     <div class="cbody${useArr && arr.note ? ' hasnote' : ''}">
     ${useArr && arr.note ? `<button class="cnote${noteOpen ? ' open' : ''}" data-c="note" aria-label="Note"><span class="cnote-txt">${esc(arr.note)}</span></button>` : ''}
@@ -2496,11 +2496,11 @@ function openArrange() {
   if (!secs.length) return toast('This chart has no sections to arrange');
   arrDraft = { secs, forList, order: (start ? resolveOrder(chordChart, start.order) : secs).map(x => ({ i: x.i, label: x.label })) };
   $('#arrNote').value = arr ? arr.note || '' : '';
-  $('#arrTitle').textContent = `${forList ? 'List order' : 'Section order'} · ${viewing.title}`;
+  $('#arrTitle').textContent = `${forList ? 'List Order' : 'Section Order'} · ${viewing.title}`;
   $('#arrInfo').textContent = forList ? `Only for the song list “${ln.title || 'Untitled'}”. The song's usual order and other song lists aren't changed.` : 'Saved for everyone. The original chart isn\'t changed.';
   $('#arrBy').textContent = arr && arr.by ? `Last saved by ${arr.by}${arr.at ? ' on ' + shortDate(arr.at) : ''}.` : '';
   $('#arrRemove').style.display = arr ? '' : 'none';
-  $('#arrRemove').textContent = forList ? 'Use usual order' : 'Use original';
+  $('#arrRemove').textContent = forList ? 'Use Usual Order' : 'Use Original';
   renderArr(); $('#arrBox').classList.add('show');
 }
 function renderArr() {
@@ -2601,7 +2601,7 @@ $('#arrRemove').onclick = async () => {
   }
   const x = chordFile; closeArrange();
   const c = await choose('Use the original order?', 'This removes the saved section order and key for everyone. The chart goes back to how it was written.',
-    [{ label: 'Remove it', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]);
+    [{ label: 'Remove It', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]);
   if (c !== 'go') return;
   try {
     const r = await api('deleteArrangement', { chartId: x.id });
@@ -3139,7 +3139,7 @@ function renderPerfBar() {
   } else {
     const how = perf.connected ? (perfOnline() ? '' : ' · lost the leader') : rtdbLive(perf) ? (perfOnline() ? '' : ' · lost the leader') : perf.relay ? (perfOnline() ? ' · through the server' : ' · lost the leader') : ' · connecting…';
     text = `<b>Following ${esc(perf.hostName)}</b> · ${esc(perf.code)}${how}`;
-    btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow leader</button>')
+    btns = (perf.following ? '' : '<button class="on" data-p="follow">Follow Leader</button>')
       + (perf.last && perf.last.presenter ? (viewSlides ? '' : `<button class="${followSlides ? 'on' : ''}" data-p="slides" title="Scroll my chords to the words on the screen">Sync w/ Slides${followSlides ? ' ✓' : ''}</button>`)
         + `<button data-p="view" title="${viewSlides ? 'Back to the chords' : 'Show the slides instead of the chords'}">${viewSlides ? 'Show Chords' : 'View Slides'}</button>`
         + (viewSlides && scUsable(songIndex.get(perf.last.song)) ? `<button class="${scOn ? 'on' : ''}" data-p="scchords" title="Chords above the music on the slide">Chords${scOn ? ' ✓' : ''}</button>` : '') : '')
@@ -3222,7 +3222,7 @@ setInterval(() => { if (perf && perf.role === 'host' && (perf.relayers.size || r
 $('#perfPill').onclick = () => {
   if (!perf) return;
   if (perf.role === 'guest') { perfFollow(); if (!viewing) toast('Waiting for the leader to open a song…'); }
-  else if (perf.listen) choose(`Listening session ${perf.code}`, 'Others join with this code and pick their part.', [{ label: 'End session', value: 'end' }, { label: 'Keep going', value: 'k', primary: true }]).then(c => { if (c === 'end') perfStop(); });
+  else if (perf.listen) choose(`Listening session ${perf.code}`, 'Others join with this code and pick their part.', [{ label: 'End Session', value: 'end' }, { label: 'Keep Going', value: 'k', primary: true }]).then(c => { if (c === 'end') perfStop(); });
   else toast('Open a song to lead. To end the session, tap End at the top of a song.', 3500);
 };
 function openPerfJoin() { $('#perfCode').value = ''; $('#perfBox').classList.add('show'); setTimeout(() => $('#perfCode').focus(), 50); }
@@ -3241,7 +3241,7 @@ $('#vPerform').onclick = async () => {
   if (c === 'host') perfHostStart(); else if (c === 'join') openPerfJoin();
 };
 $('#dPerform').onclick = () => { closeDrawer(); if (perf && perf.role === 'guest') return perfFollow(); openPerfJoin(); };
-// Host: tell followers when scrolling. Follower: touching the screen stops following until "Follow leader".
+// Host: tell followers when scrolling. Follower: touching the screen stops following until "Follow Leader".
 $('#vBody').addEventListener('scroll', () => { if (perf && perf.role === 'host') perfSync(); }, { passive: true });
 ['touchstart', 'wheel', 'mousedown'].forEach(t => $('#vBody').addEventListener(t, () => perfDetach(), { passive: true }));
 
@@ -3533,8 +3533,8 @@ function prRender() {
   }
   if (prIsLive(s)) {
     $('#prCur').style.display = 'none'; $('#prMsg').style.display = '';
-    $('#prMsg').innerHTML = `<b style="font-size:20px;color:#fff">${esc(s.title)}</b><br>Playing live on the projector, with animations.<br>The clicker and arrow keys now go to the projector window${prWin && !prWin.closed ? '' : ' (click the projector screen once if they don\'t)'}.<br><br>When the speaker is done, press <b>Next</b> here.<br><br><button class="pbtn ghost" id="prLiveFocus">Give the clicker to the projector</button>`;
-    $('#prPos').textContent = 'Live slides (animations on)';
+    $('#prMsg').innerHTML = `<b style="font-size:20px;color:#fff">${esc(s.title)}</b><br>Playing live on the projector, with animations.<br>The clicker and arrow keys now go to the projector window${prWin && !prWin.closed ? '' : ' (click the projector screen once if they don\'t)'}.<br><br>When the speaker is done, press <b>Next</b> here.<br><br><button class="pbtn ghost" id="prLiveFocus">Give the Clicker to the Projector</button>`;
+    $('#prPos').textContent = 'Live Slides (Animations On)';
   }
   prSend(); perfSync();
 }
@@ -3753,7 +3753,7 @@ $('#prMsg').addEventListener('click', e => { if (e.target.id === 'prLiveFocus') 
 $('#prAdd').onclick = async () => {
   await pptPing();
   const c = await choose('Add a speaker\'s slides', `A PowerPoint (.pptx / .ppt) or PDF file, or a link to Google Slides. ${pptHelper ? 'The PowerPoint helper is running: decks play in real PowerPoint on the projector (all animations), and your Next / Previous / clicker drive them.' : 'Tip: run the PowerPoint helper on this computer (Settings › PowerPoint helper) to play decks in real PowerPoint with all their animations. Without it they play in Google Slides\' player.'} PDFs show as still pictures. Tap the mode on the box to switch.`,
-    [{ label: 'Upload a file', value: 'file', primary: true }, { label: 'Google Slides link', value: 'link' }, { label: 'Cancel', value: 'cancel' }]);
+    [{ label: 'Upload a File', value: 'file', primary: true }, { label: 'Google Slides Link', value: 'link' }, { label: 'Cancel', value: 'cancel' }]);
   if (c === 'file') { $('#prFile').value = ''; $('#prFile').click(); }
   else if (c === 'link') {
     const url = prompt('Paste the Google Slides (or Google Drive) link:', ''); if (!url) return;
@@ -4162,8 +4162,8 @@ function applyTheme() {
   if (N && N.setSystemBars) N.setSystemBars(dark ? '#141013' : '#f7f2f4', !dark);
 }
 // ---- Bluetooth foot pedals (page turners) work as keyboards: pair one in the device's Bluetooth settings.
-// "Scroll, then next song": the right/forward pedal scrolls down; at the end of the song it goes to the next one.
-// The left/back pedal does the opposite. "Separate song buttons" (4-button pedals): up/down scroll, left/right change songs.
+// "Scroll, Then Next Song": the right/forward pedal scrolls down; at the end of the song it goes to the next one.
+// The left/back pedal does the opposite. "Separate Song Buttons" (4-button pedals): up/down scroll, left/right change songs.
 let pedalMode = store.get('pedalMode', 'smart');
 const PEDAL_FWD = ['ArrowDown', 'PageDown', ' ', 'Enter', 'ArrowRight'], PEDAL_BACK = ['ArrowUp', 'PageUp', 'ArrowLeft'];
 function renderPedal() {
@@ -4341,7 +4341,7 @@ function openNote(n, isNew = false) {
 }
 function renderNoteSongs() {
   const n = editing;
-  $('#noteHead').textContent = noteViewing ? (n.title || 'Song list') : n.isNew ? 'New song list' : 'Edit song list';
+  $('#noteHead').textContent = noteViewing ? (n.title || 'Song list') : n.isNew ? 'New Song List' : 'Edit Song List';
   if (noteViewing) {
     $('#viewMeta').textContent = [n.date ? new Date(n.date + 'T12:00').toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }) : '', `${n.songs.length} song${n.songs.length === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
     $('#viewText').textContent = n.text || ''; $('#viewText').style.display = n.text ? '' : 'none';
@@ -4354,7 +4354,7 @@ function renderNoteSongs() {
       <div class="ctl">
         ${s ? keyButton(s) : ''}
         ${s && s.chords.length && canEditList(n) ? `<button data-act="order" class="sm${r.arr ? ' on' : ''}" aria-label="Section order for this list" title="Section order for this song list only">${ICON_ORDER}</button>` : ''}
-        ${s && hasMusic(s) ? `<button data-act="sheet" class="sm" aria-label="Sheet music">${ICON_MUSIC.replace(/20/g, '18')}</button>` : ''}
+        ${s && hasMusic(s) ? `<button data-act="sheet" class="sm" aria-label="Sheet Music">${ICON_MUSIC.replace(/20/g, '18')}</button>` : ''}
         ${noteViewing ? '' : '<button data-act="del" aria-label="Remove">✕</button>'}
       </div></div>`;
   }).join('') : `<div class="empty" style="padding:22px"><b>No songs yet</b>Tap “+ Add songs”, then tap + next to each song.</div>`;
@@ -4365,7 +4365,7 @@ function renderNoteSongs() {
   $('#noteDelete').style.display = n.isNew || !canEditList(n) ? 'none' : '';
   $('#noteEdit').style.display = canEditList(n) ? '' : 'none';
   $('#noteShare').style.display = !n.isNew && !isGuest() && isMine(n) ? '' : 'none';   // only the person who made the list shares or unshares it
-  $('#noteShare').textContent = n.shared ? 'Make private' : 'Make public';
+  $('#noteShare').textContent = n.shared ? 'Make Private' : 'Make Public';
   $('#noteShare').title = n.shared ? 'Everyone can see this song list. Tap so only you (and the people you shared it with) can.' : 'Let everyone see this song list';
   $('#notePeople').style.display = $('#noteShare').style.display;
   $('#notePeople').textContent = (n.sharedWith || []).length ? `Share · ${n.sharedWith.length}` : 'Share';
@@ -4754,11 +4754,11 @@ async function loadUsers() {
         <div><div class="t">${esc(u.name)}${u.admin ? '<span class="tag ok">Admin</span>' : ''}${u.guest ? '<span class="tag">Guest</span>' : ''}${u.disabled ? '<span class="tag">Turned off</span>' : ''}${u.mustChange ? '<span class="tag wait">Temp password</span>' : ''}</div>
         <div class="m">${esc(u.username)} · ${u.lastLogin ? 'last signed in ' + esc(shortDate(u.lastLogin.slice(0, 10))) : 'never signed in'}</div></div>
         <div></div>
-        ${u.username === auth.user.username ? '<div class="acts2"><button class="pbtn ghost" data-a="rename">Change username</button><span class="m">This is you</span></div>' : `<div class="acts2">
-          <button class="pbtn ghost" data-a="rename">Change username</button>
-          <button class="pbtn ghost" data-a="reset">Reset password</button>
-          ${u.guest ? '' : `<button class="pbtn ghost" data-a="admin">${u.admin ? 'Remove admin' : 'Make admin'}</button>`}
-          <button class="pbtn ghost" data-a="disable">${u.disabled ? 'Turn on' : 'Turn off'}</button></div>`}
+        ${u.username === auth.user.username ? '<div class="acts2"><button class="pbtn ghost" data-a="rename">Change Username</button><span class="m">This is you</span></div>' : `<div class="acts2">
+          <button class="pbtn ghost" data-a="rename">Change Username</button>
+          <button class="pbtn ghost" data-a="reset">Reset Password</button>
+          ${u.guest ? '' : `<button class="pbtn ghost" data-a="admin">${u.admin ? 'Remove Admin' : 'Make Admin'}</button>`}
+          <button class="pbtn ghost" data-a="disable">${u.disabled ? 'Turn On' : 'Turn Off'}</button></div>`}
       </div>`).join('');
   } catch (e) { $('#usersList').innerHTML = `<div class="vmsg">${navigator.onLine ? esc(e.message || 'Couldn\'t load users.') : 'Connect to the internet to manage users.'}</div>`; }
 }
@@ -4774,7 +4774,7 @@ document.querySelectorAll('#lock .eye').forEach(b => {
   b.onclick = () => {
     const w = b.closest('.pwwrap'), input = w.querySelector('input'), on = input.type === 'password';
     input.type = on ? 'text' : 'password'; w.classList.toggle('shown', on);
-    b.setAttribute('aria-label', on ? 'Hide password' : 'Show password'); b.title = b.getAttribute('aria-label');
+    b.setAttribute('aria-label', on ? 'Hide Password' : 'Show Password'); b.title = b.getAttribute('aria-label');
   };
 });
 // A password is filled in for new users (easy to read out); type over it to choose your own.
@@ -4821,7 +4821,7 @@ $('#usersList').addEventListener('click', async e => {
       const r = await api('setAdmin', { username, admin: make }); if (!r.ok) return toast(r.error);
       toast(make ? `${name} is now an admin` : `${name} is no longer an admin`);
     } else {
-      const off = b.textContent.startsWith('Turn off');
+      const off = b.textContent.startsWith('Turn Off');
       if (off && !confirm(`Turn off ${name}'s account? They'll be signed out and can't sign in.`)) return;
       const r = await api('setDisabled', { username, disabled: off }); if (!r.ok) return toast(r.error);
     }
@@ -4874,7 +4874,7 @@ function showLock(mode = 'signin', msg = '') {
   $('#lockMsg').textContent = msg || ({ signin: 'Sign in to continue.', setup: 'Welcome! Create the first admin account. You can add everyone else from Settings afterwards.',
     change: auth.user && auth.user.mustChange ? 'Choose your own password to finish signing in.' : 'Change your password.' })[mode];
   $('#lockBtn').textContent = { signin: 'Sign in', setup: 'Create admin account', change: 'Save password' }[mode];
-  $('#lockAlt').textContent = mode === 'change' && !(auth.user && auth.user.mustChange) ? 'Cancel' : mode === 'change' ? 'Sign out' : '';
+  $('#lockAlt').textContent = mode === 'change' && !(auth.user && auth.user.mustChange) ? 'Cancel' : mode === 'change' ? 'Sign Out' : '';
   $('#lockAlt').style.display = $('#lockAlt').textContent ? '' : 'none';
   $('#lockErr').textContent = '';
   ['#lockPw', '#lockNew', '#lockNew2'].forEach(x => { $(x).value = ''; $(x).type = 'password'; $(x).closest('.pwwrap').classList.remove('shown'); });
@@ -5184,7 +5184,7 @@ function rvRenderNow() {
   $('#rvSub').textContent = t ? `${t.collection}${t.subfolder ? ' / ' + t.subfolder : ''}` : '';
   $('#rvPlay').textContent = rvAudio.paused ? '▶' : '❚❚';
   const mine = t ? rvIssues.filter(x => x.fileId === t.id).sort((a, b) => a.t - b.t) : [];
-  $('#rvFlags').innerHTML = (t && rvIsReviewed(t) ? '<button class="pbtn ghost" id="rvUndo" style="padding:4px 10px">✓ Reviewed · Not reviewed</button>' : '') + mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
+  $('#rvFlags').innerHTML = (t && rvIsReviewed(t) ? '<button class="pbtn ghost" id="rvUndo" style="padding:4px 10px">✓ Reviewed · Not Reviewed</button>' : '') + mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
 }
 async function rvPlay(t, autoplay = true) {
   rvCur = t; rvAudio.src = sourceFor(t); rvAudio.currentTime = 0;
@@ -5467,14 +5467,14 @@ let scFilter = 'check', scRun = null;
 const scSongs = () => songs.filter(s => s.chords && s.chords.length && prFile(s) && !isTextDoc(s))
   .sort((a, b) => (isKnown(b) - isKnown(a)) || a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.nTitle.localeCompare(b.nTitle));
 const scState = s => !scIndex[s.key] ? 'todo' : !scFresh(s) ? 'stale' : scIndex[s.key].status;
-const SC_NAMES = { todo: 'Not done', stale: 'Slides changed', check: 'Needs checking', auto: 'Placed', ok: 'Checked' };
+const SC_NAMES = { todo: 'Not done', stale: 'Slides changed', check: 'Needs Checking', auto: 'Placed', ok: 'Checked' };
 function scRender() {
   const all = scSongs(), cnt = {}; all.forEach(s => { const k = scState(s); cnt[k] = (cnt[k] || 0) + 1; });
   const left = all.filter(s => ['todo', 'stale'].includes(scState(s))).length;
   $('#scCount').textContent = `${all.length} songs have slides and chords · ${['ok', 'auto', 'check', 'todo', 'stale'].filter(k => cnt[k]).map(k => `${cnt[k]} ${SC_NAMES[k].toLowerCase()}`).join(' · ')}`;
   $('#scGo').textContent = scRun ? 'Stop' : left ? `Place chords on ${left} song${left === 1 ? '' : 's'}` : 'All placed';
   $('#scGo').disabled = !scRun && !left;
-  $('#scFilters').innerHTML = [['check', 'Needs checking'], ['auto', 'Placed'], ['ok', 'Checked'], ['todo', 'Not done'], ['', 'All']].map(([k, t]) => `<button class="chip${k === scFilter ? ' on' : ''}" data-f="${k}">${t}${k && cnt[k] ? ' ' + cnt[k] : ''}${k === 'todo' && cnt.stale ? ` + ${cnt.stale}` : ''}</button>`).join('');
+  $('#scFilters').innerHTML = [['check', 'Needs Checking'], ['auto', 'Placed'], ['ok', 'Checked'], ['todo', 'Not done'], ['', 'All']].map(([k, t]) => `<button class="chip${k === scFilter ? ' on' : ''}" data-f="${k}">${t}${k && cnt[k] ? ' ' + cnt[k] : ''}${k === 'todo' && cnt.stale ? ` + ${cnt.stale}` : ''}</button>`).join('');
   const q = normalize($('#scQ').value || '');
   const list = all.filter(s => (!scFilter || scState(s) === scFilter || (scFilter === 'todo' && scState(s) === 'stale')) && (!q || s.nAll.includes(q)));
   $('#scList').innerHTML = list.slice(0, 300).map(s => {
@@ -5528,7 +5528,7 @@ function scBar() {
   const e = scEd, x = e && scIndex[e.s.key];
   $('#scStatus').textContent = !x ? '' : `${SC_NAMES[x.status] || ''}${e.dirty ? ' · saving…' : ''}`;
   $('#scDel').style.display = e && e.sel ? '' : 'none';
-  $('#scOk').textContent = x && x.status === 'ok' ? '✓ Checked' : '✓ Looks right';
+  $('#scOk').textContent = x && x.status === 'ok' ? '✓ Checked' : '✓ Looks Right';
 }
 function scDrawEd() {
   const e = scEd, key = scKey(e.s, e.data);
@@ -5652,7 +5652,7 @@ function rmRender() {
     <div class="rmnext"><div class="th" id="rmNextImg"></div><div id="rmNextTxt"></div></div>
     <div class="rmctl"><button class="pbtn" id="rmPrev">◀ Prev</button><button class="pbtn ghost" id="rmBlank">Black</button><button class="pbtn" id="rmNext">Next ▶</button></div>
     <div class="rmsongs" id="rmSongs"></div>
-    <button class="pbtn ghost" id="rmAdd" style="width:100%;margin-top:4px">＋ Add a song</button>
+    <button class="pbtn ghost" id="rmAdd" style="width:100%;margin-top:4px">＋ Add a Song</button>
     <p class="m" style="font-size:12.5px;color:var(--muted)">Tapping a song jumps there with the screen black, until you tap <b>Show</b>.</p>`;
   const titles = st.titles || [], si = st.si ?? Math.max(0, (st.list || []).indexOf(st.song));
   $('#rmTitle').textContent = titles[si] || (rmItem(st.song) || {}).title || '';
@@ -5661,7 +5661,7 @@ function rmRender() {
   $('#rmNow').querySelector('.rmbadge')?.remove();
   if (st.blank) $('#rmNow').insertAdjacentHTML('beforeend', '<span class="rmbadge">SCREEN BLACK</span>');
   rmImg(st.deckId ? 'deck:' + st.deckId : st.song, st.liveDeck ? -1 : (st.slideIdx ?? st.slideNo ?? 0), $('#rmNowImg'), true);
-  if (st.nextIdx >= 0) { $('#rmNextTxt').textContent = 'Next slide'; rmImg(st.deckId ? 'deck:' + st.deckId : st.song, st.nextIdx, $('#rmNextImg')); }
+  if (st.nextIdx >= 0) { $('#rmNextTxt').textContent = 'Next Slide'; rmImg(st.deckId ? 'deck:' + st.deckId : st.song, st.nextIdx, $('#rmNextImg')); }
   else { const nk = (st.list || [])[si + 1]; $('#rmNextTxt').textContent = nk ? `Next: ${titles[si + 1] || (rmItem(nk) || {}).title || ''}` : 'Next: black screen (end)'; rmImg(nk, nk ? 0 : -1, $('#rmNextImg')); }
   $('#rmBlank').textContent = st.blank ? 'Show' : 'Black'; $('#rmBlank').classList.toggle('on', !!st.blank);
   $('#rmSongs').innerHTML = (st.list || []).map((k, i) => `<button class="${i === si ? 'now' : ''}" data-si="${i}"><span>${i + 1}</span>${esc(titles[i] || (rmItem(k) || {}).title || 'Slides')}</button>`).join('');
@@ -5695,7 +5695,7 @@ $('#rmAddClose').onclick = () => $('#rmAddBox').classList.remove('show');
 $('#rmAddList').addEventListener('click', async e => {
   const b = e.target.closest('[data-k]'); if (!b) return;
   const s2 = songIndex.get(b.dataset.k); if (!s2) return;
-  const where = await choose(`Add “${s2.title}”`, 'To the presentation on your other device.', [{ label: 'Play next', value: 'next', primary: true }, { label: 'Add to the end', value: 'end' }, { label: 'Cancel', value: 'cancel' }]);
+  const where = await choose(`Add “${s2.title}”`, 'To the presentation on your other device.', [{ label: 'Play Next', value: 'next', primary: true }, { label: 'Add to the End', value: 'end' }, { label: 'Cancel', value: 'cancel' }]);
   if (where !== 'next' && where !== 'end') return;
   $('#rmAddBox').classList.remove('show');
   rmSend({ t: 'add', song: s2.key, where }); toast(`Added: ${s2.title}`, 2000);
@@ -5916,13 +5916,13 @@ function mtEnd() {
     <div class="mtcols">
       <div><h4>⚡ Quickest</h4><ul>${list(known, r => mtSec(r.okAvg))}</ul></div>
       <div><h4>🐢 Slowest</h4><ul>${list(slow, r => mtSec(r.avg))}</ul></div>
-      <div><h4>✗ Most missed</h4><ul>${list(missed, r => `${r.n - r.ok} of ${r.n}`)}</ul></div>
+      <div><h4>✗ Most Missed</h4><ul>${list(missed, r => `${r.n - r.ok} of ${r.n}`)}</ul></div>
     </div>
-    <h4 style="margin:14px 0 6px">Every one</h4>
+    <h4 style="margin:14px 0 6px">Every One</h4>
     <table class="mttable"><thead><tr><th></th><th>Asked</th><th>Right</th><th>Average</th></tr></thead><tbody>
       ${items.sort((a, b) => a.avg - b.avg).map(r => `<tr class="${r.ok === r.n ? '' : 'mtmiss'}"><td>${esc(r.item)}</td><td>${r.n}</td><td>${r.ok}</td><td>${mtSec(r.avg)}</td></tr>`).join('')}
     </tbody></table>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap"><button class="pbtn" id="mtAgain">Play again</button><button class="pbtn ghost" id="mtOther">Choose a Skill</button></div>`;
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap"><button class="pbtn" id="mtAgain">Play Again</button><button class="pbtn ghost" id="mtOther">Choose a Skill</button></div>`;
   mtShow('mtSum');
   $('#mtAgain').onclick = () => mtStart(mt.game);
   $('#mtOther').onclick = mtMenu;
@@ -5937,11 +5937,11 @@ function openRowMenu(s, btn) {
   rowMenuSong = s;
   const files = songFiles(s), saved = files.length && files.every(p => downloaded.has(p.id)), busy = files.some(p => downloading.has(p.id));
   $('#rowMenu').innerHTML =
-    `<button data-m="fav"><span class="ic star">${isFav(s) ? '★' : '☆'}</span>${isFav(s) ? 'Remove from favorites' : 'Add to favorites'}</button>`
-    + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (tap to cancel)' : saved ? 'Remove offline copy' : 'Save for offline'}</button>` : '')
-    + (isAdmin() ? `<button data-m="editchords"><span class="ic">✎</span>${s.chords.length ? 'Edit chord sheet' : 'Write a chord sheet'}</button>` : '')
-    + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Replace chord sheet (upload a file)' : 'Upload a chord sheet'}</button>`
-    + (isAdmin() ? `<button data-m="known"><span class="ic known">▍</span>${isKnown(s) ? 'Not a song we know' : 'Mark as a song we know'}</button>` : '')
+    `<button data-m="fav"><span class="ic star">${isFav(s) ? '★' : '☆'}</span>${isFav(s) ? 'Remove from Favorites' : 'Add to Favorites'}</button>`
+    + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (Tap to Cancel)' : saved ? 'Remove Offline Copy' : 'Save for Offline'}</button>` : '')
+    + (isAdmin() ? `<button data-m="editchords"><span class="ic">✎</span>${s.chords.length ? 'Edit Chord Sheet' : 'Write a Chord Sheet'}</button>` : '')
+    + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Replace Chord Sheet (Upload a File)' : 'Upload a Chord Sheet'}</button>`
+    + (isAdmin() ? `<button data-m="known"><span class="ic known">▍</span>${isKnown(s) ? 'Not a Song We Know' : 'Mark as a Song We Know'}</button>` : '')
     + (myLive && !(perf && perf.role === 'host') ? liveBtn(myLive) : '');
   const m = $('#rowMenu'); m.classList.add('show');
   checkMyLive().then(x => { if (rowMenuSong === s && x && !m.querySelector('[data-m=live]') && !(perf && perf.role === 'host')) { m.insertAdjacentHTML('beforeend', liveBtn(x)); placeRowMenu(btn); } });
@@ -5961,8 +5961,8 @@ async function sendToLive(s) {
   const x = await checkMyLive(true);
   if (!x) return toast('Your presentation isn\'t running any more');
   const inList = (x.list || []).includes(s.key);
-  const where = await choose(`Add “${s.title}”`, `${x.presenter ? 'To the slideshow' : 'To your live song list'} on your other device${inList ? ' (it\'s already in the list; it will be moved)' : ''}.`,
-    [{ label: 'Play next', value: 'next', primary: true }, { label: 'Add to the end', value: 'end' }, { label: 'Cancel', value: 'cancel' }]);
+  const where = await choose(`Add “${s.title}”`, `${x.presenter ? 'To the Slideshow' : 'To Your Live Song List'} on your other device${inList ? ' (it\'s already in the list; it will be moved)' : ''}.`,
+    [{ label: 'Play Next', value: 'next', primary: true }, { label: 'Add to the End', value: 'end' }, { label: 'Cancel', value: 'cancel' }]);
   if (where !== 'next' && where !== 'end') return;
   const r = await api('perfRemote', { code: x.code, cmd: { t: 'add', song: s.key, where } }).catch(() => ({}));
   if (r.ended) { myLive = null; return toast('Your presentation isn\'t running any more'); }
@@ -6010,7 +6010,7 @@ async function chEditOpen(s, x) {
   if (x) { try { text = await loadChordText(x); } catch { return toast('Couldn\'t open the chord sheet'); } }
   else text = `{title: ${s.title}}\n{key: ${s.musicKey || ''}}\n\nVerse 1\n[${s.musicKey || 'G'}]\n`;
   chEd = { s, x, orig: x ? text : '' };
-  $('#cheTitle').textContent = `${x ? 'Edit chords' : 'New chord sheet'}: ${(s.number ? s.number + '. ' : '') + s.title}`;
+  $('#cheTitle').textContent = `${x ? 'Edit Chords' : 'New Chord Sheet'}: ${(s.number ? s.number + '. ' : '') + s.title}`;
   $('#cheText').value = text; $('#chEdit').dataset.v = 'edit';
   $('#chEdit').classList.add('show'); chPreview();
   setTimeout(() => $('#cheText').focus(), 50);
@@ -6029,7 +6029,7 @@ $('#chEdit .seg').addEventListener('click', e => { const b = e.target.closest('[
 function chEditClose() { $('#chEdit').classList.remove('show'); chEd = null; }
 $('#cheCancel').onclick = async () => {
   if (chEd && $('#cheText').value !== chEd.orig && (chEd.x || $('#cheText').value.trim())) {
-    const c = await choose('Throw away your changes?', 'The chord sheet stays as it was.', [{ label: 'Throw away', value: 'go', primary: true }, { label: 'Keep editing', value: 'cancel' }]);
+    const c = await choose('Throw away your changes?', 'The chord sheet stays as it was.', [{ label: 'Throw Away', value: 'go', primary: true }, { label: 'Keep Editing', value: 'cancel' }]);
     if (c !== 'go') return;
   }
   chEditClose();
@@ -6044,7 +6044,7 @@ $('#cheSave').onclick = async () => {
   try {
     let r = e.x ? await api('chordSave', { id: e.x.id, text, was: e.x.modified || '' }) : await api('chordUpload', { book: e.s.collection, name: chEditName(e.s, text), text });
     if (!r.ok && r.changed) {
-      const c = await choose('Someone else changed this chord sheet', 'It was changed after you opened it. Save yours anyway (theirs is kept in Chord Sheet Backups), or cancel and open it again to see their changes.', [{ label: 'Save mine', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]);
+      const c = await choose('Someone else changed this chord sheet', 'It was changed after you opened it. Save yours anyway (theirs is kept in Chord Sheet Backups), or cancel and open it again to see their changes.', [{ label: 'Save Mine', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]);
       if (c !== 'go') return;
       r = await api('chordSave', { id: e.x.id, text, force: true });
     }
@@ -6175,7 +6175,7 @@ function renderSongsPanel() {
   const fav = songsPanelKind === 'fav';
   songsPanelList = songs.filter(s => fav ? isFav(s) : songFiles(s).some(p => downloaded.has(p.id)))
     .sort((a, b) => a.collection.localeCompare(b.collection) || ((+a.number || 1e9) - (+b.number || 1e9)) || a.title.localeCompare(b.title));
-  $('#songsTitle').textContent = fav ? 'Favorites' : 'Offline songs';
+  $('#songsTitle').textContent = fav ? 'Favorites' : 'Offline Songs';
   $('#songsList').innerHTML = songsPanelList.length ? songsPanelList.map((s, i) => songRow(s, i, [], false, true)).join('')
     : fav ? '<div class="empty"><b>No favorites yet</b>Tap ⋮ next to a song, then “Add to favorites”.</div>'
       : '<div class="empty"><b>No offline songs yet</b>Tap ⋮ next to a song, then “Save for offline”.</div>';
@@ -6408,7 +6408,7 @@ $('#recList').addEventListener('click', e => {
 // Text docs (readings etc.) never have an MP3, a key or a PowerPoint, so those aren't counted as missing.
 const CHECKS = [
   { id: 'mp3', label: 'MP3', test: s => !s.parts.length && !isTextDoc(s) },
-  { id: 'sheet', label: 'Sheet music', test: s => !s.sheets.length },
+  { id: 'sheet', label: 'Sheet Music', test: s => !s.sheets.length },
   { id: 'key', label: 'Key', test: s => !s.musicKey && !isTextDoc(s) },
   { id: 'ppt', label: 'Slides', test: s => !s.slides.length && !isTextDoc(s) },
 ];
@@ -6606,7 +6606,7 @@ $('#noteSlides').onclick = async () => {
     const when = new Date(before[0].created).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     const c = await choose('You already made a PowerPoint for this song list',
       `${before.length === 1 ? 'One was' : before.length + ' were'} made on this device (latest ${when}). Are you sure you want to make another?`,
-      [{ label: 'Yes, make a new one', value: 'go', primary: true }, { label: 'View my PowerPoints', value: 'view' }, { label: 'Cancel', value: 'cancel' }]);
+      [{ label: 'Yes, Make a New One', value: 'go', primary: true }, { label: 'View My PowerPoints', value: 'view' }, { label: 'Cancel', value: 'cancel' }]);
     if (c === 'view') return openSlides();
     if (c !== 'go') return;
   }
@@ -6620,7 +6620,7 @@ $('#noteSlides').onclick = async () => {
     // ask now whether it should replace the older one or be kept alongside it ("… (2)").
     if (r.pending && r.fileId) {
       const c = await choose('Your PowerPoint is ready', `“${r.wanted}” is already in PowerPoint Presentations. Replace it with this new one?`,
-        [{ label: 'Replace the older one', value: 'replace', primary: true }, { label: 'Keep both', value: 'keep' }]);
+        [{ label: 'Replace the Older One', value: 'replace', primary: true }, { label: 'Keep Both', value: 'keep' }]);
       try {
         busy(true, 'Saving to Google Drive…', '');
         const x = await api('finalizeSlides', { fileId: r.fileId, name: r.wanted, mode: c === 'replace' ? 'replace' : 'keep' }); busy(false);
