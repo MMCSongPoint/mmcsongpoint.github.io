@@ -49,6 +49,9 @@ jobs:
           # heic2any opens iPhone (HEIC) pictures added in the presenter (only Safari can open them itself)
           mkdir -p /tmp/heic && (cd /tmp/heic && npm pack heic2any@0.0.4 --silent && tar xzf heic2any-*.tgz)
           cp /tmp/heic/package/dist/heic2any.min.js _site/vendor/heic2any.min.js
+          # jsQR reads a leader's QR code from the camera where the browser has no reader of its own
+          mkdir -p /tmp/jsqr && (cd /tmp/jsqr && npm pack jsqr@1.4.0 --silent && tar xzf jsqr-*.tgz)
+          cp /tmp/jsqr/package/dist/jsQR.js _site/vendor/jsQR.js
           sed -i "s/__BUILD__/${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}/" _site/sw.js
           # Same version as the Android build from this commit: 1.<server version>.<commits since it changed>
           v=$(python3 .github/scripts/version.py _site/buildlog.js)

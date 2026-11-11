@@ -88,21 +88,24 @@ public class MainActivity extends Activity {
                     .setOnCancelListener(d -> result.cancel()).show());
                 return true;
             }
-            // Microphone for voice memos in "Report a problem": ask Android first, then let the page record.
+            // Microphone (voice memos in "Report a problem") and camera (scanning a leader's QR code): ask Android
+            // first, then let the page use them.
             @Override
             public void onPermissionRequest(final android.webkit.PermissionRequest request) {
                 runOnUiThread(() -> {
-                    boolean wantsMic = false;
-                    for (String r : request.getResources())
-                        if (android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) wantsMic = true;
-                    if (!wantsMic) { request.deny(); return; }
-                    String[] mic = { android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE };
-                    if (Build.VERSION.SDK_INT < 23 || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                        request.grant(mic);
-                    } else {
-                        pendingMic = request;
-                        requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, MIC_REQUEST);
+                    java.util.List<String> want = new java.util.ArrayList<>(), need = new java.util.ArrayList<>();
+                    for (String r : request.getResources()) {
+                        String perm = android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r) ? Manifest.permission.RECORD_AUDIO
+                                : android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r) ? Manifest.permission.CAMERA : null;
+                        if (perm == null) continue;
+                        want.add(r);
+                        if (Build.VERSION.SDK_INT >= 23 && checkSelfPermission(perm) != android.content.pm.PackageManager.PERMISSION_GRANTED) need.add(perm);
                     }
+                    if (want.isEmpty()) { request.deny(); return; }
+                    if (need.isEmpty()) { request.grant(want.toArray(new String[0])); return; }
+                    if (pendingMic != null) pendingMic.deny();
+                    pendingMic = request;
+                    requestPermissions(need.toArray(new String[0]), MIC_REQUEST);
                 });
             }
 
@@ -164,9 +167,13 @@ public class MainActivity extends Activity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
         if (requestCode == MIC_REQUEST && pendingMic != null) {
-            if (results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED)
-                pendingMic.grant(new String[]{ android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE });
-            else pendingMic.deny();
+            java.util.List<String> ok = new java.util.ArrayList<>();
+            for (String r : pendingMic.getResources()) {
+                String perm = android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r) ? Manifest.permission.RECORD_AUDIO
+                        : android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r) ? Manifest.permission.CAMERA : null;
+                if (perm != null && (Build.VERSION.SDK_INT < 23 || checkSelfPermission(perm) == android.content.pm.PackageManager.PERMISSION_GRANTED)) ok.add(r);
+            }
+            if (ok.isEmpty()) pendingMic.deny(); else pendingMic.grant(ok.toArray(new String[0]));
             pendingMic = null;
         }
     }

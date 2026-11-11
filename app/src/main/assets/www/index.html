@@ -51,6 +51,12 @@
   header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   .brand { font-weight: 750; font-size: 20px; letter-spacing: -.02em; display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; }
   .brand i { position: relative; width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: inline-grid; place-items: center; font-style: normal; color: #fff; font-size: 14px; flex: none; }
+  .qrscanbtn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 2px 0 10px; }
+  .qrscan { display: none; position: fixed; inset: 0; z-index: 200; background: #000; }
+  .qrscan.show { display: block; } .qrscan video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .qrscan .qrframe { position: absolute; left: 50%; top: 45%; width: min(64vw, 300px); aspect-ratio: 1; transform: translate(-50%, -50%); border: 3px solid #fff; border-radius: 18px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.45); }
+  .qrscan .qrtip { position: absolute; left: 0; right: 0; top: calc(45% + min(32vw, 150px) + 18px); text-align: center; color: #fff; font-size: 15px; margin: 0; }
+  .qrscan .pbtn { position: absolute; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); transform: translateX(-50%); min-width: 140px; }
   .hbtn { background: var(--row); border: 1px solid var(--line); border-radius: 10px; width: 40px; height: 40px; display: grid; place-items: center; flex: none; }
   .spin svg { animation: spin 1s linear infinite; }
   .ptr { position: fixed; left: 50%; top: calc(6px + env(safe-area-inset-top)); z-index: 45; width: 38px; height: 38px; margin-left: -19px; border-radius: 50%; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.18); display: grid; place-items: center; color: var(--accent-text); opacity: 0; transform: translateY(-50px); pointer-events: none; }
@@ -776,6 +782,7 @@
 <div class="wrap">
   <header>
     <div class="brand"><i id="brandIcon" role="button" aria-label="MMC SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">MMC SongPoint</span><svg id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-label="Syncing"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg></div>
+    <button class="hbtn" id="joinBtn" title="Join a Performance" aria-label="Join a Performance"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button>
     <button class="hbtn" id="pipeBtn" title="Pitch Pipe" aria-label="Pitch Pipe"><span id="pipeBtnIcon"></span></button>
     <button class="hbtn" id="menuBtn" title="Menu" aria-label="Menu"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </header>
@@ -1064,11 +1071,13 @@
 <div class="wheelbox" id="perfBox">
   <div class="wheel">
     <h3>Join a Performance</h3>
-    <p>Type the 4-digit code shown on the leader's screen.</p>
+    <p>Type the 4-digit code shown on the leader's screen, or scan their QR code.</p>
     <input id="perfCode" class="perfcode" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000">
+    <button class="pbtn ghost qrscanbtn" id="perfScan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>Scan QR Code</button>
     <div class="row2"><button class="pbtn ghost" id="perfCancel">Cancel</button><button class="pbtn" id="perfGo">Join</button></div>
   </div>
 </div>
+<div class="qrscan" id="qrScan"><video playsinline muted></video><div class="qrframe"></div><p class="qrtip">Point the camera at the leader's QR code</p><button class="pbtn" id="qrScanCancel">Cancel</button></div>
 <button class="perfpill" id="perfPill"></button>
 <input type="file" id="chordFile" accept=".cho,.chordpro,.chopro,.crd,.pro,.onsong,.txt,text/plain" hidden>
 
@@ -1098,7 +1107,6 @@
   <div class="dhead"><b>Menu</b><button class="icon" id="drawerClose" aria-label="Close menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
   <button class="ditem" id="dNotes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg>Song Lists</button>
   <button class="ditem" id="dSlides"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4M8 21h8M7 9h6M7 12h10"/></svg>PowerPoints</button>
-  <button class="ditem" id="dPerform"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>Join a Performance</button>
   <button class="ditem" id="dPresent"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/><circle cx="9" cy="9" r="1.5"/><path d="m21 13-5-4-7 6"/></svg>Present Slides</button>
   <button class="ditem" id="dRemote"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10.5 7.5 13.5 9.5 10.5 11.5z"/><path d="M10 16h4"/></svg>Remote Control</button>
   <button class="ditem" id="dClosing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Closing Songs</button>
@@ -3393,6 +3401,54 @@ $('#perfCancel').onclick = closePerfJoin;
 $('#perfBox').addEventListener('click', e => { if (e.target.id === 'perfBox') closePerfJoin(); });
 $('#perfGo').onclick = () => { const c = $('#perfCode').value.replace(/\D/g, ''); if (c.length !== 4) return toast('Enter the 4-digit code'); closePerfJoin(); perfJoin(c); };
 $('#perfCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#perfGo').click(); });
+// ---- scan the leader's QR code with the camera (it holds …/?join=1234). The browser's own reader where there is one,
+// otherwise jsQR (shipped with the web app; the Android app borrows the web app's copy).
+let qrStream = null, qrRun = 0;
+function qrReadLib() {
+  if (window.jsQR) return Promise.resolve(window.jsQR);
+  return new Promise((res, rej) => {
+    const tryAt = urls => { if (!urls.length) return rej(new Error('Couldn\'t load the QR reader'));
+      const sc = document.createElement('script'); sc.src = urls[0]; sc.onload = () => window.jsQR ? res(window.jsQR) : tryAt(urls.slice(1)); sc.onerror = () => { sc.remove(); tryAt(urls.slice(1)); }; document.head.appendChild(sc); };
+    tryAt(['./vendor/jsQR.js', 'https://mmcsongpoint.github.io/vendor/jsQR.js']);
+  });
+}
+const qrCodeIn = t => { t = String(t || '').trim(); const m = t.match(/[?&]join=(\d{4})\b/) || t.match(/^(\d{4})$/); return m ? m[1] : ''; };
+function qrStop() {
+  qrRun++; $('#qrScan').classList.remove('show');
+  if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+  $('#qrScan video').srcObject = null;
+}
+async function qrStart() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return toast('This device can\'t use the camera here. Type the code instead.', 4000);
+  const run = ++qrRun, v = $('#qrScan video');
+  try { qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }); }
+  catch (e) { return toast(/denied|NotAllowed/i.test(String(e && (e.name || e.message))) ? 'Allow the camera to scan, or type the code instead.' : 'Couldn\'t open the camera. Type the code instead.', 4500); }
+  if (run !== qrRun) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; return; }
+  closePerfJoin(); $('#qrScan').classList.add('show'); v.srcObject = qrStream; try { await v.play(); } catch {}
+  let detect = null;
+  try { if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')) { const bd = new BarcodeDetector({ formats: ['qr_code'] }); detect = async () => (await bd.detect(v)).map(x => x.rawValue); } } catch {}
+  if (!detect) {
+    let jsQR; try { jsQR = await qrReadLib(); } catch (e) { qrStop(); return toast(e.message + '. Type the code instead.', 4500); }
+    const c = document.createElement('canvas'), ctx = c.getContext('2d', { willReadFrequently: true });
+    detect = async () => {
+      if (!v.videoWidth) return [];
+      const k = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight)); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
+      ctx.drawImage(v, 0, 0, c.width, c.height); const r = jsQR(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { inversionAttempts: 'dontInvert' });
+      return r ? [r.data] : [];
+    };
+  }
+  let warned = false;
+  while (run === qrRun) {
+    let found = [];
+    try { found = await detect(); } catch {}
+    const code = found.map(qrCodeIn).find(Boolean);
+    if (code) { qrStop(); if (navigator.vibrate) try { navigator.vibrate(40); } catch {} return perfJoin(code); }
+    if (found.length && !warned) { warned = true; toast('That QR code isn\'t a SongPoint performance', 3000); }
+    await new Promise(r => setTimeout(r, 180));
+  }
+}
+$('#perfScan').onclick = qrStart;
+$('#qrScanCancel').onclick = () => { qrStop(); openPerfJoin(); };
 $('#vPerform').onclick = async () => {
   if (perf) {
     if (perf.role === 'host') return $('#perfBar [data-p=end]').click();
@@ -3402,7 +3458,7 @@ $('#vPerform').onclick = async () => {
   const c = await choose('', '', [{ label: 'Host', value: 'host', primary: true }, { label: 'Join', value: 'join' }]);   // tap outside to cancel
   if (c === 'host') perfHostStart(); else if (c === 'join') openPerfJoin();
 };
-$('#dPerform').onclick = () => { closeDrawer(); if (perf && perf.role === 'guest') return perfFollow(); openPerfJoin(); };
+$('#joinBtn').onclick = () => { if (perf && perf.role === 'guest') return perfFollow(); openPerfJoin(); };
 // Host: tell followers when scrolling. Follower: touching the screen stops following until "Follow Leader".
 $('#vBody').addEventListener('scroll', () => { if (perf && perf.role === 'host') perfSync(); }, { passive: true });
 ['touchstart', 'wheel', 'mousedown'].forEach(t => $('#vBody').addEventListener(t, () => perfDetach(), { passive: true }));
@@ -7190,7 +7246,7 @@ const TUTOR = [
   { id: 'perform', icon: '((•))', t: 'Host and Join', d: 'Leading others, QR codes, following someone', steps: [
     { go: () => tSong('chords'), wait: 700, el: '#vPerform', t: 'Host', x: 'Tap here, then Host. Everyone who joins follows your song, key and scrolling.' },
     { t: 'QR Code', x: 'While hosting, tap QR Code. People scan it with their phone camera and follow along, no sign-in needed.' },
-    { go: tDrawer, wait: 300, el: '#dPerform', t: 'Join', x: 'To follow someone, choose this and type the 4-digit code on their screen.' },
+    { go: tHome, el: '#joinBtn', t: 'Join', x: 'To follow someone, tap this, then type the 4-digit code on their screen or scan their QR code.' },
     { t: 'While Following', x: 'Tap the screen to look around; Follow Leader takes you back. Hold the Leading or Following button to end or leave.' } ] },
   { id: 'present', icon: '▣', t: 'Presenting Slides', d: 'Projector slides, the PowerPoint helper, phone remote', steps: [
     { go: tClear, t: 'On a Computer', x: 'Presenting runs in the web app on a computer connected to a projector.' },
