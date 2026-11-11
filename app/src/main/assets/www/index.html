@@ -3620,7 +3620,7 @@ async function prLaunch() {
 }
 // Present Slides (Menu): a presentation with no song list, made from files or a Google Slides link
 let prFresh = false;
-const prBegin = () => { pr = { songs: [], si: 0, slide: 0, blank: false, deck: null, larrs: null }; };
+const prBegin = () => { pr = { songs: [], si: 0, slide: 0, blank: false, deck: null, larrs: null, fresh: true }; };
 async function presentFresh() {
   if (window.Native && window.Native.isAndroid) return toast('Presenter mode runs in the web app on a computer');
   if (!navigator.onLine) return toast('Connect to the internet to present');
@@ -3751,7 +3751,8 @@ function prRender() {
   const s = pr.songs[pr.si], deck = pr.deck, n = deck ? deck.imgs.length : 0;
   $('#prTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
   $('#prSub').textContent = ` · song ${pr.si + 1} of ${pr.songs.length}`;
-  $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b><button class="qrbtn" data-qr aria-label="Show a QR code to join" title="Show a QR code to join">${QR_ICON}</button>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : '';
+  $('#prOrder').style.display = pr.fresh ? 'none' : '';
+  $('#prCode').innerHTML = pr.fresh ? '' : perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b><button class="qrbtn" data-qr aria-label="Show a QR code to join" title="Show a QR code to join">${QR_ICON}</button>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : '';
   $('#prBlank').classList.toggle('on', pr.blank);
   prProjLabel();
   $('#prOrder').textContent = prOrderMode === 'chords' ? (deck && deck.how === 'arranged' ? 'Order: Arranged' : 'Order: Chords') : 'Order: PowerPoint';
@@ -4056,17 +4057,21 @@ function mediaRender(s) {
   if (s && (s.media === 'video' || s.media === 'audio' || s.upP)) { $('#prThumbs').innerHTML = ''; mediaPos(s); }
   if (s && s.media === 'pics' && pr.deck && pr.deck.imgs.length) {   // loop and drag-to-sort
     const box = $('#prPos'), t = box.textContent;
-    box.innerHTML = `${esc(t)}<button class="pbtn ghost prplay${s.loop ? ' on' : ''}" data-loop="1" title="Go to the next picture by itself, and start over after the last">${s.loop ? `Loop: Every ${s.loop}s` : 'Loop: Off'}</button>`;
+    box.innerHTML = `${esc(t)}<button class="pbtn ghost prplay${s.auto ? ' on' : ''}" data-auto="1" title="Go to the next picture by itself">${s.auto === 'loop' ? 'Auto Advance - Loop' : s.auto ? 'Auto Advance' : 'Auto Advance: Off'}</button>${s.auto ? `<button class="pbtn ghost prplay" data-every="1" title="How long each picture shows">Every ${s.every || 8}s</button>` : ''}`;
     document.querySelectorAll('#prThumbs img').forEach(im => im.draggable = true);
     const k = pr.si + ':' + pr.slide; if (k !== pr.loopK) { pr.loopK = k; pr.loopAt = Date.now(); }
   }
 }
-const LOOP_SECS = [0, 5, 8, 10, 15, 30];
-setInterval(() => {   // pictures on a loop: next one every few seconds, back to the first after the last
+const AUTO_SECS = [3, 5, 8, 10, 15, 20, 30];
+// pictures on Auto Advance: the next one every few seconds. Without Loop it stays on the last (Next goes on); with Loop
+// it starts over at the first.
+setInterval(() => {
   const s = pr && pr.songs[pr.si];
-  if (!s || s.media !== 'pics' || !s.loop || pr.blank || !pr.deck || pr.deck.imgs.length < 2) return;
-  if (Date.now() - (pr.loopAt || 0) < s.loop * 1000) return;
-  pr.slide = (pr.slide + 1) % pr.deck.imgs.length; prRender();
+  if (!s || s.media !== 'pics' || !s.auto || pr.blank || !pr.deck || pr.deck.imgs.length < 2) return;
+  if (Date.now() - (pr.loopAt || 0) < (s.every || 8) * 1000) return;
+  const n = pr.deck.imgs.length;
+  if (pr.slide < n - 1) pr.slide++; else if (s.auto === 'loop') pr.slide = 0; else return;
+  prRender();
 }, 250);
 (() => {   // drag a picture's thumbnail to put the pictures in another order
   const box = $('#prThumbs'); let from = -1;
@@ -4085,8 +4090,9 @@ $('#prVid').addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; i
 prAud.addEventListener('timeupdate', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'audio') mediaPos(s); });
 prAud.addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'audio' && s.mPlaying) { s.mPlaying = false; s.mEnded = true; prRender(); } });
 $('#prPos').addEventListener('click', e => {
-  const lb = e.target.closest('[data-loop]'), ls = pr && pr.songs[pr.si];
-  if (lb && ls) { ls.loop = LOOP_SECS[(LOOP_SECS.indexOf(ls.loop || 0) + 1) % LOOP_SECS.length]; pr.loopAt = Date.now(); if (ls.loop) pr.blank = false; return prRender(); }
+  const ls = pr && pr.songs[pr.si];
+  if (ls && e.target.closest('[data-auto]')) { ls.auto = ls.auto === '' || !ls.auto ? 'adv' : ls.auto === 'adv' ? 'loop' : ''; pr.loopAt = Date.now(); if (ls.auto) pr.blank = false; return prRender(); }
+  if (ls && e.target.closest('[data-every]')) { ls.every = AUTO_SECS[(AUTO_SECS.indexOf(ls.every || 8) + 1) % AUTO_SECS.length]; pr.loopAt = Date.now(); return prRender(); }
   const b = e.target.closest('[data-play]'), s = pr && pr.songs[pr.si]; if (!b || !s) return;
   if (b.dataset.play === '0' || s.mEnded) {   // from the top
     s.mSeek = Date.now(); s.mT = 0; s.mEnded = false;
@@ -7150,7 +7156,7 @@ const TUTOR = [
     { go: tClear, t: 'On a Computer', x: 'Presenting runs in the web app on a computer connected to a projector.' },
     { go: tDrawer, wait: 300, el: '#dPresent', t: 'Start', x: 'Open a song list and tap Present, or tap Present Slides here for pictures and slides with no songs.' },
     { go: tClear, t: 'Two Windows', x: 'The projector shows only the slides. Your screen shows the controls, the next slide and the code.' },
-    { t: 'Slides and Media', x: 'In the presenter, tap ＋ Add Slides or Media to add PowerPoints, PDFs, pictures, videos or music (several at once), or a Google Slides link. Drag to move; drag pictures to sort them. Loop plays pictures over and over.' },
+    { t: 'Slides and Media', x: 'In the presenter, tap ＋ Add Slides or Media to add PowerPoints, PDFs, pictures, videos or music (several at once), or a Google Slides link. Drag to move; drag pictures to sort them. Auto Advance steps through pictures by itself.' },
     { go: () => { tClear(); openSheet(); }, wait: 350, el: '#pptHelperBtn', t: 'PowerPoint Helper', x: 'On the Windows computer that runs the projector, download this and run it once. It needs PowerPoint installed.' },
     { t: 'After Installing', x: 'It starts with Windows. A speaker\'s PowerPoint then plays in real PowerPoint, animations included. If Chrome asks to reach apps on this device, choose Allow.' },
     { go: tDrawer, wait: 300, el: '#dRemote', t: 'Remote Control', x: 'Run the slides from your phone while the computer presents.' } ] },
