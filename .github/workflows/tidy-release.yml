@@ -1,0 +1,21 @@
+name: Tidy release 206 (one time)
+# Renames the build that went out as "1.206" to "1.0.206", like the builds around it. Delete this file afterwards.
+on:
+  push:
+    branches: [ main ]
+    paths: [ '.github/workflows/tidy-release.yml' ]
+permissions:
+  contents: write
+jobs:
+  tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+        run: |
+          id=$(gh api repos/$R/releases/tags/build-206 --jq .id)
+          body=$(gh api repos/$R/releases/$id --jq .body | sed 's/MMCSongPoint-1\.206\.apk/MMCSongPoint-1.0.206.apk/g')
+          gh api -X PATCH repos/$R/releases/$id -f name="MMC SongPoint 1.0.206" -f body="$body" --jq .name
+          aid=$(gh api repos/$R/releases/$id --jq '.assets[] | select(.name=="MMCSongPoint-1.206.apk") | .id')
+          [ -n "$aid" ] && gh api -X PATCH repos/$R/releases/assets/$aid -f name="MMCSongPoint-1.0.206.apk" --jq .name || true
