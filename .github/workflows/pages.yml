@@ -45,14 +45,14 @@ jobs:
               || cp "package/legacy/build/$f.mjs" "_site/vendor/$f.min.mjs"
           done
           sed -i "s/__BUILD__/${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}/" _site/sw.js
-          # Web version number matches the Android build made from the same commit (1.N)
+          # Web version number matches the Android build made from the same commit (1.0.N)
           n=""
           for i in 1 2 3 4 5 6; do
             n=$(gh run list --workflow build.yml --commit "$GITHUB_SHA" -L 1 --json number -q '.[0].number' 2>/dev/null)
             [ -n "$n" ] && break; sleep 5
           done
           [ -n "$n" ] || n=$(gh run list --workflow build.yml -L 1 --json number -q '.[0].number' 2>/dev/null)
-          ver="1.${n:-0}|$(date -u +%F)"; echo "Web version $ver"
+          ver="1.0.${n:-0}|$(date -u +%F)"; echo "Web version $ver"
           sed -i "s/__WEB_VERSION__/$ver/" _site/index.html
           touch _site/.nojekyll
           ls -la _site _site/vendor
