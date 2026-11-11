@@ -537,6 +537,19 @@
   .keyb.unknown { color: var(--accent-text); }
   .keyb.changed { border-color: var(--accent-text); }
   .keyb.ringing { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  /* key button: the letter, with a small speaker in the corner (tap plays it; hold and drag to change key) */
+  .keyb { position: relative; }
+  .keyb .kspk { position: absolute; right: 3px; bottom: 3px; width: 9px; height: 9px; color: var(--muted); opacity: .85; pointer-events: none; }
+  .keyb.ringing .kspk { color: var(--accent-ink); }
+  .keyb.bounce { animation: keybounce .21s ease-out; }
+  @keyframes keybounce { 0% { transform: scale(1); } 45% { transform: scale(.92); } 100% { transform: scale(1); } }
+  .keypick { position: fixed; z-index: 120; display: none; flex-direction: column; align-items: center; padding: 6px 4px; min-width: 52px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.35); pointer-events: none; user-select: none; -webkit-user-select: none; }
+  .keypick.show { display: flex; }
+  .keypick div { height: 26px; line-height: 26px; padding: 0 10px; font-weight: 700; font-size: 14px; color: var(--muted); }
+  .keypick div.far { opacity: .45; font-size: 12px; }
+  .keypick div.on { color: var(--accent-ink); background: var(--accent); border-radius: 8px; font-size: 16px; }
+  .keyhint { position: fixed; z-index: 121; padding: 7px 11px; border-radius: 9px; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .3s; box-shadow: 0 6px 18px rgba(0,0,0,.3); }
+  .keyhint.show { opacity: 1; }
   .wheelbox { position: fixed; inset: 0; z-index: 90; display: none; place-items: center; background: var(--scrim); }
   .wheelbox.show { display: grid; }
   .wheel { width: min(320px, 88vw); background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
@@ -1152,6 +1165,8 @@
   </div>
   <div class="pbody"><p class="m" style="color:var(--muted);margin-top:0">What would you like help with?</p><div id="tutorTopics"></div></div>
 </div>
+<div class="keypick" id="keyPick" aria-hidden="true"></div>
+<div class="keyhint" id="keyHint">Hold to change key</div>
 <div class="tutor" id="tutor" aria-live="polite">
   <div class="thole" id="tHole"></div>
   <div class="tcard" id="tCard" role="dialog">
@@ -5256,10 +5271,11 @@ function songKeyState(s) {
 const PIPE_ICON = '<svg class="pipe" viewBox="0 0 48 48" aria-hidden="true"><defs><mask id="pipeMask"><rect width="48" height="48" fill="#fff"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(0 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(30 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(60 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(90 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(120 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(150 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(180 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(210 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(240 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(270 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(300 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(330 24 24)"/><circle cx="24" cy="24" r="3.6"/><circle cx="24" cy="24" r="7.5" fill="none" stroke="#000" stroke-width="1.6"/><text x="24" y="17.2" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="9.5">C</text><path d="M24 31.5v6M21.8 35.3l2.2 2.4 2.2-2.4" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></mask></defs><circle cx="24" cy="24" r="22.5" fill="currentColor" mask="url(#pipeMask)"/></svg>';
 const QR_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 20h2M20 14h1" stroke-linecap="round"/></svg>';
 const ICON_ORDER = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 5l1.5-1V9M3.6 14.2a1.4 1.4 0 0 1 2.6.7c0 1-2.4 2-2.4 3.1h2.6"/></svg>';
+const KEY_SPK = '<svg class="kspk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4"/></svg>';
 function keyButton(s) {
   if (isTextDoc(s)) return '';
   const k = songKeyState(s);
-  return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note"${s.keyChange ? ` title="${esc(s.keyChange)}"` : ''}>${k.label ? esc(k.label) : PIPE_ICON}${s.keyChange ? '<sup>+</sup>' : ''}</button>`;
+  return `<button class="keyb${k.i < 0 ? ' unknown' : ''}${k.changed ? ' changed' : ''}" data-act="key" aria-label="Play starting note (hold to change key)"${s.keyChange ? ` title="${esc(s.keyChange)}"` : ''}>${k.label ? `<span class="kl">${esc(k.label)}</span>${KEY_SPK}` : PIPE_ICON}${s.keyChange ? '<sup>+</sup>' : ''}</button>`;
 }
 let actx = null, pipeStop = null, pipeWave = null, pipeEl = null;
 // Pitch-pipe reed tone, measured from a real pitch-pipe recording: steady, no wobble, strong odd overtones
@@ -5289,27 +5305,85 @@ function playPitch(p, el) {
   pipeStop = stop;
   setTimeout(() => { if (pipeStop === stop) { mark(false); pipeStop = null; pipeEl = null; } }, (PIPE_HOLD + 0.3) * 1000);
 }
-// tap = play Do; press and hold = choose another note
-let wheelSong = null, wheelIdx = 0, wheelHi = 12, wheelLo = 0, holdTimer = null, held = false;
+// tap = play Do (with a little bounce); press and hold, then drag up / down = change key (a picker shows nearby keys)
+let wheelSong = null, wheelIdx = 0, wheelHi = 12, wheelLo = 0, holdTimer = null, held = false, kp = null;
+const KP_HOLD = 350, KP_STEP = 18;   // ms before the picker shows; pixels of drag per half-step
+function keySongFor(b) {
+  const row = b.closest('.song'), nrow = b.closest('.nsong');
+  if (row) return { s: results[+row.dataset.i] && results[+row.dataset.i].s, find: () => document.querySelector(`.song[data-i="${row.dataset.i}"] .keyb`) };
+  if (nrow && editing) return { s: songIndex.get((editing.songs[+nrow.dataset.i] || {}).key), find: () => document.querySelector(`.nsong[data-i="${nrow.dataset.i}"] .keyb`) };
+  if (b.closest('#vKey') && viewing) return { s: viewing, find: () => document.querySelector('#vKey .keyb') };
+  return { s: null };
+}
+const keyBounce = el => { if (!el) return; el.classList.remove('bounce'); void el.offsetWidth; el.classList.add('bounce'); };
+function kpLabel(s, p) { const flat = !/[#♯]/.test(s.musicKey || ''), minor = /m$/.test(s.musicKey || ''); return pitchName(p, flat) + (minor ? 'm' : ''); }
+function kpDraw() {
+  const { s, idx, lo, hi, btn } = kp, rows = [];
+  for (let p = idx + 2; p >= idx - 2; p--) rows.push(p > hi || p < lo ? '<div>&nbsp;</div>' : `<div class="${p === idx ? 'on' : Math.abs(p - idx) === 2 ? 'far' : ''}">${esc(kpLabel(s, p).replace('#', '♯').replace(/b(?=m?$)/, '♭'))}</div>`);
+  const box = $('#keyPick'); box.innerHTML = rows.join('');
+  const l = btn.querySelector('.kl'); if (l) l.textContent = kpLabel(s, idx).replace('#', '♯').replace(/b(?=m?$)/, '♭');   // the button follows the drag
+  const r = btn.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
+  let left = r.left - w - 8; if (left < 6) left = Math.min(innerWidth - w - 6, r.right + 8);   // beside the button, so a finger on it doesn't hide it
+  box.style.left = left + 'px'; box.style.top = Math.max(6, Math.min(innerHeight - h - 6, r.top + r.height / 2 - h / 2)) + 'px';
+}
 document.addEventListener('pointerdown', e => {
-  const b = e.target.closest('.keyb'); if (!b) return;
-  held = false;
+  hideKeyHint();
+  const b = e.target.closest('.keyb'); if (!b || (e.button && e.button !== 0)) return;
+  held = false; clearTimeout(holdTimer);
+  const { s, find } = keySongFor(b); if (!s) return;
+  const startY = e.clientY, id = e.pointerId;
   holdTimer = setTimeout(() => {
     held = true;
-    const row = b.closest('.song'), nrow = b.closest('.nsong');
-    if (row) openWheel(results[+row.dataset.i].s);
-    else if (nrow && editing) { const s = songIndex.get(editing.songs[+nrow.dataset.i].key); if (s) openWheel(s); }
-    else if (b.closest('#vKey') && viewing) openWheel(viewing);
-  }, 450);
+    const k = songKeyState(s);
+    if (k.i < 0) return openWheel(s);   // no key known: the full picker
+    const base = basePitch(s), mid = base >= 0 ? base : 6, idx = Math.max(mid - 6, Math.min(mid + 6, nearPitch(k.p, mid)));
+    kp = { s, find, btn: b, idx, start: idx, startY, lo: mid - 6, hi: mid + 6, base, id };
+    try { b.setPointerCapture(id); } catch {}
+    if (navigator.vibrate) navigator.vibrate(12);
+    $('#keyPick').classList.add('show'); kpDraw();
+  }, KP_HOLD);
 });
-['pointerup', 'pointercancel', 'pointerleave'].forEach(t => document.addEventListener(t, () => clearTimeout(holdTimer), true));
+document.addEventListener('pointermove', e => {
+  if (!kp || e.pointerId !== kp.id) { if (holdTimer && !kp && e.buttons && Math.abs(e.movementY) > 6) clearTimeout(holdTimer); return; }
+  const idx = Math.max(kp.lo, Math.min(kp.hi, kp.start + Math.round((kp.startY - e.clientY) / KP_STEP)));   // up = higher
+  if (idx !== kp.idx) { kp.idx = idx; kpDraw(); if (navigator.vibrate) navigator.vibrate(4); }
+}, true);
+document.addEventListener('touchmove', e => { if (kp) e.preventDefault(); }, { passive: false });   // the list doesn't scroll while choosing
+function kpEnd(cancel) {
+  clearTimeout(holdTimer);
+  if (!kp) return;
+  const { s, find, idx, base } = kp; kp = null;
+  $('#keyPick').classList.remove('show');
+  if (cancel) { render(); renderViewerKey(); return; }
+  if (idx === base) keyOverrides.delete(s.key); else keyOverrides.set(s.key, idx);
+  const loaded = now && now.song === s;
+  render(); if (loaded) applyShift(); renderViewerKey(); drawChords(); perfKeyChanged(s);
+  if (editing && $('#notePanel').classList.contains('show')) renderNoteSongs();
+  const el = find && find(); playPitch(idx, el); keyBounce(el);
+}
+document.addEventListener('pointerup', () => kpEnd(false), true);
+document.addEventListener('pointercancel', () => kpEnd(true), true);
+document.addEventListener('pointerleave', e => { if (!kp) clearTimeout(holdTimer); }, true);
 document.addEventListener('contextmenu', e => { if (e.target.closest('.keyb')) e.preventDefault(); });
 function keyTap(s, el) {
   if (held) { held = false; return; }
   const k = songKeyState(s);
   if (k.i < 0) return openWheel(s);
-  playPitch(k.p, el);
+  playPitch(k.p, el); keyBounce(el);
+  if (!store.get('hasSeenPitchHint', false)) { store.set('hasSeenPitchHint', true); showKeyHint(el); }
 }
+// one time only: "Hold to change key", for 2.5 s (any touch or key closes it sooner)
+let keyHintT = 0;
+function showKeyHint(el) {
+  const h = $('#keyHint'), r = el.getBoundingClientRect();
+  h.style.left = '0px'; h.style.top = '0px'; h.classList.add('show');
+  const w = h.offsetWidth, ht = h.offsetHeight;
+  h.style.left = Math.max(6, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2)) + 'px';
+  h.style.top = (r.top - ht - 8 > 6 ? r.top - ht - 8 : r.bottom + 8) + 'px';
+  clearTimeout(keyHintT); keyHintT = setTimeout(hideKeyHint, 2600);
+}
+function hideKeyHint() { clearTimeout(keyHintT); $('#keyHint').classList.remove('show'); }
+document.addEventListener('keydown', hideKeyHint, true);
 function openWheel(s) {
   wheelSong = s;
   const k = songKeyState(s);
@@ -6788,7 +6862,7 @@ const TUTOR = [
     { el: '#tabs', t: 'Books', x: 'Each book has its own tab. All shows every song.' },
     { el: '#filt', t: 'Show', x: 'Show only some songs: favorites, songs with chord sheets, songs we know, and more.' },
     { el: () => tFirst('.song .play'), t: 'Play', x: 'Plays the recording. Once it\'s playing, pick your part (Soprano, Alto, Tenor, Bass).' },
-    { el: () => tFirst('.song .keyb'), t: 'Key', x: 'Tap to hear the starting note. You can also change the key here.' },
+    { el: () => tFirst('.song .keyb'), t: 'Key', x: 'Tap to hear the starting note. Hold, then drag up or down to change the key.' },
     { el: () => tFirst('.song [data-act=sheet]'), t: 'Sheet Music', x: 'Opens the song: sheet music, chords and slides.' },
     { el: () => tFirst('.song [data-act=more]'), t: 'More', x: 'Favorites, save for offline, and chord sheet options.' },
     { el: '#pipeBtn', t: 'Pitch Pipe', x: 'Play any starting note.' },
