@@ -286,6 +286,17 @@
   .blog .bl { display: grid; grid-template-columns: 74px 1fr; gap: 2px 10px; padding: 9px 2px; border-top: 1px solid var(--line); font-size: 14px; }
   .blog .bl:first-child { border-top: none; } .blog .bl.small { font-size: 13px; color: var(--muted); } .blog .bl.cur { color: var(--accent-text); }
   .blog .blv { font-weight: 700; font-variant-numeric: tabular-nums; } .blog .bld { grid-column: 2; color: var(--muted); font-size: 12px; order: 3; }
+  .tutor { position: fixed; inset: 0; z-index: 200; display: none; }
+  .tutor.show { display: block; }
+  .thole { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,.62); outline: 2px solid var(--accent-text); transition: all .25s ease; pointer-events: none; }
+  .thole.none { width: 0 !important; height: 0 !important; left: 50% !important; top: 50% !important; outline: none; }
+  .tcard { position: fixed; width: min(340px, calc(100vw - 24px)); background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px 12px; box-shadow: 0 12px 40px rgba(0,0,0,.45); transition: top .25s ease, left .25s ease; }
+  .tcard h3 { margin: 2px 0 6px; font-size: 18px; } .tcard p { margin: 0 0 12px; font-size: 15px; line-height: 1.45; color: var(--text); }
+  .tstep { font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .03em; }
+  .tbtns { display: flex; gap: 8px; align-items: center; } .tbtns .pbtn { padding: 8px 14px; }
+  .ttopic { display: grid; grid-template-columns: 40px 1fr auto; gap: 4px 12px; align-items: center; width: 100%; text-align: left; padding: 14px 12px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); cursor: pointer; font: inherit; }
+  .ttopic .ti { grid-row: span 2; width: 40px; height: 40px; border-radius: 10px; background: var(--mark); color: var(--accent-text); display: grid; place-items: center; font-size: 20px; }
+  .ttopic b { font-size: 16px; } .ttopic small { grid-column: 2; color: var(--muted); font-size: 13px; } .ttopic .tn { grid-row: span 2; grid-column: 3; color: var(--muted); font-size: 12px; }
   .ltabs { display: flex; gap: 8px; margin: 0 0 12px; }
   .ltabs .pp { font-size: 14px; padding: 7px 14px; cursor: pointer; } .ltabs .pp.now { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .sharelist { max-height: 46vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0 12px; }
@@ -1057,6 +1068,7 @@
   <button class="ditem" id="dTheory"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Music Theory</button>
   <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
   <button class="ditem" id="dOffline"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Offline Songs<small id="dOffCount"></small></button>
+  <button class="ditem" id="dTutorial"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.4-2.7 4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg>Tutorial</button>
   <button class="ditem" id="dSettings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
 </nav>
 
@@ -1131,6 +1143,24 @@
   <div class="chehelp">Pasting a chord sheet with the chords on the line above the words? It's put into this format for you. Put each chord in square brackets just before the word or syllable it's played on: <code>[G]Amazing [G7]grace</code>. Put a part's name on its own line (<code>Verse 1</code>, <code>Chorus</code>). The key goes in <code>{key: G}</code>. Saving changes it for everyone; the old version is kept in Drive (Chord Sheet Backups).</div>
 </div>
 <div class="scedit" id="scEdit"><div class="scbar"><b id="scTitle"></b><small id="scStatus"></small><button class="pbtn ghost" id="scAdd">+ Chord</button><button class="pbtn ghost" id="scDel" style="display:none">Remove</button><button class="pbtn ghost" id="scRedo">Place Again</button><button class="pbtn" id="scOk">✓ Looks Right</button><button class="pbtn ghost" id="scClose">✕ Close</button></div><div id="scBody"></div></div>
+
+<!-- Tutorial: pick a topic, then a walkthrough points at each part of the screen -->
+<div class="panel" id="tutorPanel">
+  <div class="phead">
+    <button class="icon" data-close="tutorPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Tutorial</h2>
+  </div>
+  <div class="pbody"><p class="m" style="color:var(--muted);margin-top:0">What would you like help with?</p><div id="tutorTopics"></div></div>
+</div>
+<div class="tutor" id="tutor" aria-live="polite">
+  <div class="thole" id="tHole"></div>
+  <div class="tcard" id="tCard" role="dialog">
+    <div class="tstep" id="tStep"></div>
+    <h3 id="tTitle"></h3>
+    <p id="tText"></p>
+    <div class="tbtns"><button class="pbtn ghost" id="tSkip">Exit</button><span style="flex:1"></span><button class="pbtn ghost" id="tBack">Back</button><button class="pbtn" id="tNext">Next</button></div>
+  </div>
+</div>
 
 <!-- Build log: what changed in each version (buildlog.js, written when the app is built) -->
 <div class="panel" id="buildLogPanel">
@@ -5023,6 +5053,7 @@ window.handleBack = () => {
   if ($('#rowMenu').classList.contains('show')) { closeRowMenu(); return true; }
   if ($('#drawer').classList.contains('show')) { closeDrawer(); return true; }
   if ($('#pipeBox').classList.contains('show')) { closePipe(); return true; }
+  if (tut) { tutorEnd(); return true; }
   if ($('#qrBox').classList.contains('show')) { closeJoinQr(); return true; }
   if ($('#shareBox').classList.contains('show')) { closeShareBox(); return true; }
   if ($('#keyPickBox').classList.contains('show')) { closeKeyPick(); return true; }
@@ -6744,6 +6775,103 @@ function bugReset() {
   $('#bugRec').classList.remove('recording'); $('#bugRec').style.display = ''; $('#bugRecLabel').textContent = 'Record';
   $('#bugRecTime').textContent = ''; $('#bugRecDel').style.display = 'none';
 }
+// ---- Tutorial: pick a topic; each step points at part of the screen (opening what it needs) with a short note
+const tq = sel => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return r.width && r.height ? e : null; };
+const tFirst = (sel, ok = () => true) => [...document.querySelectorAll(sel)].find(e => { const r = e.getBoundingClientRect(); return r.width && r.height && ok(e); }) || null;
+const tClear = () => { closeDrawer(); closeSheet(); document.querySelectorAll('.panel.show').forEach(p => p.id !== 'tutorPanel' && closePanel(p.id)); if ($('#viewer').classList.contains('show')) closeViewer(); };
+const tHome = () => { tClear(); if ($('#q').value) { $('#q').value = ''; search(); } $('#list').scrollTop = 0; window.scrollTo(0, 0); };
+const tSong = mode => { const s = songs.find(x => x.chords.length && x.sheets.length) || songs.find(x => x.chords.length) || songs.find(hasMusic); if (!s) return; tClear(); openViewer(s, false, null, mode); };
+const tDrawer = () => { tClear(); openDrawer(); };
+const TUTOR = [
+  { id: 'songs', icon: '♪', t: 'Find and Play Songs', d: 'Search, books, playing recordings, starting notes', steps: [
+    { go: tHome, el: '#searchBox', t: 'Search', x: 'Type a title, some of the words, or a hymn number.' },
+    { el: '#tabs', t: 'Books', x: 'Each book has its own tab. All shows every song.' },
+    { el: '#filt', t: 'Show', x: 'Show only some songs: favorites, songs with chord sheets, songs we know, and more.' },
+    { el: () => tFirst('.song .play'), t: 'Play', x: 'Plays the recording. Once it\'s playing, pick your part (Soprano, Alto, Tenor, Bass).' },
+    { el: () => tFirst('.song .keyb'), t: 'Key', x: 'Tap to hear the starting note. You can also change the key here.' },
+    { el: () => tFirst('.song [data-act=sheet]'), t: 'Sheet Music', x: 'Opens the song: sheet music, chords and slides.' },
+    { el: () => tFirst('.song [data-act=more]'), t: 'More', x: 'Favorites, save for offline, and chord sheet options.' },
+    { el: '#pipeBtn', t: 'Pitch Pipe', x: 'Play any starting note.' },
+    { el: '#menuBtn', t: 'Menu', x: 'Song lists, performing together, settings, and this tutorial.' } ] },
+  { id: 'viewer', icon: '♫', t: 'Sheet Music and Chords', d: 'Changing key, lyrics, section order, moving through a song', steps: [
+    { go: () => tSong('chords'), wait: 700, el: '#vTabs', t: 'Views', x: 'Switch between sheet music, chords and slides.' },
+    { el: () => tFirst('#vPages .cbar .cgrp'), t: 'Change Key', x: 'Move the song up or down. The chords and starting note change to match.' },
+    { el: '#vPages [data-c=only]', t: 'Lyrics', x: 'Show or hide the words, for a chords-only view.' },
+    { el: '#vPages [data-c=arrange]', t: 'Section Order', x: 'Set the order the parts are sung in (verse, chorus…). Everyone sees it.' },
+    { el: '#vKey', t: 'Starting Note', x: 'Tap to hear the starting note in the key you\'ve chosen.' },
+    { el: '#vPerform', t: 'Perform', x: 'Host so others follow along with you, or join someone else.' },
+    { t: 'Moving Through a Song', x: 'Scroll, or use the arrow keys or a foot pedal to go part by part. In a song list, swipe for the next song.' },
+    { el: '#vClose', t: 'Back', x: 'Returns to the song list.' } ] },
+  { id: 'lists', icon: '☰', t: 'Song Lists', d: 'Making lists, sharing them, offline use', steps: [
+    { go: () => { tClear(); $('#dNotes').click(); }, wait: 400, el: '#listTabs', t: 'Your Lists', x: 'My Lists are yours. Shared With Me has lists others shared with you or made public.' },
+    { el: '#newNoteBtn', t: 'New List', x: 'Start a list: add songs, drag them into order, and add notes.' },
+    { el: () => tFirst('#notesList .card'), t: 'Open a List', x: 'Play it all, show the chords, present it, or start hosting from it.' },
+    { t: 'Order for One List', x: 'In a list, the numbered button next to a song sets its section order for that list only.' },
+    { t: 'Sharing and Offline', x: 'Make Public lets everyone see it. Share picks particular people. Download keeps it and its songs offline.' } ] },
+  { id: 'perform', icon: '((•))', t: 'Host and Join', d: 'Leading others, QR codes, following someone', steps: [
+    { go: () => tSong('chords'), wait: 700, el: '#vPerform', t: 'Host', x: 'Tap here, then Host. Everyone who joins follows your song, key and scrolling.' },
+    { t: 'QR Code', x: 'While hosting, tap QR Code. People scan it with their phone camera and follow along, no sign-in needed.' },
+    { go: tDrawer, wait: 300, el: '#dPerform', t: 'Join', x: 'To follow someone, choose this and type the 4-digit code on their screen.' },
+    { t: 'While Following', x: 'Tap the screen to look around; Follow Leader takes you back. Hold the Leading or Following button to end or leave.' } ] },
+  { id: 'present', icon: '▣', t: 'Presenting Slides', d: 'Projector slides from a computer, phone remote', steps: [
+    { go: tClear, t: 'On a Computer', x: 'Presenting runs in the web app on a computer connected to a projector.' },
+    { t: 'Start', x: 'Open a song list and tap Present. Musicians can follow along with the code shown.' },
+    { t: 'Two Windows', x: 'The projector shows only the slides. Your screen shows the controls, the next slide and the code.' },
+    { go: tDrawer, wait: 300, el: '#dRemote', t: 'Remote Control', x: 'Run the slides from your phone while the computer presents.' } ] },
+  { id: 'settings', icon: '⚙', t: 'Settings and Offline', d: 'Appearance, foot pedals, favorites, offline songs', steps: [
+    { go: tDrawer, wait: 300, el: '#dFavs', t: 'Favorites', x: 'Songs you starred. Star a song from its ⋮ menu.' },
+    { el: '#dOffline', t: 'Offline Songs', x: 'Songs saved on this device, for when there\'s no internet.' },
+    { go: () => { tClear(); openSheet(); }, wait: 350, el: '#themeSeg', t: 'Appearance', x: 'Light, dark, or match your device.' },
+    { el: '#pedalSeg', t: 'Foot Pedal', x: 'Choose how a Bluetooth page-turner pedal moves through songs.' },
+    { el: '#bugBtn', t: 'Report a Problem', x: 'Tell us what went wrong. You can record a short voice note.' },
+    { el: '#buildLogBtn', t: 'Build Log', x: 'See what\'s new in each version.' } ] },
+];
+let tut = null;
+function openTutorMenu() {
+  closeDrawer();
+  $('#tutorTopics').innerHTML = TUTOR.map(x => `<button class="ttopic" data-t="${x.id}"><span class="ti">${x.icon}</span><b>${esc(x.t)}</b><span class="tn">${x.steps.length} steps</span><small>${esc(x.d)}</small></button>`).join('');
+  openPanel('tutorPanel');
+}
+$('#dTutorial').onclick = openTutorMenu;
+$('#tutorTopics').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) tutorStart(b.dataset.t); });
+function tutorStart(id) {
+  const topic = TUTOR.find(x => x.id === id); if (!topic) return;
+  closePanel('tutorPanel'); tut = { topic, i: 0, n: 0 };
+  $('#tutor').classList.add('show'); tutorShow();
+}
+async function tutorShow() {
+  if (!tut) return;
+  const me = ++tut.n, st = tut.topic.steps[tut.i];
+  $('#tCard').style.opacity = .0;
+  if (st.go) { try { await st.go(); } catch {} await new Promise(r => setTimeout(r, st.wait || 250)); }
+  if (!tut || tut.n !== me) return;
+  $('#tStep').textContent = `${tut.topic.t} · ${tut.i + 1} of ${tut.topic.steps.length}`;
+  $('#tTitle').textContent = st.t; $('#tText').textContent = st.x;
+  $('#tBack').style.visibility = tut.i ? '' : 'hidden';
+  $('#tNext').textContent = tut.i === tut.topic.steps.length - 1 ? 'Done' : 'Next';
+  tutorPlace(); $('#tCard').style.opacity = 1;
+}
+function tutorPlace() {
+  if (!tut) return;
+  const st = tut.topic.steps[tut.i], hole = $('#tHole'), card = $('#tCard');
+  let el = st.el ? (typeof st.el === 'function' ? st.el() : tq(st.el)) : null;
+  if (el) { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+  const W = innerWidth, H = innerHeight, cw = card.offsetWidth, ch = card.offsetHeight;
+  if (!el) { hole.classList.add('none'); card.style.left = Math.max(12, (W - cw) / 2) + 'px'; card.style.top = Math.max(12, (H - ch) / 2) + 'px'; return; }
+  const r = el.getBoundingClientRect(), pad = 6;
+  hole.classList.remove('none');
+  Object.assign(hole.style, { left: r.left - pad + 'px', top: r.top - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px' });
+  const below = r.bottom + pad + 12, above = r.top - pad - 12 - ch;
+  const top = below + ch < H - 8 ? below : above > 8 ? above : Math.max(8, H - ch - 8);
+  card.style.top = top + 'px';
+  card.style.left = Math.min(W - cw - 12, Math.max(12, r.left + r.width / 2 - cw / 2)) + 'px';
+}
+function tutorEnd() { if (!tut) return; tut = null; $('#tutor').classList.remove('show'); tClear(); }
+$('#tNext').onclick = () => { if (!tut) return; if (tut.i >= tut.topic.steps.length - 1) { const t = tut.topic.t; tutorEnd(); return toast(`That's it for ${t}. Find more in Menu › Tutorial.`, 3000); } tut.i++; tutorShow(); };
+$('#tBack').onclick = () => { if (!tut || !tut.i) return; tut.i--; const back = tut.topic.steps.slice(0, tut.i + 1).reverse().find(x => x.go); const st = tut.topic.steps[tut.i]; if (back && !st.go) { const g = back.go; (async () => { await g(); await new Promise(r => setTimeout(r, 300)); tutorShow(); })(); } else tutorShow(); };
+$('#tSkip').onclick = tutorEnd;
+window.addEventListener('resize', () => { if (tut) tutorPlace(); });
+document.addEventListener('keydown', e => { if (!tut) return; if (e.key === 'Escape') { e.stopImmediatePropagation(); tutorEnd(); } else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); $('#tNext').click(); } else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopImmediatePropagation(); $('#tBack').click(); } }, true);
 // Build log: new features and big changes; small fixes and tweaks only when asked for
 let buildLogAll = false;
 function renderBuildLog() {
