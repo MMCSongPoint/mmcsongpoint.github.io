@@ -1112,7 +1112,6 @@
   <button class="ditem" id="dClosing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Closing Songs</button>
   <button class="ditem" id="dTheory"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Music Theory</button>
   <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
-  <button class="ditem" id="dOffline"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Offline Songs<small id="dOffCount"></small></button>
   <button class="ditem" id="dTutorial"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.4-2.7 4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg>Tutorial</button>
   <button class="ditem" id="dSettings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
 </nav>
@@ -5792,7 +5791,7 @@ $('#copyLinkBtn').onclick = async () => {
   }
 };
 // ------------------------------------------------------------------ menu (from the right)
-function openDrawer() { $('#dFavCount').textContent = songs.filter(isFav).length || ''; $('#dOffCount').textContent = songs.filter(x => songFiles(x).some(p => downloaded.has(p.id))).length || ''; $('#drawer').classList.add('show'); $('#drawerBg').classList.add('show'); }
+function openDrawer() { $('#dFavCount').textContent = songs.filter(isFav).length || ''; $('#drawer').classList.add('show'); $('#drawerBg').classList.add('show'); }
 function closeDrawer() { $('#drawer').classList.remove('show'); $('#drawerBg').classList.remove('show'); }
 $('#menuBtn').onclick = openDrawer;
 $('#drawerBg').onclick = closeDrawer;
@@ -6908,7 +6907,6 @@ $('#songsList').addEventListener('click', e => {
   if (s) rowAction(s, btn, btn && btn.dataset.act, songsPanelList);
 });
 document.querySelector('[data-close=songsPanel]').addEventListener('click', () => document.body.classList.remove('songspanel'));
-$('#dOffline').onclick = () => { closeDrawer(); openSongsPanel('off'); };
 // ------------------------------------------------------------------ key change for MP3s (pitch shift, same speed)
 // When a song's key is changed on the note wheel, its MP3 is shifted by the difference (the shortest way, at most
 // 6 half steps). The audio is routed through Web Audio only once a shift is first needed; after that, unshifted songs
@@ -7258,8 +7256,8 @@ const TUTOR = [
     { go: tDrawer, wait: 300, el: '#dRemote', t: 'Remote Control', x: 'Run the slides from your phone while the computer presents.' } ] },
   { id: 'settings', icon: '⚙', t: 'Settings and Offline', d: 'Appearance, foot pedals, favorites, offline songs', steps: [
     { go: tDrawer, wait: 300, el: '#dFavs', t: 'Favorites', x: 'Songs you starred. Star a song from its ⋮ menu.' },
-    { el: '#dOffline', t: 'Offline Songs', x: 'Songs saved on this device, for when there\'s no internet.' },
-    { go: () => { tClear(); openSheet(); }, wait: 350, el: '#themeSeg', t: 'Appearance', x: 'Light, dark, or match your device.' },
+    { go: () => { tClear(); openSheet(); }, wait: 350, el: '#storageInfo', t: 'Offline Songs', x: 'Songs saved on this device play with no internet. See or clear them here.' },
+    { el: '#themeSeg', t: 'Appearance', x: 'Light, dark, or match your device.' },
     { el: '#pedalSeg', t: 'Foot Pedal', x: 'Choose how a Bluetooth page-turner pedal moves through songs.' },
     { el: '#bugBtn', t: 'Report a Problem', x: 'Tell us what went wrong. You can record a short voice note.' },
     { el: '#buildLogBtn', t: 'Build Log', x: 'See what\'s new in each version.' } ] },
