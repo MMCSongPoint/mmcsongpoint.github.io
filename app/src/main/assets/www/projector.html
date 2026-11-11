@@ -8,24 +8,40 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
   body.ui { cursor: default; }
-  #slide { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity .25s; }
-  #slide.on { opacity: 1; }
-  #title { position: fixed; inset: 0; display: none; place-items: center; text-align: center; color: #fff; font: 700 6vw/1.2 system-ui, sans-serif; padding: 5vw; }
-  #title.on { display: grid; }
+  /* everything fades: a slide, picture or video fades in as the last one fades out (FADE, below, is the same time) */
+  .slide { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity .5s ease; }
+  .slide.on { opacity: 1; }
+  #title { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; color: #fff; font: 700 6vw/1.2 system-ui, sans-serif; padding: 5vw; opacity: 0; transition: opacity .5s ease; }
+  #title.on { opacity: 1; }
   #live { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #000; }
   #live.on { display: block; }
-  #vid { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; display: none; }
-  #vid.on { display: block; }
+  #vid { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; visibility: hidden; opacity: 0; transition: opacity .5s ease, visibility 0s .5s; }
+  #vid.on { visibility: visible; opacity: 1; transition: opacity .5s ease, visibility 0s; }
 </style>
 </head>
 <body class="ui">
-<img id="slide" alt="">
+<img class="slide" alt=""><img class="slide" alt="">
 <div id="title"></div>
 <video id="vid" playsinline preload="auto"></video>
 <iframe id="live" allow="autoplay; fullscreen" allowfullscreen title="Speaker slides"></iframe>
 <script>
 // Shows whatever the Presenter window (same app, same computer) sends over a BroadcastChannel.
-const ch = new BroadcastChannel('songpoint-projector'), img = document.getElementById('slide'), title = document.getElementById('title'), live = document.getElementById('live');
+const ch = new BroadcastChannel('songpoint-projector'), title = document.getElementById('title'), live = document.getElementById('live');
+const FADE = 500;
+// two picture layers: the next slide loads into the hidden one, then fades in over the one fading out
+const layers = [...document.querySelectorAll('.slide')]; let front = 0, want = '';
+const img = { classList: { remove: () => { want = ''; layers.forEach(l => l.classList.remove('on')); } } };   // "hide the slide"
+async function showSlide(src) {
+  const cur = layers[front];
+  if (want === src && cur.classList.contains('on')) return;
+  want = src;
+  if (cur.getAttribute('src') === src) { cur.classList.add('on'); layers[1 - front].classList.remove('on'); return; }
+  const next = layers[1 - front];
+  next.src = src;
+  try { await next.decode(); } catch (e) {}
+  if (want !== src) return;   // another slide came meanwhile
+  front = 1 - front; next.classList.add('on'); cur.classList.remove('on');
+}
 // a speaker's deck playing in Google Slides' own player: the clicker / arrow keys go straight to it
 function showLive(m) {
   img.classList.remove('on'); title.classList.remove('on');
@@ -44,11 +60,16 @@ function showVideo(m) {
   if (vid.dataset.url !== m.url) { vid.dataset.url = m.url; vid.src = m.url; vSn = -1; }
   vid.loop = !!m.loop;
   if ((m.sn || 0) !== vSn) { vSn = m.sn || 0; try { vid.currentTime = m.st || 0; } catch (e) {} }   // the presenter moved the time bar
-  vid.classList.add('on'); vWant = !!m.play;
+  clearTimeout(vHideT); vid.classList.add('on'); vWant = !!m.play;
   if (vWant && vid.paused && !vid.ended) vPlay(); else if (!vWant && !vid.paused) vid.pause();
   clearInterval(vTimer); vTimer = setInterval(vStat, 500);
 }
-function hideVideo() { if (!vid.classList.contains('on')) return; vid.pause(); vid.classList.remove('on'); vWant = false; clearInterval(vTimer); }
+let vHideT = 0;
+function hideVideo() {   // fades out, then stops
+  if (!vid.classList.contains('on')) return;
+  vid.classList.remove('on'); vWant = false; clearInterval(vTimer);
+  clearTimeout(vHideT); vHideT = setTimeout(() => { if (!vid.classList.contains('on')) vid.pause(); }, FADE);
+}
 vid.addEventListener('ended', vStat);
 document.addEventListener('pointerdown', () => { if (vBlocked && vWant) vPlay(); });   // sound needs a click here once
 ch.onmessage = e => {
@@ -57,7 +78,7 @@ ch.onmessage = e => {
   if (m.t !== 'video') hideVideo();
   if (m.t === 'video') showVideo(m);
   else if (m.t === 'live') showLive(m);
-  else if (m.t === 'slide') { title.classList.remove('on'); if (img.src !== m.img) img.src = m.img; img.classList.add('on'); }
+  else if (m.t === 'slide') { title.classList.remove('on'); showSlide(m.img); }
   else if (m.t === 'title') { img.classList.remove('on'); title.textContent = m.text || ''; title.classList.add('on'); }
   else if (m.t === 'blank') { img.classList.remove('on'); title.classList.remove('on'); }
   else if (m.t === 'close') window.close();
