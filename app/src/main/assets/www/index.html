@@ -305,6 +305,17 @@
   #shareQ { width: 100%; }
   .lhead { margin: 18px 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .listacts .pbtn.on { border-color: var(--ok); color: var(--ok); }
+  /* song list actions: the main ones as a 2-column grid (4 across on wide screens), list options as a slim icon bar */
+  .lacts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 8px; }
+  @media (min-width: 700px) { .lacts { grid-template-columns: repeat(4, 1fr); } }
+  .lacts .pbtn { display: flex; align-items: center; gap: 8px; justify-content: flex-start; padding: 11px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lacts .pbtn svg { flex: none; color: var(--accent-text); }
+  .lacts .pbtn:disabled { opacity: .45; }
+  .lstrip { display: flex; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 6px 0 10px; padding: 4px 0; }
+  .lstrip button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; background: none; border: none; border-radius: 10px; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+  .lstrip button svg { width: 21px; height: 21px; color: var(--accent-text); }
+  .lstrip button:hover { background: var(--panel); }
+  .lstrip button.on, .lstrip button.on svg { color: var(--ok); }
   .presenter { position: fixed; inset: 0; z-index: 88; background: #0d0a0c; color: #eee; display: none; flex-direction: column; }
   .presenter.show { display: flex; }
   .prhead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #1b1418; border-bottom: 1px solid #2c2228; }
@@ -884,10 +895,10 @@
       <b>Songs</b><button class="pbtn ghost editonly" id="addSongsBtn">+ Add Songs</button>
     </div>
     <div class="list" id="noteSongs"></div>
-    <div class="row2"><button class="pbtn ghost" id="notePlay">▶ Play All</button><button class="pbtn ghost" id="noteChords">Chords</button><button class="pbtn ghost" id="notePresent">Present</button><button class="pbtn ghost" id="noteHost">Start Hosting</button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
+    <div class="lacts"><button class="pbtn ghost" id="noteChords"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span>View Chord Sheet</span></button><button class="pbtn ghost" id="notePlay"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg><span>Play MP3s</span></button><button class="pbtn ghost" id="notePresent"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/></svg><span>Present</span></button><button class="pbtn ghost" id="noteHost"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg><span>Start Hosting</span></button><button class="pbtn ghost" id="noteSlides">Build PowerPoint</button></div>
     <p style="color:var(--muted);font-size:13px;margin-top:-4px" id="slidesInfo"></p>
     <div class="nview viewonly"><div class="vtext" id="viewText"></div></div>
-    <div class="row2 viewonly listacts"><button class="pbtn ghost" id="noteShare">Make Public</button><button class="pbtn ghost" id="notePeople">Share</button><button class="pbtn ghost" id="noteOffline">Download</button><button class="pbtn ghost" id="noteCopy">Make a Copy</button></div>
+    <div class="lstrip viewonly listacts"><button id="noteShare"></button><button id="notePeople"></button><button id="noteOffline"></button><button id="noteCopy"></button></div>
     <label class="field editonly"><span>Notes</span><textarea id="noteText" placeholder="Keys, verses to skip, who's leading what…"></textarea></label>
     <p style="color:var(--muted);font-size:13px" id="noteStatus"></p>
     <div class="row2 editonly"><button class="pbtn ghost" id="noteDelete" style="color:var(--danger)">Delete Song List</button></div>
@@ -4555,15 +4566,15 @@ function renderNoteSongs() {
   $('#noteDelete').style.display = n.isNew || !canEditList(n) ? 'none' : '';
   $('#noteEdit').style.display = canEditList(n) ? '' : 'none';
   $('#noteShare').style.display = !n.isNew && !isGuest() && isMine(n) ? '' : 'none';   // only the person who made the list shares or unshares it
-  $('#noteShare').textContent = n.shared ? 'Make Private' : 'Make Public';
+  $('#noteShare').innerHTML = n.shared ? `${LI.lock}<span>Make Private</span>` : `${LI.globe}<span>Make Public</span>`;
   $('#noteShare').title = n.shared ? 'Everyone can see this song list. Tap so only you (and the people you shared it with) can.' : 'Let everyone see this song list';
   $('#notePeople').style.display = $('#noteShare').style.display;
-  $('#notePeople').textContent = (n.sharedWith || []).length ? `Share · ${n.sharedWith.length}` : 'Share';
+  $('#notePeople').innerHTML = `${LI.share}<span>${(n.sharedWith || []).length ? `Share · ${n.sharedWith.length}` : 'Share'}</span>`;
   $('#notePeople').title = (n.sharedWith || []).length ? `Shared with ${sharedWithText(n)}` : 'Share this song list with particular people';
   const saving = offlineIds.has(n.id) && listSaving(n);
-  $('#noteOffline').innerHTML = saving ? `<span class="spinic" style="display:inline-flex;vertical-align:-3px;margin-right:6px">${ICON_SAVING}</span>Downloading…`
-    : offlineIds.has(n.id) ? `<span style="display:inline-flex;vertical-align:-3px;margin-right:6px">${ICON_SAVED}</span>Downloaded`
-    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>Download';
+  $('#noteOffline').innerHTML = saving ? `<span class="spinic" style="display:inline-flex">${ICON_SAVING.replace(/18/g, '21')}</span><span>Saving…</span>`
+    : offlineIds.has(n.id) ? `${LI.save}<span>Saved</span>` : `${LI.save}<span>Save</span>`;
+  $('#noteCopy').innerHTML = `${LI.copy}<span>Duplicate</span>`;
   $('#noteOffline').title = offlineIds.has(n.id) ? 'Saved on this device for offline use. Tap to remove the download.' : 'Save this song list on this device for offline use';
   $('#noteOffline').classList.toggle('on', offlineIds.has(n.id) && !saving);
   $('#noteCopy').style.display = n.isNew ? 'none' : '';
@@ -4771,12 +4782,12 @@ $('#noteOffline').onclick = () => {
   const id = editing.id;
   if (offlineIds.has(id)) {
     offlineIds.delete(id); saveNotes(); renderNoteSongs(); renderNotes();
-    return toast('Download removed (the song list is still saved online)');
+    return toast('Removed from this device (the song list is still saved online)');
   }
   offlineIds.add(id); saveNotes();
   const started = N && navigator.onLine ? downloadTracks(listFiles(editing)) : 0;
   renderNoteSongs(); renderNotes();
-  toast(started ? 'Downloading the songs for offline use…' : 'Downloaded to this device for offline use');
+  toast(started ? 'Saving the songs on this device for offline use…' : 'Saved on this device for offline use');
 };
 $('#noteCopy').onclick = () => {
   const n = editing; if (!n) return;
@@ -5269,6 +5280,7 @@ function songKeyState(s) {
   return { i: -1, p: -1, label: '', changed: false };
 }
 const PIPE_ICON = '<svg class="pipe" viewBox="0 0 48 48" aria-hidden="true"><defs><mask id="pipeMask"><rect width="48" height="48" fill="#fff"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(0 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(30 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(60 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(90 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(120 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(150 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(180 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(210 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(240 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(270 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(300 24 24)"/><rect x="22.6" y="1" width="2.8" height="5" rx="1" transform="rotate(330 24 24)"/><circle cx="24" cy="24" r="3.6"/><circle cx="24" cy="24" r="7.5" fill="none" stroke="#000" stroke-width="1.6"/><text x="24" y="17.2" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="9.5">C</text><path d="M24 31.5v6M21.8 35.3l2.2 2.4 2.2-2.4" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></mask></defs><circle cx="24" cy="24" r="22.5" fill="currentColor" mask="url(#pipeMask)"/></svg>';
+const LI = {'chords': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>', 'play': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>', 'present': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/></svg>', 'host': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>', 'globe': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>', 'lock': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>', 'share': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0M18 8v6M15 11h6"/></svg>', 'copy': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>', 'save': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>'};
 const QR_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 20h2M20 14h1" stroke-linecap="round"/></svg>';
 const ICON_ORDER = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 5l1.5-1V9M3.6 14.2a1.4 1.4 0 0 1 2.6.7c0 1-2.4 2-2.4 3.1h2.6"/></svg>';
 const KEY_SPK = '<svg class="kspk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4"/></svg>';
@@ -6879,9 +6891,9 @@ const TUTOR = [
   { id: 'lists', icon: '☰', t: 'Song Lists', d: 'Making lists, sharing them, offline use', steps: [
     { go: () => { tClear(); $('#dNotes').click(); }, wait: 400, el: '#listTabs', t: 'Your Lists', x: 'My Lists are yours. Shared With Me has lists others shared with you or made public.' },
     { el: '#newNoteBtn', t: 'New List', x: 'Start a list: add songs, drag them into order, and add notes.' },
-    { el: () => tFirst('#notesList .card'), t: 'Open a List', x: 'Play it all, show the chords, present it, or start hosting from it.' },
+    { el: () => tFirst('#notesList .card'), t: 'Open a List', x: 'View its chord sheets, play the MP3s, present it, or start hosting from it.' },
     { t: 'Order for One List', x: 'In a list, the numbered button next to a song sets its section order for that list only.' },
-    { t: 'Sharing and Offline', x: 'Make Public lets everyone see it. Share picks particular people. Download keeps it and its songs offline.' } ] },
+    { t: 'Sharing and Offline', x: 'Make Public lets everyone see it. Share picks particular people. Save keeps it and its songs offline.' } ] },
   { id: 'perform', icon: '((•))', t: 'Host and Join', d: 'Leading others, QR codes, following someone', steps: [
     { go: () => tSong('chords'), wait: 700, el: '#vPerform', t: 'Host', x: 'Tap here, then Host. Everyone who joins follows your song, key and scrolling.' },
     { t: 'QR Code', x: 'While hosting, tap QR Code. People scan it with their phone camera and follow along, no sign-in needed.' },
