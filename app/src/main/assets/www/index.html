@@ -326,6 +326,12 @@
   .prstage video { max-width: 100%; max-height: 100%; display: none; background: #000; } .prstage video.on { display: block; }
   .prnav .pbtn.prplay { min-width: 0; padding: 6px 12px; font-size: 13px; margin-left: 8px; } .prnav .pbtn.prplay.on { background: var(--accent); color: #fff; }
   .prthumbs img[draggable=true] { cursor: grab; }
+  .prmid { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  #prAuto { display: inline-flex; gap: 6px; } #prAuto select { background: #2a2026; color: #eee; border: 1px solid #4a3a42; border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; }
+  #prAuto select.on { border-color: var(--accent-text); }
+  .mirror { display: none; position: fixed; left: 0; right: 0; bottom: 0; top: 0; z-index: 62; background: #000; place-items: center; overflow: hidden; }
+  .mirror.show { display: grid; } .mirror img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .mirror .mmsg { color: #aaa; font-size: 16px; padding: 20px; text-align: center; position: relative; }
   .prcode { color: #cbbcc2; font-size: 14px; } .prcode b { color: #fff; font-size: 18px; letter-spacing: .08em; }
   /* visitors (joined by QR code, not signed in): only the performance, nothing else in the app */
   body.visitor .wrap, body.visitor #player, body.visitor #drawer, body.visitor #drawerBg, body.visitor #pickBar, body.visitor #sheet, body.visitor #sheetBg,
@@ -1028,6 +1034,7 @@
   </div>
 </div>
 
+<div class="mirror" id="mirror"><img alt="On the main screen"><div class="mmsg"></div></div>
 <div class="vscreen" id="visitorScreen"><div><div class="vlogo">♪</div><h2 id="vsTitle">Joining…</h2><p id="vsText">Waiting for the leader.</p></div></div>
 
 <div class="qrbox" id="qrBox" role="dialog" aria-label="QR code to follow along">
@@ -1079,7 +1086,7 @@
       <input type="file" id="prFile" multiple accept=".pptx,.ppt,.pdf,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*,.heic,.heif,video/*,audio/*,.mp4,.m4v,.mov,.webm,.mkv,.mp3,.m4a,.wav,.aac,.ogg,.flac" hidden></div>
     <div class="prmain">
       <div class="prstage"><img id="prCur" alt=""><video id="prVid" playsinline preload="auto"></video><div class="prmsg" id="prMsg"></div></div>
-      <div class="prnav"><button class="pbtn" id="prPrev">◀ Previous</button><span id="prPos"></span><button class="pbtn" id="prNext">Next ▶</button></div>
+      <div class="prnav"><button class="pbtn" id="prPrev">◀ Previous</button><span class="prmid"><span id="prPos"></span><span id="prAuto"></span></span><button class="pbtn" id="prNext">Next ▶</button></div>
     </div>
     <div class="prside"><div class="prlbl">Next</div><div class="prnext"><img id="prNextImg" alt=""><div class="prmsg sm" id="prNextMsg"></div></div><div class="prlbl">This Song</div><div class="prthumbs" id="prThumbs"></div></div>
   </div>
@@ -2990,7 +2997,8 @@ function perfState() {
       si: pr.si, titles: pr.songs.map(x => (x.number ? x.number + '. ' : '') + x.title), count: pr.deck ? pr.deck.imgs.length : 0,
       nextIdx: pr.deck && pr.slide + 1 < pr.deck.imgs.length ? (pr.deck.order ? pr.deck.order[pr.slide + 1] : pr.slide + 1) : -1,
       firstIdx: pr.deck && pr.deck.order ? pr.deck.order[0] : 0,
-      deckId: s.deck && !s.media && !s.upP ? prFile(s).id : '', deckSplit: s.split > 1 ? s.split : 0, deckTitle: s.deck ? s.title : '', liveDeck: prIsLive(s) || s.media || s.upP ? 1 : 0, media: s.media || '',
+      deckId: s.deck && !s.media && !s.upP ? prFile(s).id : '', deckSplit: s.split > 1 ? s.split : 0, fresh: pr.fresh ? 1 : 0,
+      pic: !pr.blank && s.media === 'pics' && pr.deck && pr.deck.smalls ? pr.deck.smalls[pr.slide] || '' : '', deckTitle: s.deck ? s.title : '', liveDeck: prIsLive(s) || s.media || s.upP ? 1 : 0, media: s.media || '',
       view: pr.larrs && pr.larrs[s.key] ? 'list' : 'arranged', larr: pr.larrs && pr.larrs[s.key] ? pr.larrs[s.key] : null, slideNo: pr.slide, slideIdx: pr.deck && pr.deck.order ? pr.deck.order[pr.slide] : pr.slide, blank: pr.blank ? 1 : 0, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || ''),
       slideSection: pr.blank ? '' : ((pr.deck && pr.deck.sections && pr.deck.sections[pr.slide]) || '') });
   }
@@ -3112,6 +3120,7 @@ async function perfConnect(me) {
 function perfGuestMsg(me, m) { if (m.type === 'answer' && me.pc && me.pc.signalingState === 'have-local-offer') return me.pc.setRemoteDescription(m.sdp).catch(() => {}); }
 async function perfLeave(msg) {
   const me = perf; if (!me) return;
+  $('#mirror').classList.remove('show'); mirrorKey = '';
   if (isVisitor()) {
     if (!msg) api('perfSend', { code: me.code, to: me.hostPeer, msg: { type: 'bye', from: me.peer } }).catch(() => {});
     return visitorEnd(msg ? 'Performance Ended' : 'You Left the Performance', msg ? 'Thanks for following along.' : 'To follow again, scan the leader\'s QR code.');
@@ -3162,6 +3171,8 @@ function perfGroup(s, st) {
 }
 function perfShow(st) {
   if (!st || st.closed) return;
+  perfMirror(st);
+  if (st.presenter && st.fresh) return;
   $('#viewer').classList.toggle('fpres', !!st.presenter);
   if (st.listen) return listenApply(st);
   if (st.presenter && st.deckId) {   // a speaker's slides are up: musicians keep their place (View Slides shows them)
@@ -3257,7 +3268,7 @@ function renderPerfBar() {
   const np = noPlay(); document.body.classList.toggle('noplay', np);
   document.body.classList.toggle('insession', !!perf);
   if (np && !audio.paused) audio.pause();
-  if (pr) setTimeout(() => { if (pr) $('#prCode').innerHTML = perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b><button class="qrbtn" data-qr aria-label="Show a QR code to join" title="Show a QR code to join">${QR_ICON}</button>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : ''; });
+  if (pr) setTimeout(() => { if (pr) $('#prCode').innerHTML = perf && perf.role === 'host' ? `${pr.fresh ? 'Others watch with code' : 'Musicians join with code'} <b>${esc(perf.code)}</b><button class="qrbtn" data-qr aria-label="Show a QR code to join" title="Show a QR code to join">${QR_ICON}</button>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : ''; });
   const bar = $('#perfBar'), pill = $('#perfPill');
   $('#listenBtn').classList.toggle('on', !!(perf && (perf.listen || perf.ls)));
   $('#vPerform').classList.toggle('on', !!perf);
@@ -3587,7 +3598,10 @@ async function picSlide(file) {
   const w = Math.round(bm.width * sc), h = Math.round(bm.height * sc), c = document.createElement('canvas'); c.width = W; c.height = H;
   const ctx = c.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(bm, Math.round((W - w) / 2), Math.round((H - h) / 2), w, h); bm.close && bm.close();
-  const u = c.toDataURL('image/jpeg', 0.9); c.width = c.height = 0; return u;
+  const u = c.toDataURL('image/jpeg', 0.9);
+  // a small copy (about 40 KB) goes to phones watching, since the pictures themselves stay on this computer
+  const sm = document.createElement('canvas'); sm.width = 854; sm.height = 480; sm.getContext('2d').drawImage(c, 0, 0, 854, 480);
+  const small = sm.toDataURL('image/jpeg', 0.72); sm.width = sm.height = c.width = c.height = 0; return [u, small];
 }
 function prDeck(s) {
   if (s && s.upP) return s.upP.then(() => prDeck(s));   // still uploading (in the background): wait for it
@@ -3752,7 +3766,7 @@ function prRender() {
   $('#prTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
   $('#prSub').textContent = ` · song ${pr.si + 1} of ${pr.songs.length}`;
   $('#prOrder').style.display = pr.fresh ? 'none' : '';
-  $('#prCode').innerHTML = pr.fresh ? '' : perf && perf.role === 'host' ? `Musicians join with code <b>${esc(perf.code)}</b><button class="qrbtn" data-qr aria-label="Show a QR code to join" title="Show a QR code to join">${QR_ICON}</button>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : '';
+  $('#prCode').innerHTML = perf && perf.role === 'host' ? `${pr.fresh ? 'Others watch with code' : 'Musicians join with code'} <b>${esc(perf.code)}</b><button class="qrbtn" data-qr aria-label="Show a QR code to join" title="Show a QR code to join">${QR_ICON}</button>${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0) ? ` · ${perf.peers.size + perf.relayers.size + (perf.streamers ? perf.streamers.size : 0)} following` : ''}` : '';
   $('#prBlank').classList.toggle('on', pr.blank);
   prProjLabel();
   $('#prOrder').textContent = prOrderMode === 'chords' ? (deck && deck.how === 'arranged' ? 'Order: Arranged' : 'Order: Chords') : 'Order: PowerPoint';
@@ -4055,14 +4069,17 @@ function mediaRender(s) {
   if (s && s.media === 'audio') { $('#prCur').style.display = 'none'; $('#prMsg').style.display = ''; $('#prMsg').innerHTML = `<b style="font-size:20px;color:#fff">♪ ${esc(s.title)}</b><br>Music plays from this computer. The projector is black.`; }
   if (s && s.upP) { $('#prCur').style.display = 'none'; $('#prMsg').style.display = ''; $('#prMsg').textContent = `Uploading “${s.title}”…`; }
   if (s && (s.media === 'video' || s.media === 'audio' || s.upP)) { $('#prThumbs').innerHTML = ''; mediaPos(s); }
-  if (s && s.media === 'pics' && pr.deck && pr.deck.imgs.length) {   // loop and drag-to-sort
-    const box = $('#prPos'), t = box.textContent;
-    box.innerHTML = `${esc(t)}<button class="pbtn ghost prplay${s.auto ? ' on' : ''}" data-auto="1" title="Go to the next picture by itself">${s.auto === 'loop' ? 'Auto Advance - Loop' : s.auto ? 'Auto Advance' : 'Auto Advance: Off'}</button>${s.auto ? `<button class="pbtn ghost prplay" data-every="1" title="How long each picture shows">Every ${s.every || 8}s</button>` : ''}`;
+  const pics = s && s.media === 'pics' && pr.deck && pr.deck.imgs.length, ak = pics ? [pr.si, s.auto || '', s.every || 8].join('|') : '';
+  if ($('#prAuto').dataset.k !== ak) {   // Auto Advance: drawn only when it changes, so an open list stays open
+    $('#prAuto').dataset.k = ak;
+    $('#prAuto').innerHTML = !pics ? '' : `<select data-auto="1" class="${s.auto ? 'on' : ''}" title="Go to the next picture by itself">${[['', 'Auto Advance: Off'], ['loop', 'Auto Advance - Loop'], ['adv', 'Auto Advance']].map(([v, l]) => `<option value="${v}"${(s.auto || '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>${s.auto ? `<select data-every="1" title="How long each picture shows">${AUTO_SECS.map(n => `<option value="${n}"${(s.every || 8) === n ? ' selected' : ''}>Every ${n} seconds</option>`).join('')}</select>` : ''}`;
+  }
+  if (pics) {   // drag-to-sort
     document.querySelectorAll('#prThumbs img').forEach(im => im.draggable = true);
     const k = pr.si + ':' + pr.slide; if (k !== pr.loopK) { pr.loopK = k; pr.loopAt = Date.now(); }
   }
 }
-const AUTO_SECS = [3, 5, 8, 10, 15, 20, 30];
+var AUTO_SECS = [3, 5, 8, 10, 15, 20, 30];
 // pictures on Auto Advance: the next one every few seconds. Without Loop it stays on the last (Next goes on); with Loop
 // it starts over at the first.
 setInterval(() => {
@@ -4080,7 +4097,7 @@ setInterval(() => {
   box.addEventListener('drop', e => {
     const im = e.target.closest('img[data-i]'); if (from < 0 || !im || !pr || !pr.deck) return; e.preventDefault();
     const to = +im.dataset.i, l = pr.deck.imgs, cur = l[pr.slide];
-    if (to !== from) { l.splice(to, 0, l.splice(from, 1)[0]); pr.slide = l.indexOf(cur); prRender(); }
+    if (to !== from) { l.splice(to, 0, l.splice(from, 1)[0]); const sm = pr.deck.smalls; if (sm) sm.splice(to, 0, sm.splice(from, 1)[0]); pr.slide = l.indexOf(cur); prRender(); }
     from = -1;
   });
   box.addEventListener('dragend', () => { from = -1; });
@@ -4089,10 +4106,13 @@ $('#prVid').addEventListener('timeupdate', () => { const s = pr && pr.songs[pr.s
 $('#prVid').addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'video' && !prSeen && s.mPlaying) { s.mPlaying = false; s.mEnded = true; prRender(); } });
 prAud.addEventListener('timeupdate', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'audio') mediaPos(s); });
 prAud.addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'audio' && s.mPlaying) { s.mPlaying = false; s.mEnded = true; prRender(); } });
+$('#prAuto').addEventListener('change', e => {
+  const ls = pr && pr.songs[pr.si]; if (!ls) return;
+  if (e.target.dataset.auto) { ls.auto = e.target.value; if (ls.auto) pr.blank = false; }
+  if (e.target.dataset.every) ls.every = +e.target.value;
+  pr.loopAt = Date.now(); e.target.blur(); prRender();
+});
 $('#prPos').addEventListener('click', e => {
-  const ls = pr && pr.songs[pr.si];
-  if (ls && e.target.closest('[data-auto]')) { ls.auto = ls.auto === '' || !ls.auto ? 'adv' : ls.auto === 'adv' ? 'loop' : ''; pr.loopAt = Date.now(); if (ls.auto) pr.blank = false; return prRender(); }
-  if (ls && e.target.closest('[data-every]')) { ls.every = AUTO_SECS[(AUTO_SECS.indexOf(ls.every || 8) + 1) % AUTO_SECS.length]; pr.loopAt = Date.now(); return prRender(); }
   const b = e.target.closest('[data-play]'), s = pr && pr.songs[pr.si]; if (!b || !s) return;
   if (b.dataset.play === '0' || s.mEnded) {   // from the top
     s.mSeek = Date.now(); s.mT = 0; s.mEnded = false;
@@ -4171,7 +4191,7 @@ $('#prFile').onchange = async e => {
     else if (k === 'video' || k === 'audio') { prInsertDeck(mediaItem(k, f.name.replace(/\.[^.]+$/, ''), { url: URL.createObjectURL(f) }), at++); added++; }
     else if (f === pics[0]) {   // the pictures picked together: one item, a slide each, where the first one was
       const title = pics.length === 1 ? pics[0].name.replace(/\.[^.]+$/, '') : `${pics.length} Pictures`, item = mediaItem('pics', title, { count: pics.length });
-      const imgs = [], p = (async () => { for (const x of pics) { try { imgs.push(await picSlide(x)); } catch { toast(`Couldn't open the picture ${x.name}`, 4000); } } return { imgs, texts: [], sections: [] }; })();
+      const imgs = [], smalls = [], p = (async () => { for (const x of pics) { try { const [b, sm] = await picSlide(x); imgs.push(b); smalls.push(sm); } catch { toast(`Couldn't open the picture ${x.name}`, 4000); } } return { imgs, smalls, texts: [], sections: [] }; })();
       deckCache.set(prFile(item).id, p); prInsertDeck(item, at++); added++;
       p.then(() => { item.count = imgs.length; if (pr && pr.songs[pr.si] === item) prShowSong(pr.si, 0); else prRender(); });
     }
@@ -4231,6 +4251,26 @@ function perfSlideView(st) {
     if (!src) return msg('');
     const img = box.querySelector('img'); img.src = src; img.style.display = ''; box.querySelector('.spmsg').style.display = 'none'; scPip(st, s);
   }).catch(() => { if (pipKey === key) msg('Couldn\'t open the slides'); });
+}
+// A presentation with no songs (Present Slides): people watching see what's on the main screen, full screen
+let mirrorKey = '';
+function perfMirror(st) {
+  const box = $('#mirror'), on = !!(st && perf && perf.role === 'guest' && st.presenter && st.fresh);
+  box.classList.toggle('show', on);
+  if (!on) { mirrorKey = ''; return; }
+  box.style.top = Math.max(0, Math.round($('#perfBar').getBoundingClientRect().bottom)) + 'px';
+  const img = box.querySelector('img'), m = box.querySelector('.mmsg');
+  const show = src => { img.src = src; img.style.display = ''; m.style.display = 'none'; }, msg = t => { img.removeAttribute('src'); img.style.display = 'none'; m.textContent = t; m.style.display = t ? '' : 'none'; };
+  const key = [st.song, st.slideIdx, st.blank, st.pic ? st.pic.length + st.pic.slice(-24) : ''].join('|'); if (key === mirrorKey) return; mirrorKey = key;
+  if (st.blank) return msg('');
+  if (st.pic) return show(st.pic);
+  if (st.media === 'video') return msg(`A video is playing on the main screen: ${st.deckTitle || ''}`);
+  if (st.media === 'audio') return msg(`Music is playing: ${st.deckTitle || ''}`);
+  if (st.liveDeck || !st.deckId) return msg(`${st.deckTitle || 'Slides'} are on the main screen`);
+  const s = Object.assign(deckItem(st.deckId, st.deckTitle), { split: st.deckSplit || 0 });
+  if (!deckCache.has(deckKey(s))) msg('Getting the slides…');
+  prDeck(s).then(d => { if (mirrorKey !== key) return; const src = d && d.imgs[st.slideIdx ?? st.slideNo ?? 0]; if (src) show(src); else msg(''); })
+    .catch(() => { if (mirrorKey === key) msg('Couldn\'t open the slides'); });
 }
 function placeSlidePip() { const b = $('#perfBar').getBoundingClientRect(); $('#slidePip').style.top = Math.max(0, Math.round(b.bottom)) + 'px'; }
 window.addEventListener('resize', () => { if ($('#slidePip').classList.contains('show')) placeSlidePip(); });
