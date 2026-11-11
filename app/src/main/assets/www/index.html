@@ -329,11 +329,13 @@
   .prtitle span { color: #a8989f; font-size: 14px; }
   .prup { display: none; align-items: center; gap: 7px; color: #cbbcc2; font-size: 13px; } .prup.on { display: inline-flex; }
   .prup i { width: 14px; height: 14px; border: 2px solid #5a4a52; border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
-  .prstage video { max-width: 100%; max-height: 100%; display: none; background: #000; } .prstage video.on { display: block; }
+  .prstage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: none; background: #000; } .prstage video.on { display: block; }
+  #prAuto .prseek { width: 200px; max-width: 100%; accent-color: var(--accent-text); } #prAuto .prtime { color: #a8989f; font-size: 13px; font-variant-numeric: tabular-nums; min-width: 92px; }
+  #prAuto .pbtn.prplay { margin-left: 0; min-width: 74px; }
   .prnav .pbtn.prplay { min-width: 0; padding: 6px 12px; font-size: 13px; margin-left: 8px; } .prnav .pbtn.prplay.on { background: var(--accent); color: #fff; }
   .prthumbs img[draggable=true] { cursor: grab; }
-  .prmid { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  #prAuto { display: inline-flex; gap: 6px; } #prAuto select { background: #2a2026; color: #eee; border: 1px solid #4a3a42; border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; }
+  .prmid { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; justify-content: center; }
+  #prAuto { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: center; align-items: center; max-width: 100%; min-width: 0; } #prAuto select { background: #2a2026; color: #eee; border: 1px solid #4a3a42; border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; }
   #prAuto select.on { border-color: var(--accent-text); }
   .mirror { display: none; position: fixed; left: 0; right: 0; bottom: 0; top: 0; z-index: 62; background: #000; place-items: center; overflow: hidden; }
   .mirror.show { display: grid; } .mirror img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
@@ -3806,7 +3808,7 @@ function prSend() {
   if (!prChannel || !pr) return;
   const s = pr.songs[pr.si], img = pr.deck && pr.deck.imgs[pr.slide];
   if (!pr.blank && prIsLive(s)) return prChannel.postMessage({ t: 'live', url: liveUrl(s.liveId), focus: !!pr.liveFocus });
-  if (s.media === 'video' && !pr.blank) return prChannel.postMessage({ t: 'video', url: s.url, play: !!s.mPlaying, at: s.mSeek });
+  if (s.media === 'video' && !pr.blank) return prChannel.postMessage({ t: 'video', url: s.url, play: !!s.mPlaying, loop: !!s.mLoop, sn: s.mSeekN || 0, st: s.mSeekT || 0 });
   if (s.media === 'audio' || s.upP) return prChannel.postMessage({ t: 'blank' });
   // PowerPoint's own show covers the projector; until it's up, the projector stays black (pictures only if it failed)
   if (prIsPpt(s) && !pr.pptError) return prChannel.postMessage({ t: 'blank' });
@@ -3836,7 +3838,7 @@ function prRender() {
   let nextImg = deck && deck.imgs[pr.slide + 1], nextMsg = '';
   if (!nextImg) {
     const ns = pr.songs[pr.si + 1];
-    if (ns) { const f = prFile(ns), d2 = f && deckCache.get(deckKey(ns)); nextMsg = `Next song: ${ns.title}`; if (d2 && d2.then) d2.then(v => { if (pr && pr.songs[pr.si + 1] === ns && !(pr.deck && pr.deck.imgs[pr.slide + 1])) { $('#prNextImg').src = (v && v.imgs[0]) || ''; $('#prNextImg').style.display = v && v.imgs[0] ? '' : 'none'; } }).catch(() => {}); }
+    if (ns) { const f = prFile(ns), d2 = f && deckCache.get(deckKey(ns)); nextMsg = `Next song: ${ns.title}`; if (d2 && d2.then) d2.then(v => { if (pr && pr.songs[pr.si + 1] === ns && !(pr.deck && pr.deck.imgs[pr.slide + 1])) { $('#prNextImg').src = (v && v.imgs[0]) || ''; $('#prNextImg').style.display = v && v.imgs[0] ? '' : 'none'; if (v && v.imgs[0]) $('#prNextMsg').style.display = 'none'; } }).catch(() => {}); }
     else nextMsg = pr.endBlank ? 'End of the song list' : 'Black screen (end of the list)';
   }
   $('#prNextImg').src = nextImg || ''; $('#prNextImg').style.display = nextImg ? '' : 'none';
@@ -4091,7 +4093,7 @@ function mediaPlay(s, on) {
 }
 function mediaStop(s) {
   if (!s || !s.media) return;
-  s.mPlaying = false; s.mPlayed = false; s.mEnded = false; s.mT = 0; s.mSeek = 0; s.mBlocked = false;
+  s.mPlaying = false; s.mPlayed = false; s.mEnded = false; s.mT = 0; s.mSeekT = 0; s.mSeekN = (s.mSeekN || 0) + 1; s.mBlocked = false;
   if (s.media === 'audio' && prAud.src === s.url) { prAud.pause(); try { prAud.currentTime = 0; } catch {} }
   const v = $('#prVid'); if (v.dataset.url === s.url) { v.pause(); try { v.currentTime = 0; } catch {} }
 }
@@ -4099,7 +4101,7 @@ function mediaStop(s) {
 function mediaStat(m) {
   const s = pr && pr.songs[pr.si]; if (!s || s.media !== 'video' || m.url !== s.url) return;
   s.mT = m.time; s.mDur = m.dur; s.mBlocked = !!m.blocked;
-  if (m.ended && s.mPlaying) { s.mPlaying = false; s.mEnded = true; }
+  if (m.ended && s.mPlaying && !s.mLoop) { s.mPlaying = false; s.mEnded = true; }
   const v = $('#prVid'); if (v.dataset.url === s.url && Math.abs(v.currentTime - m.time) > 0.6) try { v.currentTime = m.time; } catch {}
   mediaPos(s);
 }
@@ -4108,8 +4110,20 @@ function mediaPos(s) {
   if (s.upP) { box.textContent = 'Uploading… you can keep presenting'; return; }
   if (s.media !== 'video' && s.media !== 'audio') return;
   const t = s.media === 'audio' ? prAud.currentTime : s.mT, dur = s.media === 'audio' ? prAud.duration : s.mDur;
-  const what = s.mBlocked ? 'The projector blocked the sound: click the projector screen once' : s.mEnded ? 'Ended · Next goes on' : s.mPlaying ? `Playing ${fmtT(t)} / ${fmtT(dur)} · Next goes on` : s.mPlayed ? `Paused ${fmtT(t)} / ${fmtT(dur)}` : `${s.media === 'video' ? 'Video' : 'Music'} ready · Next plays it`;
-  box.innerHTML = `${esc(what)}<button class="pbtn ghost prplay" data-play="1">${s.mPlaying ? 'Pause' : s.mEnded ? 'Play Again' : 'Play'}</button>${s.mPlayed ? '<button class="pbtn ghost prplay" data-play="0">Restart</button>' : ''}`;
+  box.textContent = s.mBlocked ? 'The projector blocked the sound: click the projector screen once' : s.mEnded ? 'Ended · Next goes on' : s.mPlaying ? (s.mLoop ? 'Playing on a loop · Next goes on' : 'Playing · Next goes on') : s.mPlayed ? 'Paused' : `${s.media === 'video' ? 'Video' : 'Music'} ready · Next plays it`;
+  const a = $('#prAuto'); if (!a.querySelector('[data-seek]')) return;
+  a.querySelector('[data-play]').textContent = s.mPlaying ? 'Pause' : s.mEnded ? 'Play Again' : 'Play';
+  const bar = a.querySelector('[data-seek]');
+  if (isFinite(dur) && dur > 0) bar.max = dur;
+  if (!bar.dataset.drag) bar.value = t || 0;
+  a.querySelector('.prtime').textContent = `${fmtT(bar.dataset.drag ? +bar.value : t)} / ${fmtT(dur)}`;
+}
+// move a video / music to a point (the time bar)
+function mediaSeek(s, t) {
+  s.mT = t; s.mEnded = false;
+  if (s.media === 'audio') { if (prAud.src !== s.url) prAud.src = s.url; try { prAud.currentTime = t; } catch {} }
+  else { s.mSeekN = (s.mSeekN || 0) + 1; s.mSeekT = t; try { $('#prVid').currentTime = t; } catch {} }
+  prRender();
 }
 function mediaRender(s) {
   const v = $('#prVid'), vid = s && s.media === 'video';
@@ -4123,12 +4137,15 @@ function mediaRender(s) {
   }
   if (s && s.media === 'audio') { $('#prCur').style.display = 'none'; $('#prMsg').style.display = ''; $('#prMsg').innerHTML = `<b style="font-size:20px;color:#fff">♪ ${esc(s.title)}</b><br>Music plays from this computer. The projector is black.`; }
   if (s && s.upP) { $('#prCur').style.display = 'none'; $('#prMsg').style.display = ''; $('#prMsg').textContent = `Uploading “${s.title}”…`; }
-  if (s && (s.media === 'video' || s.media === 'audio' || s.upP)) { $('#prThumbs').innerHTML = ''; mediaPos(s); }
-  const pics = s && s.media === 'pics' && pr.deck && pr.deck.imgs.length, ak = pics ? [pr.si, s.auto || '', s.every || 8].join('|') : '';
-  if ($('#prAuto').dataset.k !== ak) {   // Auto Advance: drawn only when it changes, so an open list stays open
+  if (s && s.media === 'audio') prAud.loop = !!s.mLoop;
+  if (s && s.media === 'video') v.loop = !!s.mLoop && !prSeen;
+  const pics = s && s.media === 'pics' && pr.deck && pr.deck.imgs.length, av = s && (s.media === 'video' || s.media === 'audio');
+  const ak = pics ? [pr.si, s.auto || '', s.every || 8].join('|') : av ? 'm|' + pr.si + '|' + (s.mLoop ? 1 : 0) : '';
+  if ($('#prAuto').dataset.k !== ak) {   // drawn only when it changes, so an open list stays open (and the time bar keeps hold)
     $('#prAuto').dataset.k = ak;
-    $('#prAuto').innerHTML = !pics ? '' : `<select data-auto="1" class="${s.auto ? 'on' : ''}" title="Go to the next picture by itself">${[['', 'Auto Advance: Off'], ['loop', 'Auto Advance - Loop'], ['adv', 'Auto Advance']].map(([v, l]) => `<option value="${v}"${(s.auto || '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>${s.auto ? `<select data-every="1" title="How long each picture shows">${AUTO_SECS.map(n => `<option value="${n}"${(s.every || 8) === n ? ' selected' : ''}>Every ${n} seconds</option>`).join('')}</select>` : ''}`;
+    $('#prAuto').innerHTML = av ? `<button class="pbtn ghost prplay" data-play="1">Play</button><input type="range" class="prseek" data-seek="1" min="0" max="1" step="0.1" value="0" aria-label="Time"><span class="prtime">0:00 / 0:00</span><select data-vloop="1" class="${s.mLoop ? 'on' : ''}" title="Start over at the end"><option value="">Loop: Off</option><option value="1"${s.mLoop ? ' selected' : ''}>Loop</option></select>` : !pics ? '' : `<select data-auto="1" class="${s.auto ? 'on' : ''}" title="Go to the next picture by itself">${[['', 'Auto Advance: Off'], ['loop', 'Auto Advance - Loop'], ['adv', 'Auto Advance']].map(([v, l]) => `<option value="${v}"${(s.auto || '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>${s.auto ? `<select data-every="1" title="How long each picture shows">${AUTO_SECS.map(n => `<option value="${n}"${(s.every || 8) === n ? ' selected' : ''}>Every ${n} seconds</option>`).join('')}</select>` : ''}`;
   }
+  if (s && (av || s.upP)) { $('#prThumbs').innerHTML = ''; mediaPos(s); }
   if (pics) {   // drag-to-sort
     document.querySelectorAll('#prThumbs img').forEach(im => im.draggable = true);
     const k = pr.si + ':' + pr.slide; if (k !== pr.loopK) { pr.loopK = k; pr.loopAt = Date.now(); }
@@ -4158,23 +4175,24 @@ setInterval(() => {
   box.addEventListener('dragend', () => { from = -1; });
 })();
 $('#prVid').addEventListener('timeupdate', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'video' && !prSeen) { s.mT = $('#prVid').currentTime; s.mDur = $('#prVid').duration; mediaPos(s); } });
-$('#prVid').addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'video' && !prSeen && s.mPlaying) { s.mPlaying = false; s.mEnded = true; prRender(); } });
+$('#prVid').addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'video' && !prSeen && s.mPlaying && !s.mLoop) { s.mPlaying = false; s.mEnded = true; prRender(); } });
 prAud.addEventListener('timeupdate', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'audio') mediaPos(s); });
-prAud.addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'audio' && s.mPlaying) { s.mPlaying = false; s.mEnded = true; prRender(); } });
+prAud.addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'audio' && s.mPlaying && !s.mLoop) { s.mPlaying = false; s.mEnded = true; prRender(); } });
 $('#prAuto').addEventListener('change', e => {
   const ls = pr && pr.songs[pr.si]; if (!ls) return;
   if (e.target.dataset.auto) { ls.auto = e.target.value; if (ls.auto) pr.blank = false; }
   if (e.target.dataset.every) ls.every = +e.target.value;
+  if (e.target.dataset.vloop !== undefined) { ls.mLoop = !!e.target.value; if (ls.mLoop) ls.mEnded = false; e.target.blur(); return prRender(); }
+  if (e.target.dataset.seek) { delete e.target.dataset.drag; return mediaSeek(ls, +e.target.value); }
   pr.loopAt = Date.now(); e.target.blur(); prRender();
 });
-$('#prPos').addEventListener('click', e => {
+$('#prAuto').addEventListener('input', e => {   // dragging the time bar: show the time, move when let go
+  const s = pr && pr.songs[pr.si]; if (!s || !e.target.dataset.seek) return;
+  e.target.dataset.drag = '1'; mediaPos(s);
+});
+$('#prAuto').addEventListener('click', e => {
   const b = e.target.closest('[data-play]'), s = pr && pr.songs[pr.si]; if (!b || !s) return;
-  if (b.dataset.play === '0' || s.mEnded) {   // from the top
-    s.mSeek = Date.now(); s.mT = 0; s.mEnded = false;
-    if (s.media === 'audio') try { prAud.currentTime = 0; } catch {}
-    try { $('#prVid').currentTime = 0; } catch {}
-    return mediaPlay(s, true);
-  }
+  if (s.mEnded) { mediaSeek(s, 0); return mediaPlay(s, true); }   // from the top
   mediaPlay(s, !s.mPlaying);
 });
 // background uploads: the presentation keeps going; a spinner at the top shows what's still on its way

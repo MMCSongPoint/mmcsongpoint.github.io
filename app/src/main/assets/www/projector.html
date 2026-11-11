@@ -36,13 +36,14 @@ function showLive(m) {
 live.addEventListener('load', () => { if (live.classList.contains('on')) try { live.focus(); live.contentWindow.focus(); } catch (e) {} });
 // a video added in the presenter: it plays here, with sound. The presenter says play / pause; this reports back.
 const vid = document.getElementById('vid');
-let vWant = false, vBlocked = false, vSeek = 0, vTimer = 0;
+let vWant = false, vBlocked = false, vSn = -1, vTimer = 0;
 function vStat() { ch.postMessage({ t: 'vstat', url: vid.dataset.url || '', time: vid.currentTime || 0, dur: vid.duration || 0, ended: vid.ended, blocked: vBlocked }); }
 function vPlay() { vid.play().then(() => { vBlocked = false; vStat(); }).catch(() => { vBlocked = true; vStat(); }); }
 function showVideo(m) {
   img.classList.remove('on'); title.classList.remove('on');
-  if (vid.dataset.url !== m.url) { vid.dataset.url = m.url; vid.src = m.url; vSeek = m.at || 0; }
-  if ((m.at || 0) !== vSeek) { vSeek = m.at || 0; try { vid.currentTime = 0; } catch (e) {} }
+  if (vid.dataset.url !== m.url) { vid.dataset.url = m.url; vid.src = m.url; vSn = -1; }
+  vid.loop = !!m.loop;
+  if ((m.sn || 0) !== vSn) { vSn = m.sn || 0; try { vid.currentTime = m.st || 0; } catch (e) {} }   // the presenter moved the time bar
   vid.classList.add('on'); vWant = !!m.play;
   if (vWant && vid.paused && !vid.ended) vPlay(); else if (!vWant && !vid.paused) vid.pause();
   clearInterval(vTimer); vTimer = setInterval(vStat, 500);
