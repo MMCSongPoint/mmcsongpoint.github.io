@@ -6899,10 +6899,12 @@ const TUTOR = [
     { t: 'QR Code', x: 'While hosting, tap QR Code. People scan it with their phone camera and follow along, no sign-in needed.' },
     { go: tDrawer, wait: 300, el: '#dPerform', t: 'Join', x: 'To follow someone, choose this and type the 4-digit code on their screen.' },
     { t: 'While Following', x: 'Tap the screen to look around; Follow Leader takes you back. Hold the Leading or Following button to end or leave.' } ] },
-  { id: 'present', icon: '▣', t: 'Presenting Slides', d: 'Projector slides from a computer, phone remote', steps: [
+  { id: 'present', icon: '▣', t: 'Presenting Slides', d: 'Projector slides, the PowerPoint helper, phone remote', steps: [
     { go: tClear, t: 'On a Computer', x: 'Presenting runs in the web app on a computer connected to a projector.' },
     { t: 'Start', x: 'Open a song list and tap Present. Musicians can follow along with the code shown.' },
     { t: 'Two Windows', x: 'The projector shows only the slides. Your screen shows the controls, the next slide and the code.' },
+    { go: () => { tClear(); openSheet(); }, wait: 350, el: '#pptHelperBtn', t: 'PowerPoint Helper', x: 'On the Windows computer that runs the projector, download this and run it once. It needs PowerPoint installed.' },
+    { t: 'After Installing', x: 'It starts with Windows. A speaker\'s PowerPoint then plays in real PowerPoint, animations included. If Chrome asks to reach apps on this device, choose Allow.' },
     { go: tDrawer, wait: 300, el: '#dRemote', t: 'Remote Control', x: 'Run the slides from your phone while the computer presents.' } ] },
   { id: 'settings', icon: '⚙', t: 'Settings and Offline', d: 'Appearance, foot pedals, favorites, offline songs', steps: [
     { go: tDrawer, wait: 300, el: '#dFavs', t: 'Favorites', x: 'Songs you starred. Star a song from its ⋮ menu.' },
