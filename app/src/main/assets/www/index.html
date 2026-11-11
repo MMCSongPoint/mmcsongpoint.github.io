@@ -5317,7 +5317,7 @@ function playPitch(p, el) {
   pipeStop = stop;
   setTimeout(() => { if (pipeStop === stop) { mark(false); pipeStop = null; pipeEl = null; } }, (PIPE_HOLD + 0.3) * 1000);
 }
-// tap = play Do (with a little bounce); press and hold, then drag up / down = change key (a picker shows nearby keys)
+// tap = play Do (with a little bounce); press and hold, then drag up / down = change key quietly (a picker shows nearby keys)
 let wheelSong = null, wheelIdx = 0, wheelHi = 12, wheelLo = 0, holdTimer = null, held = false, kp = null;
 const KP_HOLD = 350, KP_STEP = 18;   // ms before the picker shows; pixels of drag per half-step
 function keySongFor(b) {
@@ -5371,7 +5371,7 @@ function kpEnd(cancel) {
   const loaded = now && now.song === s;
   render(); if (loaded) applyShift(); renderViewerKey(); drawChords(); perfKeyChanged(s);
   if (editing && $('#notePanel').classList.contains('show')) renderNoteSongs();
-  const el = find && find(); playPitch(idx, el); keyBounce(el);
+  // the new key is set quietly: tap the button to hear it
 }
 document.addEventListener('pointerup', () => kpEnd(false), true);
 document.addEventListener('pointercancel', () => kpEnd(true), true);
