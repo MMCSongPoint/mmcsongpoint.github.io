@@ -14,11 +14,14 @@
   #title.on { display: grid; }
   #live { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #000; }
   #live.on { display: block; }
+  #vid { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; display: none; }
+  #vid.on { display: block; }
 </style>
 </head>
 <body class="ui">
 <img id="slide" alt="">
 <div id="title"></div>
+<video id="vid" playsinline preload="auto"></video>
 <iframe id="live" allow="autoplay; fullscreen" allowfullscreen title="Speaker slides"></iframe>
 <script>
 // Shows whatever the Presenter window (same app, same computer) sends over a BroadcastChannel.
@@ -31,10 +34,28 @@ function showLive(m) {
   if (m.focus) { window.focus(); setTimeout(() => { try { live.focus(); live.contentWindow.focus(); } catch (e) {} }, 300); }
 }
 live.addEventListener('load', () => { if (live.classList.contains('on')) try { live.focus(); live.contentWindow.focus(); } catch (e) {} });
+// a video added in the presenter: it plays here, with sound. The presenter says play / pause; this reports back.
+const vid = document.getElementById('vid');
+let vWant = false, vBlocked = false, vSeek = 0, vTimer = 0;
+function vStat() { ch.postMessage({ t: 'vstat', url: vid.dataset.url || '', time: vid.currentTime || 0, dur: vid.duration || 0, ended: vid.ended, blocked: vBlocked }); }
+function vPlay() { vid.play().then(() => { vBlocked = false; vStat(); }).catch(() => { vBlocked = true; vStat(); }); }
+function showVideo(m) {
+  img.classList.remove('on'); title.classList.remove('on');
+  if (vid.dataset.url !== m.url) { vid.dataset.url = m.url; vid.src = m.url; vSeek = m.at || 0; }
+  if ((m.at || 0) !== vSeek) { vSeek = m.at || 0; try { vid.currentTime = 0; } catch (e) {} }
+  vid.classList.add('on'); vWant = !!m.play;
+  if (vWant && vid.paused && !vid.ended) vPlay(); else if (!vWant && !vid.paused) vid.pause();
+  clearInterval(vTimer); vTimer = setInterval(vStat, 500);
+}
+function hideVideo() { if (!vid.classList.contains('on')) return; vid.pause(); vid.classList.remove('on'); vWant = false; clearInterval(vTimer); }
+vid.addEventListener('ended', vStat);
+document.addEventListener('pointerdown', () => { if (vBlocked && vWant) vPlay(); });   // sound needs a click here once
 ch.onmessage = e => {
   const m = e.data || {};
   if (m.t !== 'live' && m.t !== 'close') live.classList.remove('on');
-  if (m.t === 'live') showLive(m);
+  if (m.t !== 'video') hideVideo();
+  if (m.t === 'video') showVideo(m);
+  else if (m.t === 'live') showLive(m);
   else if (m.t === 'slide') { title.classList.remove('on'); if (img.src !== m.img) img.src = m.img; img.classList.add('on'); }
   else if (m.t === 'title') { img.classList.remove('on'); title.textContent = m.text || ''; title.classList.add('on'); }
   else if (m.t === 'blank') { img.classList.remove('on'); title.classList.remove('on'); }
@@ -62,7 +83,7 @@ window.addEventListener('message', e => { const m = e.data || {}; if (e.origin =
 goFull();
 document.addEventListener('dblclick', () => goFull());
 document.addEventListener('fullscreenchange', () => { const fs = !!document.fullscreenElement; document.body.classList.toggle('ui', !fs); ch.postMessage({ t: 'fs', on: fs }); });
-document.addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F') goFull(); else ch.postMessage({ t: 'key', key: e.key }); });   // a clicker pressed here still works
+document.addEventListener('keydown', e => { if (vBlocked && vWant) return vPlay(); if (e.key === 'f' || e.key === 'F') goFull(); else ch.postMessage({ t: 'key', key: e.key }); });   // a clicker pressed here still works
 </script>
 </body>
 </html>
