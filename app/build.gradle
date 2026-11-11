@@ -15,7 +15,7 @@ android {
         minSdk 26
         targetSdk 34
         versionCode buildNumber
-        versionName "1.0.${buildNumber}"
+        versionName (System.getenv("APP_VERSION") ?: "1.0.${buildNumber}")   // 1.<server version>.<build>, from .github/scripts/version.py
     }
 
     signingConfigs {

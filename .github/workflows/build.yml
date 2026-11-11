@@ -13,6 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the whole history: the version number and build log come from it
+
+      - name: Version and build log
+        # 1.<server version>.<commits since the server version changed>; the app shows the log in Settings › About
+        run: |
+          v=$(python3 .github/scripts/version.py app/src/main/assets/www/buildlog.js)
+          echo "APP_VERSION=$v" >> "$GITHUB_ENV"; echo "Version $v"
 
       - uses: actions/setup-java@v4
         with:
@@ -40,31 +48,31 @@ jobs:
         run: gradle :app:assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
-        # MMCSongPoint-1.0.N.apk is what people download; the fixed names keep the permanent link and older app versions working
+        # MMCSongPoint-<version>.apk is what people download; the fixed names keep the permanent link and older app versions working
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "MMCSongPoint-1.0.${{ github.run_number }}.apk"
-          cp "MMCSongPoint-1.0.${{ github.run_number }}.apk" MMCSongPoint.apk
+          cp app/build/outputs/apk/release/app-release.apk "MMCSongPoint-${{ env.APP_VERSION }}.apk"
+          cp "MMCSongPoint-${{ env.APP_VERSION }}.apk" MMCSongPoint.apk
           cp MMCSongPoint.apk MMC-SongPoint.apk
           cp MMCSongPoint.apk HymnalTracks.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MMCSongPoint-1.0.${{ github.run_number }}
-          path: MMCSongPoint-1.0.${{ github.run_number }}.apk
+          name: MMCSongPoint-${{ env.APP_VERSION }}
+          path: MMCSongPoint-${{ env.APP_VERSION }}.apk
 
       - name: Publish release
         if: env.KEYSTORE_FILE != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: MMC SongPoint 1.0.${{ github.run_number }}
+          name: MMC SongPoint ${{ env.APP_VERSION }}
           make_latest: true
           files: |
-            MMCSongPoint-1.0.${{ github.run_number }}.apk
+            MMCSongPoint-${{ env.APP_VERSION }}.apk
             MMCSongPoint.apk
             MMC-SongPoint.apk
             HymnalTracks.apk
           body: |
-            Install on Android: download **MMCSongPoint-1.0.${{ github.run_number }}.apk** below on your phone and open it.
+            Install on Android: download **MMCSongPoint-${{ env.APP_VERSION }}.apk** below on your phone and open it.
             Permanent link to the newest version:
             https://github.com/${{ github.repository }}/releases/latest/download/MMCSongPoint.apk

@@ -18,6 +18,7 @@
 <script src="keys.js"></script>
 <script src="verses.js"></script>
 <script src="known.js"></script>
+<script src="buildlog.js"></script>
 <script src="web.js"></script>
 <style>
   /* Brand color #72173b. --accent fills buttons; --accent-text is for colored text/borders. */
@@ -282,6 +283,9 @@
   .kpgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 14px; }
   .kpgrid button { padding: 12px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 17px; font-weight: 700; cursor: pointer; }
   .kpgrid button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .blog .bl { display: grid; grid-template-columns: 74px 1fr; gap: 2px 10px; padding: 9px 2px; border-top: 1px solid var(--line); font-size: 14px; }
+  .blog .bl:first-child { border-top: none; } .blog .bl.cur { color: var(--accent-text); }
+  .blog .blv { font-weight: 700; font-variant-numeric: tabular-nums; } .blog .bld { grid-column: 2; color: var(--muted); font-size: 12px; order: 3; }
   .ltabs { display: flex; gap: 8px; margin: 0 0 12px; }
   .ltabs .pp { font-size: 14px; padding: 7px 14px; cursor: pointer; } .ltabs .pp.now { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .sharelist { max-height: 46vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0 12px; }
@@ -1128,6 +1132,15 @@
 </div>
 <div class="scedit" id="scEdit"><div class="scbar"><b id="scTitle"></b><small id="scStatus"></small><button class="pbtn ghost" id="scAdd">+ Chord</button><button class="pbtn ghost" id="scDel" style="display:none">Remove</button><button class="pbtn ghost" id="scRedo">Place Again</button><button class="pbtn" id="scOk">✓ Looks Right</button><button class="pbtn ghost" id="scClose">✕ Close</button></div><div id="scBody"></div></div>
 
+<!-- Build log: what changed in each version (buildlog.js, written when the app is built) -->
+<div class="panel" id="buildLogPanel">
+  <div class="phead">
+    <button class="icon" data-close="buildLogPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Build Log</h2>
+  </div>
+  <div class="pbody"><p class="m" id="buildLogInfo" style="color:var(--muted);font-size:13px;margin-top:0"></p><div class="blog" id="buildLogList"></div></div>
+</div>
+
 <!-- Closing songs: a plain list (known.js) -->
 <div class="panel" id="closingPanel">
   <div class="phead">
@@ -1244,6 +1257,7 @@
   <button class="act" id="copyLinkBtn">Copy Web App Link</button>
   <h4>About</h4>
   <p id="versionLine" style="margin:0"></p>
+  <button class="act" id="buildLogBtn">Build Log</button>
   <button class="act" id="checkUpdBtn" style="display:none">Check for Updates</button>
   <button class="act" id="bugBtn">Report a Problem</button>
   <p style="margin-top:12px" id="aboutLine"></p>
@@ -5114,7 +5128,7 @@ async function checkUpdate(manual = false) {
     store.set('updateChecked', Date.now());
     if (latest > v.code) {
       const asset = (rel.assets || []).find(a => /^MMCSongPoint-[\d.]+\.apk$/i.test(a.name)) || (rel.assets || []).find(a => /^MMCSongPoint\.apk$/i.test(a.name)) || (rel.assets || []).find(a => /\.apk$/i.test(a.name));
-      updateInfo = { version: (rel.name || '').replace(/^.*?(\d+\.\d+\.\d+).*$/, '$1') || '1.0.' + latest, url: asset ? asset.browser_download_url : rel.html_url };
+      updateInfo = { version: ((rel.name || '').match(/\d+(?:\.\d+)+/) || [])[0] || 'build ' + latest, url: asset ? asset.browser_download_url : rel.html_url };
       showUpdateBadge(`Version ${updateInfo.version} is available. Tap to download.`);
       if (manual) {   // automatic checks only show the red dot; asking happens when it's tapped
         closeSheet();
@@ -6730,6 +6744,14 @@ function bugReset() {
   $('#bugRec').classList.remove('recording'); $('#bugRec').style.display = ''; $('#bugRecLabel').textContent = 'Record';
   $('#bugRecTime').textContent = ''; $('#bugRecDel').style.display = 'none';
 }
+$('#buildLogBtn').onclick = () => {
+  closeSheet();
+  const log = window.BUILD_LOG || [], mine = (appVersion() || {}).name || (/^\d/.test(WEB_VERSION) ? WEB_VERSION.split('|')[0] : '');
+  $('#buildLogInfo').textContent = 'Version = 1 · server version · build. The last number starts again at 1 with each new server version.';
+  $('#buildLogList').innerHTML = log.length ? log.map(x => `<div class="bl${x.v === mine ? ' cur' : ''}"><span class="blv">${esc(x.v)}</span><span>${esc(x.t)}</span><span class="bld">${esc(new Date(x.d + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))}${x.v === mine ? ' · this version' : ''}</span></div>`).join('')
+    : '<div class="vmsg">The build log appears in the published app.</div>';
+  openPanel('buildLogPanel');
+};
 $('#bugBtn').onclick = () => { closeSheet(); openPanel('bugPanel'); };
 $('#bugRecDel').onclick = bugReset;
 $('#bugRec').onclick = async () => {
