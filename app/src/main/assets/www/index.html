@@ -284,7 +284,7 @@
   .kpgrid button { padding: 12px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 17px; font-weight: 700; cursor: pointer; }
   .kpgrid button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .blog .bl { display: grid; grid-template-columns: 74px 1fr; gap: 2px 10px; padding: 9px 2px; border-top: 1px solid var(--line); font-size: 14px; }
-  .blog .bl:first-child { border-top: none; } .blog .bl.cur { color: var(--accent-text); }
+  .blog .bl:first-child { border-top: none; } .blog .bl.small { font-size: 13px; color: var(--muted); } .blog .bl.cur { color: var(--accent-text); }
   .blog .blv { font-weight: 700; font-variant-numeric: tabular-nums; } .blog .bld { grid-column: 2; color: var(--muted); font-size: 12px; order: 3; }
   .ltabs { display: flex; gap: 8px; margin: 0 0 12px; }
   .ltabs .pp { font-size: 14px; padding: 7px 14px; cursor: pointer; } .ltabs .pp.now { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -1138,7 +1138,7 @@
     <button class="icon" data-close="buildLogPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
     <h2>Build Log</h2>
   </div>
-  <div class="pbody"><p class="m" id="buildLogInfo" style="color:var(--muted);font-size:13px;margin-top:0"></p><div class="blog" id="buildLogList"></div></div>
+  <div class="pbody"><p class="m" id="buildLogInfo" style="color:var(--muted);font-size:13px;margin-top:0"></p><div class="blog" id="buildLogList"></div><button class="pbtn ghost" id="buildLogMore" style="margin-top:12px">Show Small Changes</button></div>
 </div>
 
 <!-- Closing songs: a plain list (known.js) -->
@@ -6744,14 +6744,19 @@ function bugReset() {
   $('#bugRec').classList.remove('recording'); $('#bugRec').style.display = ''; $('#bugRecLabel').textContent = 'Record';
   $('#bugRecTime').textContent = ''; $('#bugRecDel').style.display = 'none';
 }
-$('#buildLogBtn').onclick = () => {
-  closeSheet();
-  const log = window.BUILD_LOG || [], mine = (appVersion() || {}).name || (/^\d/.test(WEB_VERSION) ? WEB_VERSION.split('|')[0] : '');
-  $('#buildLogInfo').textContent = 'Version = 1 · server version · build. The last number starts again at 1 with each new server version.';
-  $('#buildLogList').innerHTML = log.length ? log.map(x => `<div class="bl${x.v === mine ? ' cur' : ''}"><span class="blv">${esc(x.v)}</span><span>${esc(x.t)}</span><span class="bld">${esc(new Date(x.d + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))}${x.v === mine ? ' · this version' : ''}</span></div>`).join('')
+// Build log: new features and big changes; small fixes and tweaks only when asked for
+let buildLogAll = false;
+function renderBuildLog() {
+  const all = window.BUILD_LOG || [], mine = (appVersion() || {}).name || (/^\d/.test(WEB_VERSION) ? WEB_VERSION.split('|')[0] : '');
+  const log = buildLogAll ? all : all.filter(x => x.m);
+  $('#buildLogInfo').textContent = `${mine ? `You have version ${mine}. ` : ''}${buildLogAll ? 'All changes, small ones included.' : 'New features and big changes.'} Versions are 1 · server version · build.`;
+  $('#buildLogMore').textContent = buildLogAll ? 'Hide Small Changes' : `Show Small Changes (${all.length - all.filter(x => x.m).length})`;
+  $('#buildLogMore').style.display = all.length ? '' : 'none';
+  $('#buildLogList').innerHTML = log.length ? log.map(x => `<div class="bl${x.v === mine ? ' cur' : ''}${x.m ? '' : ' small'}"><span class="blv">${esc(x.v)}</span><span>${esc(x.t)}</span><span class="bld">${esc(new Date(x.d + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))}${x.v === mine ? ' · this version' : ''}</span></div>`).join('')
     : '<div class="vmsg">The build log appears in the published app.</div>';
-  openPanel('buildLogPanel');
-};
+}
+$('#buildLogMore').onclick = () => { buildLogAll = !buildLogAll; renderBuildLog(); };
+$('#buildLogBtn').onclick = () => { closeSheet(); buildLogAll = false; renderBuildLog(); openPanel('buildLogPanel'); };
 $('#bugBtn').onclick = () => { closeSheet(); openPanel('bugPanel'); };
 $('#bugRecDel').onclick = bugReset;
 $('#bugRec').onclick = async () => {
