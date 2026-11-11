@@ -289,6 +289,11 @@
   .kpgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 14px; }
   .kpgrid button { padding: 12px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 17px; font-weight: 700; cursor: pointer; }
   .kpgrid button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .inst h4 { margin: 14px 0 8px; } .inst h4:first-child { margin-top: 0; } .inst p.m { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+  .instdl { display: flex; gap: 12px; align-items: flex-start; padding: 12px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--row); color: inherit; text-decoration: none; }
+  .instdl svg { flex: none; color: var(--accent-text); margin-top: 2px; } .instdl b { display: block; } .instdl small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; line-height: 1.4; }
+  .insthow { border: 1px solid var(--line); border-radius: 12px; background: var(--row); margin-bottom: 8px; padding: 0 12px; }
+  .insthow summary { padding: 12px 0; font-weight: 700; cursor: pointer; } .insthow ol { margin: 0 0 12px; padding-left: 20px; font-size: 14px; line-height: 1.5; } .insthow li { margin-bottom: 4px; }
   .blog .bl { display: grid; grid-template-columns: 74px 1fr; gap: 2px 10px; padding: 9px 2px; border-top: 1px solid var(--line); font-size: 14px; }
   .blog .bl:first-child { border-top: none; } .blog .bl.small { font-size: 13px; color: var(--muted); } .blog .bl.cur { color: var(--accent-text); }
   .blog .blv { font-weight: 700; font-variant-numeric: tabular-nums; } .blog .bld { grid-column: 2; color: var(--muted); font-size: 12px; order: 3; }
@@ -1211,6 +1216,36 @@
 </div>
 
 <!-- Build log: what changed in each version (buildlog.js, written when the app is built) -->
+<div class="panel" id="installPanel">
+  <div class="phead">
+    <button class="icon" data-close="installPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Installers</h2>
+  </div>
+  <div class="pbody inst">
+    <h4>Downloads</h4>
+    <a class="instdl" href="https://github.com/MMCSongPoint/mmcsongpoint.github.io/releases/latest/download/MMCSongPoint.apk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg><span><b>APK (Android)</b><small>The Android app. Open the file on your phone; allow installing from your browser if asked.</small></span></a>
+    <a class="instdl" href="https://github.com/MMCSongPoint/mmcsongpoint.github.io/releases/download/desktop/SongPoint-Setup.exe"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg><span><b>Windows Installer</b><small>Best for the projector computer: the slideshow opens on the projector by itself, PowerPoint is built in, and it updates itself. If Windows warns about an unknown publisher, choose More info › Run anyway.</small></span></a>
+    <a class="instdl" id="pptHelperBtn" href="helper/SongPoint-helper-setup.exe" download><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg><span><b>PowerPoint Helper (Windows)</b><small>Only for presenting from a web browser instead of the Windows app: plays speakers' PowerPoints in real PowerPoint.</small></span></a>
+    <h4>Install as a Web App</h4>
+    <p class="m">The web app installs from your browser in a few taps, opens in its own window like an app, and keeps itself up to date.</p>
+    <button class="pbtn" id="instNow" style="display:none;width:100%;margin-bottom:10px">Install as Web App on This Device</button>
+    <details class="insthow" data-os="ios"><summary>Install as Web App (iOS)</summary><ol>
+      <li>Open <b>mmcsongpoint.github.io</b> in <b>Safari</b>.</li>
+      <li>Tap the <b>Share</b> button (the square with an arrow, at the bottom or top of the screen).</li>
+      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      <li>Tap <b>Add</b>. Open SongPoint from its new icon on your home screen.</li></ol></details>
+    <details class="insthow" data-os="android"><summary>Install as Web App (Android)</summary><ol>
+      <li>Open <b>mmcsongpoint.github.io</b> in <b>Chrome</b>.</li>
+      <li>Tap the <b>⋮</b> menu at the top right.</li>
+      <li>Tap <b>Add to Home screen</b>, then <b>Install</b> (some phones say <b>Install app</b>).</li>
+      <li>Open SongPoint from its new icon.</li></ol></details>
+    <details class="insthow" data-os="pc"><summary>Install as Web App (PC)</summary><ol>
+      <li>Open <b>mmcsongpoint.github.io</b> in <b>Chrome</b> or <b>Edge</b>.</li>
+      <li><b>Chrome:</b> click the install icon at the right end of the address bar (a screen with a down arrow), or <b>⋮</b> › <b>Cast, save and share</b> › <b>Install page as app</b>.</li>
+      <li><b>Edge:</b> click <b>⋯</b> › <b>Apps</b> › <b>Install this site as an app</b>.</li>
+      <li>Click <b>Install</b>. SongPoint gets its own window and a Start menu entry. For presenting on a projector, the Windows Installer above works better.</li></ol></details>
+  </div>
+</div>
 <div class="panel" id="buildLogPanel">
   <div class="phead">
     <button class="icon" data-close="buildLogPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
@@ -1312,8 +1347,7 @@
   <button class="act" id="checkBtn">Library Check (Missing Files)</button>
   <button class="act" id="mp3Btn">MP3 Review (Flag Problems)</button>
   <button class="act" id="scBtn">Chords on Slides (Place &amp; Check)</button>
-  <a class="act" id="pptHelperBtn" href="helper/SongPoint-helper-setup.exe" download style="display:block;text-decoration:none;color:inherit">PowerPoint helper for the projector computer (Windows setup)</a>
-  <a class="act" id="winAppBtn" href="https://github.com/MMCSongPoint/mmcsongpoint.github.io/releases/download/desktop/SongPoint-Setup.exe" style="display:none;text-decoration:none;color:inherit">Windows App (best for the projector computer)</a>
+  <button class="act" id="installBtn">Installers</button>
   <label class="act" id="projScreenRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Projector Screen <select id="projScreen" style="font:inherit;max-width:60%"></select></label>
   <label class="act" id="lidRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Keep Presenting With the Lid Closed <input type="checkbox" id="lidAwake" style="width:20px;height:20px"></label>
   <button class="act" id="changePwBtn">Change Password</button>
@@ -4681,7 +4715,6 @@ function viewerStep(d) {
 // ------------------------------------------------------------------ menu sheet
 // Windows: the app for the projector computer (a download in the browser; the projector screen choice in the app)
 async function deskSheet() {
-  $('#winAppBtn').style.display = !DESK && !(window.Native && window.Native.isAndroid) && /Windows/i.test(navigator.userAgent) ? 'block' : 'none';
   if (!DESK) return;
   $('#pptHelperBtn').style.display = 'none';   // built into the app
   let info = null; try { info = await DESK.screens(); } catch {}
@@ -7295,8 +7328,8 @@ const TUTOR = [
     { go: tDrawer, wait: 300, el: '#dPresent', t: 'Start', x: 'Open a song list and tap Present, or tap Present Slides here for pictures and slides with no songs.' },
     { go: tClear, t: 'Two Windows', x: 'The projector shows only the slides. Your screen shows the controls, the next slide and the code.' },
     { t: 'Slides and Media', x: 'In the presenter, tap ＋ Add Slides or Media to add PowerPoints, PDFs, pictures, videos or music (several at once), or a Google Slides link. Drag to move; drag pictures to sort them. Auto Advance steps through pictures by itself.' },
-    { go: () => { tClear(); openSheet(); }, wait: 350, el: '#pptHelperBtn', t: 'PowerPoint Helper', x: 'On the Windows computer that runs the projector, download this and run it once. It needs PowerPoint installed.' },
-    { t: 'After Installing', x: 'It starts with Windows. A speaker\'s PowerPoint then plays in real PowerPoint, animations included. If Chrome asks to reach apps on this device, choose Allow.' },
+    { go: () => { tClear(); openSheet(); }, wait: 350, el: '#installBtn', t: 'Installers', x: 'On the projector computer, install the Windows app from here: PowerPoint is built in. Presenting from a browser instead? The PowerPoint Helper is here too.' },
+    { t: 'PowerPoint', x: 'A speaker\'s PowerPoint then plays in real PowerPoint on the projector, animations included. Windows needs PowerPoint installed.' },
     { go: tDrawer, wait: 300, el: '#dRemote', t: 'Remote Control', x: 'Run the slides from your phone while the computer presents.' } ] },
   { id: 'settings', icon: '⚙', t: 'Settings and Offline', d: 'Appearance, foot pedals, favorites, offline songs', steps: [
     { go: tDrawer, wait: 300, el: '#dFavs', t: 'Favorites', x: 'Songs you starred. Star a song from its ⋮ menu.' },
@@ -7364,6 +7397,18 @@ function renderBuildLog() {
     : '<div class="vmsg">The build log appears in the published app.</div>';
 }
 $('#buildLogMore').onclick = () => { buildLogAll = !buildLogAll; renderBuildLog(); };
+// Installers: the Android app, the Windows app, the PowerPoint helper, and how to install the web app
+let instPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instPrompt = e; });
+window.addEventListener('appinstalled', () => { instPrompt = null; $('#instNow').style.display = 'none'; toast('Installed', 2000); });
+$('#installBtn').onclick = () => {
+  closeSheet();
+  const ua = navigator.userAgent, os = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'ios' : /Android/i.test(ua) ? 'android' : 'pc';
+  document.querySelectorAll('.insthow').forEach(d => d.open = d.dataset.os === os);
+  $('#instNow').style.display = instPrompt ? 'block' : 'none';
+  openPanel('installPanel');
+};
+$('#instNow').onclick = async () => { if (!instPrompt) return; instPrompt.prompt(); try { await instPrompt.userChoice; } catch {} instPrompt = null; $('#instNow').style.display = 'none'; };
 $('#buildLogBtn').onclick = () => { closeSheet(); buildLogAll = false; renderBuildLog(); openPanel('buildLogPanel'); };
 $('#bugBtn').onclick = () => { closeSheet(); openPanel('bugPanel'); };
 $('#bugRecDel').onclick = bugReset;
