@@ -324,7 +324,8 @@
   .prup { display: none; align-items: center; gap: 7px; color: #cbbcc2; font-size: 13px; } .prup.on { display: inline-flex; }
   .prup i { width: 14px; height: 14px; border: 2px solid #5a4a52; border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
   .prstage video { max-width: 100%; max-height: 100%; display: none; background: #000; } .prstage video.on { display: block; }
-  .prnav .pbtn.prplay { min-width: 0; padding: 6px 12px; font-size: 13px; margin-left: 8px; }
+  .prnav .pbtn.prplay { min-width: 0; padding: 6px 12px; font-size: 13px; margin-left: 8px; } .prnav .pbtn.prplay.on { background: var(--accent); color: #fff; }
+  .prthumbs img[draggable=true] { cursor: grab; }
   .prcode { color: #cbbcc2; font-size: 14px; } .prcode b { color: #fff; font-size: 18px; letter-spacing: .08em; }
   /* visitors (joined by QR code, not signed in): only the performance, nothing else in the app */
   body.visitor .wrap, body.visitor #player, body.visitor #drawer, body.visitor #drawerBg, body.visitor #pickBar, body.visitor #sheet, body.visitor #sheetBg,
@@ -632,7 +633,7 @@
   body.songspanel .player, body.overpanel .player { z-index: 76; }
   body.overpanel .panel .pbody { padding-bottom: 210px; }
   body.guest #newNoteBtn, body.guest #noteEdit, body.guest #noteShare, body.guest #noteCopy, body.guest #noteDelete,
-  body.guest #dRemote, body.guest #notePresent, body.guest #noteHost, body.guest #noteSlides, body.guest #changePwBtn, body.guest #rowMenu [data-m=chords],
+  body.guest #dRemote, body.guest #dPresent, body.guest #notePresent, body.guest #noteHost, body.guest #noteSlides, body.guest #changePwBtn, body.guest #rowMenu [data-m=chords],
   body.guest #rowMenu [data-m=live], body.guest .chart [data-c=arrange], body.guest .chart [data-c=savekey] { display: none !important; }
   body.overviewer .player { z-index: 82; }
   body.overviewer .player.show ~ .viewer .vbody, body.overviewer .vbody { padding-bottom: 0; }
@@ -1075,7 +1076,7 @@
   </div>
   <div class="prbody">
     <div class="prleft"><div class="prsongs" id="prSongs"></div><button class="pbtn ghost pradd" id="prAdd">＋ Add Slides or Media</button>
-      <input type="file" id="prFile" multiple accept=".pptx,.ppt,.pdf,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*,video/*,audio/*,.mp4,.m4v,.mov,.webm,.mkv,.mp3,.m4a,.wav,.aac,.ogg,.flac" hidden></div>
+      <input type="file" id="prFile" multiple accept=".pptx,.ppt,.pdf,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*,.heic,.heif,video/*,audio/*,.mp4,.m4v,.mov,.webm,.mkv,.mp3,.m4a,.wav,.aac,.ogg,.flac" hidden></div>
     <div class="prmain">
       <div class="prstage"><img id="prCur" alt=""><video id="prVid" playsinline preload="auto"></video><div class="prmsg" id="prMsg"></div></div>
       <div class="prnav"><button class="pbtn" id="prPrev">◀ Previous</button><span id="prPos"></span><button class="pbtn" id="prNext">Next ▶</button></div>
@@ -1091,6 +1092,7 @@
   <button class="ditem" id="dNotes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg>Song Lists</button>
   <button class="ditem" id="dSlides"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4M8 21h8M7 9h6M7 12h10"/></svg>PowerPoints</button>
   <button class="ditem" id="dPerform"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>Join a Performance</button>
+  <button class="ditem" id="dPresent"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/><circle cx="9" cy="9" r="1.5"/><path d="m21 13-5-4-7 6"/></svg>Present Slides</button>
   <button class="ditem" id="dRemote"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10.5 7.5 13.5 9.5 10.5 11.5z"/><path d="M10 16h4"/></svg>Remote Control</button>
   <button class="ditem" id="dClosing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Closing Songs</button>
   <button class="ditem" id="dTheory"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Music Theory</button>
@@ -2988,7 +2990,7 @@ function perfState() {
       si: pr.si, titles: pr.songs.map(x => (x.number ? x.number + '. ' : '') + x.title), count: pr.deck ? pr.deck.imgs.length : 0,
       nextIdx: pr.deck && pr.slide + 1 < pr.deck.imgs.length ? (pr.deck.order ? pr.deck.order[pr.slide + 1] : pr.slide + 1) : -1,
       firstIdx: pr.deck && pr.deck.order ? pr.deck.order[0] : 0,
-      deckId: s.deck && !s.media && !s.upP ? prFile(s).id : '', deckTitle: s.deck ? s.title : '', liveDeck: prIsLive(s) || s.media || s.upP ? 1 : 0, media: s.media || '',
+      deckId: s.deck && !s.media && !s.upP ? prFile(s).id : '', deckSplit: s.split > 1 ? s.split : 0, deckTitle: s.deck ? s.title : '', liveDeck: prIsLive(s) || s.media || s.upP ? 1 : 0, media: s.media || '',
       view: pr.larrs && pr.larrs[s.key] ? 'list' : 'arranged', larr: pr.larrs && pr.larrs[s.key] ? pr.larrs[s.key] : null, slideNo: pr.slide, slideIdx: pr.deck && pr.deck.order ? pr.deck.order[pr.slide] : pr.slide, blank: pr.blank ? 1 : 0, slideText: pr.blank ? '' : ((pr.deck && pr.deck.texts[pr.slide]) || ''),
       slideSection: pr.blank ? '' : ((pr.deck && pr.deck.sections && pr.deck.sections[pr.slide]) || '') });
   }
@@ -3506,20 +3508,82 @@ async function loadSlideSecs() {
 }
 // One song's slides: its pictures (above), or the server sends a PDF (and each slide's words) and each page is drawn once as a full-HD picture.
 const deckCache = new Map();   // slide decks by file id (the presenter's, and a musician's "View Slides")
-// One PDF page as a picture `w` wide. fit: a speaker's page (any shape) shrunk onto a 16:9 black screen, so a portrait
-// or 4:3 page shows whole with black bars, the same here, on the projector and everywhere else.
-async function pdfPagePic(page, w, fit) {
-  const base = page.getViewport({ scale: 1 }), h = fit ? Math.round(w * 9 / 16) : 0;
-  const sc = fit ? Math.min(w / base.width, h / base.height) : w / base.width, vp = page.getViewport({ scale: sc });
-  const c = document.createElement('canvas'); c.width = fit ? w : Math.round(vp.width); c.height = fit ? h : Math.round(vp.height);
-  const ctx = c.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, c.width, c.height);
-  const dx = Math.round((c.width - vp.width) / 2), dy = Math.round((c.height - vp.height) / 2);
-  await page.render({ canvasContext: ctx, viewport: vp, transform: fit ? [1, 0, 0, 1, dx, dy] : null }).promise;
-  const u = c.toDataURL('image/jpeg', 0.9); c.width = c.height = 0; return u;
+const deckKey = s => prFile(s).id + (s.split > 1 ? '#' + s.split : '');   // a PDF split into parts is a different set of slides
+// One PDF page as pictures `w` wide. fit: a speaker's page (any shape) shrunk onto a 16:9 black screen, so a portrait
+// or 4:3 page shows whole with black bars, the same here, on the projector and everywhere else. split (2 or 3): a tall
+// page cut into that many parts, each a slide (cut where a gap between lines is, trimmed to what's on it).
+const BLANK_ROW = 600;   // 0-255 per channel, summed: a row is "blank" when every pixel is near white
+async function pdfPageSlices(page, w, fit, split = 1) {
+  const base = page.getViewport({ scale: 1 }), h = Math.round(w * 9 / 16);
+  if (!fit) {
+    const vp = page.getViewport({ scale: w / base.width }), c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+    const u = c.toDataURL('image/jpeg', 0.9); c.width = c.height = 0; return [u];
+  }
+  // the page drawn on its own (white paper), then placed on black
+  const sc = split > 1 ? (w * 1.3) / base.width : Math.min(w / base.width, h / base.height), vp = page.getViewport({ scale: sc });
+  const pc = document.createElement('canvas'); pc.width = Math.round(vp.width); pc.height = Math.round(vp.height);
+  const px = pc.getContext('2d', { willReadFrequently: split > 1 }); px.fillStyle = '#fff'; px.fillRect(0, 0, pc.width, pc.height);
+  await page.render({ canvasContext: px, viewport: vp }).promise;
+  const parts = [];
+  if (split <= 1) parts.push([0, 0, pc.width, pc.height]);
+  else {
+    const W = pc.width, H = pc.height, data = px.getImageData(0, 0, W, H).data;
+    const ink = y => { let n = 0; for (let x = 0, o = y * W * 4; x < W; x++, o += 4) if (data[o] + data[o + 1] + data[o + 2] < BLANK_ROW) n++; return n; };
+    const rows = Array.from({ length: H }, (_, y) => ink(y));
+    const cuts = [0];
+    for (let k = 1; k < split; k++) {   // the emptiest row near each cut line (closest to it on a tie)
+      const want = Math.round(H * k / split), r = Math.round(H * 0.1);
+      let best = want;
+      for (let y = Math.max(cuts[k - 1] + 1, want - r); y <= Math.min(H - 1, want + r); y++) if (rows[y] < rows[best] || (rows[y] === rows[best] && Math.abs(y - want) < Math.abs(best - want))) best = y;
+      cuts.push(best);
+    }
+    cuts.push(H);
+    for (let k = 0; k < split; k++) {   // trim the white margins round what's in this part
+      let y0 = cuts[k], y1 = cuts[k + 1];
+      while (y0 < y1 - 1 && !rows[y0]) y0++;
+      while (y1 > y0 + 1 && !rows[y1 - 1]) y1--;
+      let x0 = W, x1 = 0;
+      for (let y = y0; y < y1; y++) for (let x = 0, o = y * W * 4; x < W; x++, o += 4) if (data[o] + data[o + 1] + data[o + 2] < BLANK_ROW) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+      if (x1 < x0) { parts.push(null); continue; }   // nothing in this part
+      const pad = Math.round(W * 0.03);
+      parts.push([Math.max(0, x0 - pad), Math.max(cuts[k], y0 - pad), Math.min(W, x1 + 1 + pad), Math.min(cuts[k + 1], y1 + pad)]);
+    }
+  }
+  const out = parts.map(b => {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+    if (b) {
+      const bw = b[2] - b[0], bh = b[3] - b[1], k = Math.min(w / bw, h / bh), dw = Math.round(bw * k), dh = Math.round(bh * k);
+      if (split > 1) { ctx.fillStyle = '#fff'; ctx.fillRect(Math.round((w - dw) / 2), Math.round((h - dh) / 2), dw, dh); }
+      ctx.imageSmoothingQuality = 'high'; ctx.drawImage(pc, b[0], b[1], bw, bh, Math.round((w - dw) / 2), Math.round((h - dh) / 2), dw, dh);
+    }
+    const u = c.toDataURL('image/jpeg', 0.9); c.width = c.height = 0; return u;
+  });
+  pc.width = pc.height = 0; return out;
 }
 // A picture file drawn whole onto a 16:9 black slide (black bars at the sides or top and bottom as needed)
+// iPhone pictures (HEIC): browsers other than Safari can't open them, so they're turned into JPEGs first
+let heicLib = null;
+function heicLoad() {
+  if (window.heic2any) return Promise.resolve(window.heic2any);
+  if (!heicLib) heicLib = new Promise((res, rej) => {
+    const tryAt = (urls) => { if (!urls.length) { heicLib = null; return rej(new Error('Couldn\'t load the iPhone picture reader')); }
+      const sc = document.createElement('script'); sc.src = urls[0]; sc.onload = () => window.heic2any ? res(window.heic2any) : tryAt(urls.slice(1)); sc.onerror = () => { sc.remove(); tryAt(urls.slice(1)); }; document.head.appendChild(sc); };
+    tryAt(['./vendor/heic2any.min.js', 'https://mmcsongpoint.github.io/vendor/heic2any.min.js']);
+  });
+  return heicLib;
+}
+const isHeic = f => /\.(heic|heif)$/i.test(f.name) || /hei[cf]/i.test(f.type);
 async function picSlide(file) {
-  const bm = await createImageBitmap(file), W = 1920, H = 1080, sc = Math.min(W / bm.width, H / bm.height);
+  let bm;
+  try { bm = await createImageBitmap(file); }
+  catch (e) {
+    if (!isHeic(file)) throw e;
+    const out = await (await heicLoad())({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+    bm = await createImageBitmap(Array.isArray(out) ? out[0] : out);
+  }
+  const W = 1920, H = 1080, sc = Math.min(W / bm.width, H / bm.height);
   const w = Math.round(bm.width * sc), h = Math.round(bm.height * sc), c = document.createElement('canvas'); c.width = W; c.height = H;
   const ctx = c.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(bm, Math.round((W - w) / 2), Math.round((H - h) / 2), w, h); bm.close && bm.close();
@@ -3529,7 +3593,8 @@ function prDeck(s) {
   if (s && s.upP) return s.upP.then(() => prDeck(s));   // still uploading (in the background): wait for it
   if (s && (s.media === 'video' || s.media === 'audio')) return Promise.resolve({ imgs: [], texts: [], sections: [] });
   const f = prFile(s); if (!f) return Promise.resolve(null);
-  if (deckCache.has(f.id)) return deckCache.get(f.id);
+  const ck = deckKey(s);
+  if (deckCache.has(ck)) return deckCache.get(ck);
   const p = (async () => {
     const x = simgFor(f);
     if (x) return slideSecsApply(f, await simgDeck(x));
@@ -3537,13 +3602,31 @@ function prDeck(s) {
     if (!r.ok) throw new Error(r.error || 'Couldn\'t open the slides');
     const lib = await prPdf(), bytes = Uint8Array.from(atob(r.pdf), c => c.charCodeAt(0));
     const doc = await lib.getDocument({ data: bytes }).promise, imgs = [];
-    for (let i = 1; i <= doc.numPages; i++) imgs.push(await pdfPagePic(await doc.getPage(i), 1920, s.deck));
+    for (let i = 1; i <= doc.numPages; i++) imgs.push(...await pdfPageSlices(await doc.getPage(i), 1920, s.deck, s.split || 1));
     const texts = r.texts || [], notes = r.notes || [];
     return slideSecsApply(f, { imgs, texts, sections: imgs.map((_, i) => slideSection(notes[i], texts[i])) });
   })();
-  deckCache.set(f.id, p);
-  p.catch(() => deckCache.delete(f.id));
+  deckCache.set(ck, p);
+  p.catch(() => deckCache.delete(ck));
   return p;
+}
+async function prLaunch() {
+  pptPing().then(() => prRender && pr && prRender());
+  $('#presenter').classList.add('show');
+  if (N && N.keepScreenOn) N.keepScreenOn(true);
+  prShowSong(0, 0);
+  if (!perf) await perfHostStart(true);
+  prRender();
+}
+// Present Slides (Menu): a presentation with no song list, made from files or a Google Slides link
+let prFresh = false;
+const prBegin = () => { pr = { songs: [], si: 0, slide: 0, blank: false, deck: null, larrs: null }; };
+async function presentFresh() {
+  if (window.Native && window.Native.isAndroid) return toast('Presenter mode runs in the web app on a computer');
+  if (!navigator.onLine) return toast('Connect to the internet to present');
+  if (pr) return $('#presenter').classList.add('show');
+  closeDrawer && closeDrawer();
+  prFresh = true; await prAddPick(true);
 }
 async function presentList(list, larrs = null) {
   if (window.Native && window.Native.isAndroid) return toast('Presenter mode runs in the web app on a computer');
@@ -3551,12 +3634,7 @@ async function presentList(list, larrs = null) {
   const songsIn = list.filter(Boolean);
   if (!songsIn.length) return;
   pr = { songs: songsIn, si: 0, slide: 0, blank: false, deck: null, larrs };
-  pptPing().then(() => prRender && pr && prRender());
-  $('#presenter').classList.add('show');
-  if (N && N.keepScreenOn) N.keepScreenOn(true);
-  prShowSong(0, 0);
-  if (!perf) await perfHostStart(true);
-  prRender();
+  await prLaunch();
   // get every song's slides ready in the background, in order
   (async () => { for (const s of songsIn) { if (!pr) return; try { await prDeck(s); } catch {} } prRender(); })();
 }
@@ -3688,7 +3766,7 @@ function prRender() {
   let nextImg = deck && deck.imgs[pr.slide + 1], nextMsg = '';
   if (!nextImg) {
     const ns = pr.songs[pr.si + 1];
-    if (ns) { const f = prFile(ns), d2 = f && deckCache.get(f.id); nextMsg = `Next song: ${ns.title}`; if (d2 && d2.then) d2.then(v => { if (pr && pr.songs[pr.si + 1] === ns && !(pr.deck && pr.deck.imgs[pr.slide + 1])) { $('#prNextImg').src = (v && v.imgs[0]) || ''; $('#prNextImg').style.display = v && v.imgs[0] ? '' : 'none'; } }).catch(() => {}); }
+    if (ns) { const f = prFile(ns), d2 = f && deckCache.get(deckKey(ns)); nextMsg = `Next song: ${ns.title}`; if (d2 && d2.then) d2.then(v => { if (pr && pr.songs[pr.si + 1] === ns && !(pr.deck && pr.deck.imgs[pr.slide + 1])) { $('#prNextImg').src = (v && v.imgs[0]) || ''; $('#prNextImg').style.display = v && v.imgs[0] ? '' : 'none'; } }).catch(() => {}); }
     else nextMsg = pr.endBlank ? 'End of the song list' : 'Black screen (end of the list)';
   }
   $('#prNextImg').src = nextImg || ''; $('#prNextImg').style.display = nextImg ? '' : 'none';
@@ -3976,12 +4054,39 @@ function mediaRender(s) {
   if (s && s.media === 'audio') { $('#prCur').style.display = 'none'; $('#prMsg').style.display = ''; $('#prMsg').innerHTML = `<b style="font-size:20px;color:#fff">♪ ${esc(s.title)}</b><br>Music plays from this computer. The projector is black.`; }
   if (s && s.upP) { $('#prCur').style.display = 'none'; $('#prMsg').style.display = ''; $('#prMsg').textContent = `Uploading “${s.title}”…`; }
   if (s && (s.media === 'video' || s.media === 'audio' || s.upP)) { $('#prThumbs').innerHTML = ''; mediaPos(s); }
+  if (s && s.media === 'pics' && pr.deck && pr.deck.imgs.length) {   // loop and drag-to-sort
+    const box = $('#prPos'), t = box.textContent;
+    box.innerHTML = `${esc(t)}<button class="pbtn ghost prplay${s.loop ? ' on' : ''}" data-loop="1" title="Go to the next picture by itself, and start over after the last">${s.loop ? `Loop: Every ${s.loop}s` : 'Loop: Off'}</button>`;
+    document.querySelectorAll('#prThumbs img').forEach(im => im.draggable = true);
+    const k = pr.si + ':' + pr.slide; if (k !== pr.loopK) { pr.loopK = k; pr.loopAt = Date.now(); }
+  }
 }
+const LOOP_SECS = [0, 5, 8, 10, 15, 30];
+setInterval(() => {   // pictures on a loop: next one every few seconds, back to the first after the last
+  const s = pr && pr.songs[pr.si];
+  if (!s || s.media !== 'pics' || !s.loop || pr.blank || !pr.deck || pr.deck.imgs.length < 2) return;
+  if (Date.now() - (pr.loopAt || 0) < s.loop * 1000) return;
+  pr.slide = (pr.slide + 1) % pr.deck.imgs.length; prRender();
+}, 250);
+(() => {   // drag a picture's thumbnail to put the pictures in another order
+  const box = $('#prThumbs'); let from = -1;
+  box.addEventListener('dragstart', e => { const im = e.target.closest('img[data-i]'); if (!im || !pr || pr.songs[pr.si].media !== 'pics') return e.preventDefault(); from = +im.dataset.i; e.dataTransfer.effectAllowed = 'move'; });
+  box.addEventListener('dragover', e => { if (from >= 0) e.preventDefault(); });
+  box.addEventListener('drop', e => {
+    const im = e.target.closest('img[data-i]'); if (from < 0 || !im || !pr || !pr.deck) return; e.preventDefault();
+    const to = +im.dataset.i, l = pr.deck.imgs, cur = l[pr.slide];
+    if (to !== from) { l.splice(to, 0, l.splice(from, 1)[0]); pr.slide = l.indexOf(cur); prRender(); }
+    from = -1;
+  });
+  box.addEventListener('dragend', () => { from = -1; });
+})();
 $('#prVid').addEventListener('timeupdate', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'video' && !prSeen) { s.mT = $('#prVid').currentTime; s.mDur = $('#prVid').duration; mediaPos(s); } });
 $('#prVid').addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'video' && !prSeen && s.mPlaying) { s.mPlaying = false; s.mEnded = true; prRender(); } });
 prAud.addEventListener('timeupdate', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'audio') mediaPos(s); });
 prAud.addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'audio' && s.mPlaying) { s.mPlaying = false; s.mEnded = true; prRender(); } });
 $('#prPos').addEventListener('click', e => {
+  const lb = e.target.closest('[data-loop]'), ls = pr && pr.songs[pr.si];
+  if (lb && ls) { ls.loop = LOOP_SECS[(LOOP_SECS.indexOf(ls.loop || 0) + 1) % LOOP_SECS.length]; pr.loopAt = Date.now(); if (ls.loop) pr.blank = false; return prRender(); }
   const b = e.target.closest('[data-play]'), s = pr && pr.songs[pr.si]; if (!b || !s) return;
   if (b.dataset.play === '0' || s.mEnded) {   // from the top
     s.mSeek = Date.now(); s.mT = 0; s.mEnded = false;
@@ -3994,8 +4099,21 @@ $('#prPos').addEventListener('click', e => {
 // background uploads: the presentation keeps going; a spinner at the top shows what's still on its way
 let prUploads = 0;
 function prUpShow() { $('#prUp').classList.toggle('on', prUploads > 0); $('#prUp span').textContent = prUploads > 1 ? `Uploading ${prUploads} files…` : 'Uploading…'; }
-function prUpload(f, at) {
-  const pdf = /\.pdf$/i.test(f.name), item = Object.assign(deckItem('up-' + Date.now().toString(36) + '-' + (++prMid), f.name.replace(/\.(pptx?|pdf)$/i, ''), !pdf), { pdf });
+// a PDF of tall (letter-size) pages: a whole page on a slide is small, so ask whether to cut each page into parts
+async function pdfSplitAsk(f) {
+  if (!/\.pdf$/i.test(f.name)) return 0;
+  let tall = false;
+  try {
+    const lib = await prPdf(), doc = await lib.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+    const vp = (await doc.getPage(1)).getViewport({ scale: 1 }); tall = vp.height / vp.width > 1.15; try { doc.cleanup && doc.cleanup(); } catch {}
+  } catch { return 0; }
+  if (!tall) return 0;
+  const c = await choose(`“${f.name.replace(/\.pdf$/i, '')}” Has Tall Pages`, 'A whole page on a 16:9 screen is small. Split each page into parts that fill the screen, cut between lines?',
+    [{ label: 'Whole Page', value: '1' }, { label: 'Split in Half', value: '2', primary: true }, { label: 'Split in Thirds', value: '3' }]);
+  return +c > 1 ? +c : 0;
+}
+function prUpload(f, at, split = 0) {
+  const pdf = /\.pdf$/i.test(f.name), item = Object.assign(deckItem('up-' + Date.now().toString(36) + '-' + (++prMid), f.name.replace(/\.(pptx?|pdf)$/i, ''), !pdf), { pdf, split });
   prUploads++; prUpShow();
   item.upP = (async () => {
     const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(f); });
@@ -4015,21 +4133,26 @@ function prUpload(f, at) {
   prInsertDeck(item, at, true);
 }
 $('#prMsg').addEventListener('click', e => { if (e.target.id === 'prLiveFocus') { pr.liveFocus = true; try { prWin && prWin.focus(); } catch {} prSend(); } });
-$('#prAdd').onclick = async () => {
+$('#prAdd').onclick = () => prAddPick(false);
+async function prAddPick(fresh) {
   await pptPing();
   const c = await choose('Add Slides or Media', `PowerPoint (.pptx / .ppt) or PDF files, pictures, videos or music (pick several at once), or a link to Google Slides. ${pptHelper ? 'The PowerPoint helper is running: decks play in real PowerPoint on the projector (all animations), and your Next / Previous / clicker drive them.' : 'Tip: run the PowerPoint helper on this computer (Settings › PowerPoint helper) to play decks in real PowerPoint with all their animations. Without it they play in Google Slides\' player.'} PDFs show as still pictures. Tap the mode on the box to switch.`,
     [{ label: 'Choose Files', value: 'file', primary: true }, { label: 'Google Slides Link', value: 'link' }, { label: 'Cancel', value: 'cancel' }]);
-  if (c === 'file') { $('#prFile').value = ''; $('#prFile').click(); }
+  if (c === 'file') { prFresh = fresh; $('#prFile').value = ''; $('#prFile').click(); }
   else if (c === 'link') {
     const url = prompt('Paste the Google Slides (or Google Drive) link:', ''); if (!url) return;
+    if (fresh) { if (pr) return; prBegin(); }
     const m = url.match(/\/(?:presentation\/d|file\/d)\/([\w-]{20,})/) || url.match(/[?&]id=([\w-]{20,})/) || url.trim().match(/^([\w-]{25,})$/);
     if (!m) return toast('That doesn\'t look like a Google Slides link', 4000);
     prInsertDeck(Object.assign(deckItem(m[1], '', true), { google: true }));
+    if (fresh) await prLaunch();
   }
-};
+}
 $('#prFile').onchange = async e => {
-  const files = [...(e.target.files || [])]; e.target.value = ''; if (!files.length || !pr) return;
-  const kind = f => /\.(pptx?|pdf)$/i.test(f.name) ? 'deck' : /^image\//.test(f.type) || /\.(jpe?g|png|gif|webp|bmp|avif)$/i.test(f.name) ? 'pic'
+  const files = [...(e.target.files || [])]; e.target.value = ''; const fresh = prFresh && !pr; prFresh = false;
+  if (!files.length || !(pr || fresh)) return;
+  if (fresh) prBegin();
+  const kind = f => /\.(pptx?|pdf)$/i.test(f.name) ? 'deck' : /^image\//.test(f.type) || /\.(jpe?g|png|gif|webp|bmp|avif|heic|heif)$/i.test(f.name) ? 'pic'
     : /^video\//.test(f.type) || /\.(mp4|m4v|mov|webm|mkv|ogv)$/i.test(f.name) ? 'video' : /^audio\//.test(f.type) || /\.(mp3|m4a|wav|aac|ogg|oga|flac|opus)$/i.test(f.name) ? 'audio' : '';
   const bad = files.filter(f => !kind(f)), big = files.filter(f => kind(f) === 'deck' && f.size > 35 * 1048576);
   if (bad.length) toast(`Skipped ${bad.map(f => f.name).join(', ')}: use PowerPoint, PDF, pictures, videos or music`, 6000);
@@ -4038,7 +4161,7 @@ $('#prFile').onchange = async e => {
   const pics = files.filter(f => kind(f) === 'pic');
   for (const f of files) {
     const k = kind(f); if (!k || big.includes(f)) continue;
-    if (k === 'deck') { prUpload(f, at++); added++; }
+    if (k === 'deck') { prUpload(f, at++, await pdfSplitAsk(f)); added++; }
     else if (k === 'video' || k === 'audio') { prInsertDeck(mediaItem(k, f.name.replace(/\.[^.]+$/, ''), { url: URL.createObjectURL(f) }), at++); added++; }
     else if (f === pics[0]) {   // the pictures picked together: one item, a slide each, where the first one was
       const title = pics.length === 1 ? pics[0].name.replace(/\.[^.]+$/, '') : `${pics.length} Pictures`, item = mediaItem('pics', title, { count: pics.length });
@@ -4047,6 +4170,7 @@ $('#prFile').onchange = async e => {
       p.then(() => { item.count = imgs.length; if (pr && pr.songs[pr.si] === item) prShowSong(pr.si, 0); else prRender(); });
     }
   }
+  if (fresh) { if (pr && pr.songs.length) await prLaunch(); else pr = null; return; }
   if (added) toast(`Added after “${pr.songs[pr.si] ? pr.songs[pr.si].title : ''}”. Drag to move.`, 3000);
 };
 $('#prThumbs').addEventListener('click', e => { const im = e.target.closest('[data-i]'); if (im && pr) { pr.slide = +im.dataset.i; pr.blank = false; prRender(); } });
@@ -4089,12 +4213,12 @@ function perfSlideView(st) {
   box.classList.toggle('show', !!on);
   if (!on) { pipKey = ''; scPipKey = ''; return; }
   placeSlidePip();
-  const s = st.deckId ? deckItem(st.deckId, st.deckTitle) : songIndex.get(st.song), msg = t => { box.querySelector('img').style.display = 'none'; const m = box.querySelector('.spmsg'); m.textContent = t; m.style.display = ''; scPip(null); };
+  const s = st.deckId ? Object.assign(deckItem(st.deckId, st.deckTitle), { split: st.deckSplit || 0 }) : songIndex.get(st.song), msg = t => { box.querySelector('img').style.display = 'none'; const m = box.querySelector('.spmsg'); m.textContent = t; m.style.display = ''; scPip(null); };
   const key = [st.song, st.slideIdx, st.blank].join('|'); if (key === pipKey) return; pipKey = key;
   if (st.blank) return msg('Screen is blank');
   if (st.liveDeck) return msg(st.media ? `${st.media === 'video' ? 'A video' : st.media === 'audio' ? 'Music' : 'Pictures'} on the main screen: ${st.deckTitle || ''}` : `${st.deckTitle || 'The speaker\'s slides'} are on the main screen`);
   if (!s || !prFile(s)) return msg(s ? `No slides for “${s.title}”` : '');
-  if (!deckCache.has(prFile(s).id)) msg('Getting the slides…');
+  if (!deckCache.has(deckKey(s))) msg('Getting the slides…');
   prDeck(s).then(d => {
     if (pipKey !== key) return;
     const src = d && d.imgs[st.slideIdx ?? st.slideNo ?? 0];
@@ -6039,7 +6163,8 @@ async function openRemote() {
   es.addEventListener('put', e => { try { const m = JSON.parse(e.data); if (rm !== me) return es.close(); if (m.path === '/') { if (!m.data) { rmMsg('The presentation has ended.'); return es.close(); } me.st = m.data; rmRender(); } } catch {} });
   es.onerror = () => { if (es.readyState === 2 && rm === me) setTimeout(() => { if (rm === me) openRemote(); }, 3000); };
 }
-const rmItem = key => !key ? null : key.startsWith('deck:') ? deckItem(key.slice(5), '') : songIndex.get(key);
+const rmItem = key => !key ? null : key.startsWith('deck:') ? Object.assign(deckItem(key.slice(5).split('#')[0], ''), { split: +key.split('#')[1] || 0 }) : songIndex.get(key);
+const rmDeckKey = st => 'deck:' + st.deckId + (st.deckSplit > 1 ? '#' + st.deckSplit : '');
 // The phone draws only the slides it shows, small, instead of the whole deck at projector size.
 const rmDocs = new Map();   // file id -> Promise<{ doc, pages: Map(idx -> dataURL) }>
 function rmDoc(f) {
@@ -6053,22 +6178,21 @@ function rmDoc(f) {
   rmDocs.set(f.id, p); p.catch(() => rmDocs.delete(f.id));
   return p;
 }
-async function rmPage(f, idx, fit) {
-  const d = await rmDoc(f); if (idx >= d.doc.numPages) return '';
-  if (!d.pages.has(idx)) d.pages.set(idx, (async () => {
-    return pdfPagePic(await d.doc.getPage(idx + 1), 800, fit);
-  })());
-  const u = d.pages.get(idx); u.catch(() => d.pages.delete(idx)); return u;
+async function rmPage(f, idx, fit, split = 1) {
+  const d = await rmDoc(f), pg = Math.floor(idx / split); if (pg >= d.doc.numPages) return '';
+  const pk = split + ':' + pg;
+  if (!d.pages.has(pk)) d.pages.set(pk, pdfPageSlices(await d.doc.getPage(pg + 1), 800, fit, split));
+  const u = d.pages.get(pk).then(l => l[idx % split] || ''); u.catch(() => d.pages.delete(pk)); return u;
 }
 async function rmImg(key, idx, el, big) {
   const it = rmItem(key); if (!it || !prFile(it) || idx < 0) { el.innerHTML = ''; delete el.dataset.want; return; }
   const want = key + '|' + idx; if (el.dataset.want === want && el.querySelector('img')) return; el.dataset.want = want;
   if (big && !el.querySelector('img')) el.innerHTML = '<span class="rmload">Loading slide…</span>';
   try {
-    const f = prFile(it), cached = deckCache.get(f.id), x = simgFor(f);
+    const f = prFile(it), cached = deckCache.get(deckKey(it)), x = simgFor(f);
     let src = cached && !cached.then ? cached.imgs[idx] : '';
     if (!src && x) { try { const l = await simgList(x); src = l.pngs[idx] ? URL.createObjectURL(await simgGet(l.pngs[idx])) : ''; } catch {} }
-    if (!src) src = await rmPage(f, idx, !!it.deck);
+    if (!src) src = await rmPage(f, idx, !!it.deck, it.split || 1);
     if (el.dataset.want === want) el.innerHTML = src ? `<img src="${src}" alt="">` : '';
   } catch (e) { if (el.dataset.want === want) el.innerHTML = big ? `<span class="rmload">Couldn't load this slide${e && e.message ? ': ' + esc(e.message) : ''}</span>` : ''; }
 }
@@ -6088,8 +6212,8 @@ function rmRender() {
   $('#rmNow').classList.toggle('blank', !!st.blank);
   $('#rmNow').querySelector('.rmbadge')?.remove();
   if (st.blank) $('#rmNow').insertAdjacentHTML('beforeend', '<span class="rmbadge">SCREEN BLACK</span>');
-  rmImg(st.deckId ? 'deck:' + st.deckId : st.song, st.liveDeck ? -1 : (st.slideIdx ?? st.slideNo ?? 0), $('#rmNowImg'), true);
-  if (st.nextIdx >= 0) { $('#rmNextTxt').textContent = 'Next Slide'; rmImg(st.deckId ? 'deck:' + st.deckId : st.song, st.nextIdx, $('#rmNextImg')); }
+  rmImg(st.deckId ? rmDeckKey(st) : st.song, st.liveDeck ? -1 : (st.slideIdx ?? st.slideNo ?? 0), $('#rmNowImg'), true);
+  if (st.nextIdx >= 0) { $('#rmNextTxt').textContent = 'Next Slide'; rmImg(st.deckId ? rmDeckKey(st) : st.song, st.nextIdx, $('#rmNextImg')); }
   else { const nk = (st.list || [])[si + 1]; $('#rmNextTxt').textContent = nk ? `Next: ${titles[si + 1] || (rmItem(nk) || {}).title || ''}` : 'Next: black screen (end)'; rmImg(nk, nk ? 0 : -1, $('#rmNextImg')); }
   $('#rmBlank').textContent = st.blank ? 'Show' : 'Black'; $('#rmBlank').classList.toggle('on', !!st.blank);
   $('#rmSongs').innerHTML = (st.list || []).map((k, i) => `<button class="${i === si ? 'now' : ''}" data-si="${i}"><span>${i + 1}</span>${esc(titles[i] || (rmItem(k) || {}).title || 'Slides')}</button>`).join('');
@@ -6113,6 +6237,7 @@ $('#rmBody').addEventListener('click', e => {
 });
 $('#rmRefresh').onclick = openRemote;
 $('#dRemote').onclick = openRemote;
+$('#dPresent').onclick = presentFresh;
 new MutationObserver(() => { if (!$('#remotePanel').classList.contains('show') && rm) { try { rm.es && rm.es.close(); } catch {} rm = null; } }).observe($('#remotePanel'), { attributes: true, attributeFilter: ['class'] });
 function rmAddList() {
   const q = $('#rmAddQ').value.trim(), list = q ? runSearch(q).map(r => r.s) : songs.slice().sort((a, b) => a.nTitle.localeCompare(b.nTitle));
@@ -7023,9 +7148,9 @@ const TUTOR = [
     { t: 'While Following', x: 'Tap the screen to look around; Follow Leader takes you back. Hold the Leading or Following button to end or leave.' } ] },
   { id: 'present', icon: '▣', t: 'Presenting Slides', d: 'Projector slides, the PowerPoint helper, phone remote', steps: [
     { go: tClear, t: 'On a Computer', x: 'Presenting runs in the web app on a computer connected to a projector.' },
-    { t: 'Start', x: 'Open a song list and tap Present. Musicians can follow along with the code shown.' },
-    { t: 'Two Windows', x: 'The projector shows only the slides. Your screen shows the controls, the next slide and the code.' },
-    { t: 'Slides and Media', x: 'In the presenter, tap ＋ Add Slides or Media to add PowerPoints, PDFs, pictures, videos or music (several at once), or a Google Slides link. Drag to move.' },
+    { go: tDrawer, wait: 300, el: '#dPresent', t: 'Start', x: 'Open a song list and tap Present, or tap Present Slides here for pictures and slides with no songs.' },
+    { go: tClear, t: 'Two Windows', x: 'The projector shows only the slides. Your screen shows the controls, the next slide and the code.' },
+    { t: 'Slides and Media', x: 'In the presenter, tap ＋ Add Slides or Media to add PowerPoints, PDFs, pictures, videos or music (several at once), or a Google Slides link. Drag to move; drag pictures to sort them. Loop plays pictures over and over.' },
     { go: () => { tClear(); openSheet(); }, wait: 350, el: '#pptHelperBtn', t: 'PowerPoint Helper', x: 'On the Windows computer that runs the projector, download this and run it once. It needs PowerPoint installed.' },
     { t: 'After Installing', x: 'It starts with Windows. A speaker\'s PowerPoint then plays in real PowerPoint, animations included. If Chrome asks to reach apps on this device, choose Allow.' },
     { go: tDrawer, wait: 300, el: '#dRemote', t: 'Remote Control', x: 'Run the slides from your phone while the computer presents.' } ] },

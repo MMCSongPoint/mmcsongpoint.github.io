@@ -46,6 +46,9 @@ jobs:
             cp "package/legacy/build/$f.min.mjs" "_site/vendor/$f.min.mjs" 2>/dev/null \
               || cp "package/legacy/build/$f.mjs" "_site/vendor/$f.min.mjs"
           done
+          # heic2any opens iPhone (HEIC) pictures added in the presenter (only Safari can open them itself)
+          mkdir -p /tmp/heic && (cd /tmp/heic && npm pack heic2any@0.0.4 --silent && tar xzf heic2any-*.tgz)
+          cp /tmp/heic/package/dist/heic2any.min.js _site/vendor/heic2any.min.js
           sed -i "s/__BUILD__/${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}/" _site/sw.js
           # Same version as the Android build from this commit: 1.<server version>.<commits since it changed>
           v=$(python3 .github/scripts/version.py _site/buildlog.js)
