@@ -5370,10 +5370,10 @@ function keyTap(s, el) {
   const k = songKeyState(s);
   if (k.i < 0) return openWheel(s);
   playPitch(k.p, el); keyBounce(el);
-  if (!store.get('hasSeenPitchHint', false)) { store.set('hasSeenPitchHint', true); showKeyHint(el); }
+  if (!keyHintShown) { keyHintShown = true; showKeyHint(el); }   // once each time the app is opened
 }
-// one time only: "Hold to change key", for 2.5 s (any touch or key closes it sooner)
-let keyHintT = 0;
+// "Hold to change key" on the first tap each time the app is opened, for 2.5 s (any touch or key closes it sooner)
+let keyHintT = 0, keyHintShown = false;
 function showKeyHint(el) {
   const h = $('#keyHint'), r = el.getBoundingClientRect();
   h.style.left = '0px'; h.style.top = '0px'; h.classList.add('show');
