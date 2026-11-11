@@ -6749,7 +6749,7 @@ let buildLogAll = false;
 function renderBuildLog() {
   const all = window.BUILD_LOG || [], mine = (appVersion() || {}).name || (/^\d/.test(WEB_VERSION) ? WEB_VERSION.split('|')[0] : '');
   const log = buildLogAll ? all : all.filter(x => x.m);
-  $('#buildLogInfo').textContent = `${mine ? `You have version ${mine}. ` : ''}${buildLogAll ? 'All changes, small ones included.' : 'New features and big changes.'} Versions are 1 · server version · build.`;
+  $('#buildLogInfo').textContent = mine ? `You are on ${mine}` : '';
   $('#buildLogMore').textContent = buildLogAll ? 'Hide Small Changes' : `Show Small Changes (${all.length - all.filter(x => x.m).length})`;
   $('#buildLogMore').style.display = all.length ? '' : 'none';
   $('#buildLogList').innerHTML = log.length ? log.map(x => `<div class="bl${x.v === mine ? ' cur' : ''}${x.m ? '' : ' small'}"><span class="blv">${esc(x.v)}</span><span>${esc(x.t)}</span><span class="bld">${esc(new Date(x.d + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))}${x.v === mine ? ' · this version' : ''}</span></div>`).join('')
