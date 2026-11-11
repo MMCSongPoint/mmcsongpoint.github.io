@@ -129,7 +129,7 @@ function visitorJoin_(d) {
   return { ok: true, token: token_(u.username), user: publicUser_(u) };
 }
 function validUsername_(s) { return /^[a-z0-9][a-z0-9._-]{1,29}$/.test(s); }
-function validPassword_(s) { return typeof s === 'string' && s.length >= 6 && s.length <= 100; }
+function validPassword_(s) { return typeof s === 'string' && s.length >= 1 && s.length <= 1000; }   // any password; just not empty
 
 function tooManyTries_(username) {
   var c = CacheService.getScriptCache(), n = Number(c.get('fail:' + username) || 0);
@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 49 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 50 }); }
 
 function doPost(e) {
   var d;
@@ -243,7 +243,7 @@ function setupAdmin_(d) {
     if (users_().length) return { ok: false, error: 'Setup is already done. Please sign in.' };
     var username = String(d.username || '').trim().toLowerCase();
     if (!validUsername_(username)) return { ok: false, error: 'Usernames use 2–30 letters, numbers, dots or dashes.' };
-    if (!validPassword_(d.password)) return { ok: false, error: 'Passwords need at least 6 characters.' };
+    if (!validPassword_(d.password)) return { ok: false, error: 'Enter a password.' };
     var salt = newSalt_();
     var u = { username: username, name: String(d.name || username).trim().slice(0, 40), admin: true, salt: salt,
       hash: hash_(d.password, salt), mustChange: false, created: new Date(), lastLogin: new Date(), validAfter: 0, disabled: false };
@@ -267,7 +267,7 @@ function login_(d) {
 
 function changePassword_(me, d) {
   if (!sameText_(hash_(String(d.current || ''), me.salt), me.hash)) return { ok: false, error: 'Your current password isn\'t right.' };
-  if (!validPassword_(d.password)) return { ok: false, error: 'Passwords need at least 6 characters.' };
+  if (!validPassword_(d.password)) return { ok: false, error: 'Enter a password.' };
   me.salt = newSalt_(); me.hash = hash_(d.password, me.salt); me.mustChange = false;
   me.validAfter = Date.now() - 1; saveUser_(me);           // signs out other devices
   return { ok: true, token: token_(me.username), user: publicUser_(me) };
@@ -278,8 +278,7 @@ function createUser_(d) {
   if (!validUsername_(username)) return { ok: false, error: 'Usernames use 2–30 letters, numbers, dots or dashes.' };
   if (findUser_(username)) return { ok: false, error: 'That username is taken.' };
   var chosen = d.password != null && String(d.password) !== '';
-  if (chosen && d.guest && String(d.password).length >= 4 && String(d.password).length <= 100) { /* guests may have a short shared password */ }
-  else if (chosen && !validPassword_(d.password)) return { ok: false, error: 'Passwords need at least 6 characters.' };
+  if (chosen && !validPassword_(d.password)) return { ok: false, error: 'Enter a password.' };
   var temp = chosen ? String(d.password) : tempPassword_(), salt = newSalt_(), must = chosen ? d.mustChange !== false : true;
   if (d.guest) must = false;   // a shared password: nobody changes it
   saveUser_({ username: username, name: String(d.name || username).trim().slice(0, 40), admin: !d.guest && !!d.admin, guest: !!d.guest, salt: salt,

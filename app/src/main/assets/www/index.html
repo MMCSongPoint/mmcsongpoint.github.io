@@ -510,6 +510,8 @@
   .install button { background: none; border: none; color: var(--muted); font-size: 20px; padding: 0 4px; }
   /* welcome line */
   .welcome { font-size: 15px; margin: -2px 2px 2px; color: var(--text); }
+  .whobtn { background: none; border: 0; padding: 2px 4px 2px 0; font: inherit; color: inherit; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  .whobtn svg { opacity: .6; } .lockaccts { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; } .lockaccts p { margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
   .welcome b { color: var(--accent-text); }
   /* full-screen panels (notes, note editor, usage) */
   .panel { position: fixed; inset: 0; z-index: 75; background: var(--bg); display: none; flex-direction: column; }
@@ -652,7 +654,7 @@
   body.songspanel .player, body.overpanel .player { z-index: 76; }
   body.overpanel .panel .pbody { padding-bottom: 210px; }
   body.guest #newNoteBtn, body.guest #noteEdit, body.guest #noteShare, body.guest #noteCopy, body.guest #noteDelete,
-  body.guest #dRemote, body.guest #dPresent, body.guest #notePresent, body.guest #noteHost, body.guest #noteSlides, body.guest #changePwBtn, body.guest #rowMenu [data-m=chords],
+  body.visitor #dSwitch, body.guest #dRemote, body.guest #dPresent, body.guest #notePresent, body.guest #noteHost, body.guest #noteSlides, body.guest #changePwBtn, body.guest #rowMenu [data-m=chords],
   body.guest #rowMenu [data-m=live], body.guest .chart [data-c=arrange], body.guest .chart [data-c=savekey] { display: none !important; }
   body.overviewer .player { z-index: 82; }
   body.overviewer .player.show ~ .viewer .vbody, body.overviewer .vbody { padding-bottom: 0; }
@@ -876,11 +878,12 @@
     <input id="lockName" type="text" placeholder="Your name (shown on song lists)" autocomplete="name" autocapitalize="words" maxlength="40">
     <input id="lockUser" type="text" placeholder="Username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="30">
     <div class="pwwrap"><input id="lockPw" type="password" placeholder="Password" autocomplete="current-password"><button type="button" class="eye" tabindex="-1" aria-label="Show Password" title="Show Password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
-    <div class="pwwrap"><input id="lockNew" type="password" placeholder="New password (at least 6 characters)" autocomplete="new-password"><button type="button" class="eye" tabindex="-1" aria-label="Show Password" title="Show Password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
+    <div class="pwwrap"><input id="lockNew" type="password" placeholder="New password" autocomplete="new-password"><button type="button" class="eye" tabindex="-1" aria-label="Show Password" title="Show Password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
     <div class="pwwrap"><input id="lockNew2" type="password" placeholder="Type the new password again" autocomplete="new-password"><button type="button" class="eye" tabindex="-1" aria-label="Show Password" title="Show Password"><svg class="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="shut" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
     <button type="submit" id="lockBtn">Sign in</button>
     <button type="button" class="link" id="lockAlt"></button>
     <div class="err" id="lockErr"></div>
+    <div class="lockaccts" id="lockAccts"></div>
   </form>
 </div>
 
@@ -1119,6 +1122,7 @@
   <button class="ditem" id="dClosing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Closing Songs</button>
   <button class="ditem" id="dTheory"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Music Theory</button>
   <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
+  <button class="ditem" id="dSwitch"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8h5m0 0-2-2m2 2-2 2M22 15h-5m0 0 2-2m-2 2 2 2"/></svg>Switch User</button>
   <button class="ditem" id="dTutorial"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.4-2.7 4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg>Tutorial</button>
   <button class="ditem" id="dSettings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
 </nav>
@@ -1351,6 +1355,7 @@
   <label class="act" id="projScreenRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Projector Screen <select id="projScreen" style="font:inherit;max-width:60%"></select></label>
   <label class="act" id="lidRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Keep Presenting With the Lid Closed <input type="checkbox" id="lidAwake" style="width:20px;height:20px"></label>
   <button class="act" id="changePwBtn">Change Password</button>
+  <button class="act" id="switchUserBtn">Switch User</button>
   <button class="act" id="signOutBtn">Sign Out</button>
   <h4 style="margin-top:12px">Song Library</h4>
   <button class="act" id="syncBtn">Refresh Songs from Google Drive</button>
@@ -1397,10 +1402,21 @@ const ICON_DL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" str
 const ICON_DONE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5 9-10"/></svg>';
 $('#appName').textContent = CFG.appName; document.title = CFG.appName;
 
+// Several people can be signed in on one device: their own things (song lists, favorites, what's waiting to upload…)
+// are kept apart, under "u~<username>~<key>". Everything else (the song library, settings) is shared by the device.
+const USER_KEYS = new Set(['notes', 'offlineLists', 'pendingLists', 'outbox', 'people', 'listTab', 'favs', 'usage', 'plays']);
+const curUser = () => { try { const a = JSON.parse(localStorage.getItem('auth') || '{}'); return (a.user && a.user.username) || ''; } catch { return ''; } };
+const skey = k => { const u = USER_KEYS.has(k) && curUser(); return u ? `u~${u}~${k}` : k; };
 const store = {
-  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  get(k, d) { try { const v = localStorage.getItem(skey(k)); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(skey(k), JSON.stringify(v)); } catch {} },
 };
+// from before: what was on this device belongs to whoever is signed in now
+(() => { try {
+  if (localStorage.getItem('userKeysMoved') || !curUser()) return;
+  for (const k of USER_KEYS) { const v = localStorage.getItem(k); if (v !== null) { if (localStorage.getItem(skey(k)) === null) localStorage.setItem(skey(k), v); localStorage.removeItem(k); } }
+  localStorage.setItem('userKeysMoved', '1');
+} catch {} })();
 
 // ------------------------------------------------------------------ text helpers
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -5377,7 +5393,39 @@ $('#usageRefresh').onclick = () => loadUsage(true);
 
 // ------------------------------------------------------------------ accounts
 let auth = store.get('auth', {});
-const saveAuth = () => store.set('auth', auth);
+// everyone signed in on this device: [{ token, user }], the one using the app first
+let accounts = store.get('accounts', null);
+if (!accounts) { accounts = auth.token && auth.user && !auth.user.visitor ? [{ token: auth.token, user: auth.user }] : []; store.set('accounts', accounts); }
+const saveAuth = () => {
+  store.set('auth', auth);
+  if (auth.token && auth.user && !auth.user.visitor) {
+    accounts = [{ token: auth.token, user: auth.user }, ...accounts.filter(a => a.user.username !== auth.user.username)];
+    store.set('accounts', accounts);
+  }
+};
+const otherAccounts = () => accounts.filter(a => !auth.user || a.user.username !== auth.user.username);
+// switch to someone else signed in on this device: the app starts again as them
+async function switchUser(username) {
+  const a = accounts.find(x => x.user.username === username); if (!a) return;
+  if (pr || perf) { const c = await choose('Switch User?', pr ? 'This stops presenting.' : 'This leaves the performance.', [{ label: 'Switch', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]); if (c !== 'go') return; }
+  auth = { token: a.token, user: a.user }; saveAuth(); store.set('lastUser', a.user.username);
+  location.reload();
+}
+function addAccount() {
+  closeSheet(); closeDrawer();
+  $('#lockUser').value = ''; showLock('signin', 'Sign in with another account. Switch between accounts by tapping your name.');
+}
+// tap your name (top of the song list): switch, add someone, or sign out
+async function accountMenu() {
+  if (!auth.user || isVisitor()) return;
+  const others = otherAccounts();
+  const c = await choose(auth.user.name, `Signed in as ${auth.user.username}${others.length ? '. Also signed in on this device: ' + others.map(a => a.user.name).join(', ') + '.' : ''}`,
+    [...others.map(a => ({ label: `Switch to ${a.user.name}`, value: 'u:' + a.user.username, primary: true })),
+     { label: 'Add Another Account', value: 'add', primary: !others.length }, { label: `Sign Out ${auth.user.name}`, value: 'out' }]);
+  if (c.startsWith('u:')) return switchUser(c.slice(2));
+  if (c === 'add') return addAccount();
+  if (c === 'out') return signOut();
+}
 const isAdmin = () => !!(auth.user && auth.user.admin);
 const isGuest = () => !!(auth.user && auth.user.guest);
 const isVisitor = () => !!(auth.user && auth.user.visitor);   // joined a performance by QR code, no account
@@ -5394,7 +5442,7 @@ function visitorEnd(title, text) {
 }   // shared guest account: view songs and follow along only
 function renderWelcome() {
   const n = userName();
-  $('#welcome').innerHTML = n ? `Welcome, <b>${esc(n)}</b>` : '';
+  $('#welcome').innerHTML = n ? `<button class="whobtn" id="whoBtn" title="Switch user or sign out">Welcome, <b>${esc(n)}</b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>` : '';
   $('#acctLine').textContent = auth.user ? `Signed in as ${auth.user.name} (${auth.user.username})${auth.user.admin ? ' · Admin' : ''}${auth.user.guest ? ' · Guest' : ''}` : '';
   document.body.classList.toggle('guest', isGuest());
   document.body.classList.toggle('visitor', isVisitor() || visitorEnded);
@@ -5407,11 +5455,20 @@ function renderWelcome() {
 function signOut(expired = false) {
   const visitor = !!(auth.user && auth.user.visitor);
   if (visitor) return visitorEnd('Performance Ended', 'Thanks for following along.');
+  const me = auth.user && auth.user.username;
+  accounts = accounts.filter(a => a.user.username !== me); store.set('accounts', accounts);
+  if (!expired && accounts.length) {   // someone else is still signed in here: carry on as them
+    if (pr) prExit(); if (perf) perfStop(true);
+    auth = { token: accounts[0].token, user: accounts[0].user }; saveAuth(); store.set('lastUser', auth.user.username);
+    return location.reload();
+  }
   auth = {}; saveAuth(); renderWelcome(); closeSheet();
   if (visitor) $('#lockUser').value = '';
   showLock('signin', visitor ? 'The session you were following has ended. Scan the leader\'s new QR code, or sign in.' : expired ? 'Please sign in again.' : '');
 }
-$('#signOutBtn').onclick = () => { if (confirm('Sign out of this device? Your song lists stay saved on the server.')) signOut(); };
+$('#signOutBtn').onclick = async () => { const c = await choose(`Sign Out ${auth.user ? auth.user.name : ''}?`, 'Your song lists stay saved on the server.', [{ label: 'Sign Out', value: 'go', primary: true }, { label: 'Cancel', value: 'cancel' }]); if (c === 'go') signOut(); };
+$('#switchUserBtn').onclick = () => { closeSheet(); accountMenu(); };
+$('#welcome').addEventListener('click', e => { if (e.target.closest('#whoBtn')) accountMenu(); });
 $('#changePwBtn').onclick = () => { closeSheet(); showLock('change'); };
 
 // Users (admins only)
@@ -5459,10 +5516,10 @@ $('#usersBtn').onclick = () => { closeSheet(); $('#tempBox').style.display = 'no
 $('#usersRefresh').onclick = loadUsers;
 $('#nuCreate').onclick = async () => {
   const name = $('#nuName').value.trim(), username = $('#nuUser').value.trim().toLowerCase();
-  const password = $('#nuPw').value.trim(), must = $('#nuMust').checked;
+  const password = $('#nuPw').value, must = $('#nuMust').checked;
   if (!name || !username) return toast('Enter a name and a username');
   const guest = $('#nuGuest').checked;
-  if (password.length < (guest ? 4 : 6)) return toast(`Passwords need at least ${guest ? 4 : 6} characters`);
+  if (!password) return toast('Enter a password');
   $('#nuCreate').disabled = true;
   try {
     const r = await api('createUser', { name, username, admin: !guest && $('#nuAdmin').checked, guest, password, mustChange: !guest && must });
@@ -5542,19 +5599,22 @@ function showLock(mode = 'signin', msg = '') {
   const show = (id, on) => { ($(id).closest('.pwwrap') || $(id)).style.display = on ? '' : 'none'; };
   show('#lockName', mode === 'setup'); show('#lockUser', mode !== 'change');
   show('#lockPw', true); show('#lockNew', mode !== 'signin'); show('#lockNew2', mode !== 'signin');
-  $('#lockPw').placeholder = mode === 'change' ? 'Current password' : mode === 'setup' ? 'Password (at least 6 characters)' : 'Password';
+  $('#lockPw').placeholder = mode === 'change' ? 'Current password' : 'Password';
   if (mode === 'setup') { show('#lockNew', false); $('#lockNew2').placeholder = 'Type the password again'; }
   else $('#lockNew2').placeholder = 'Type the new password again';
   $('#lockMsg').textContent = msg || ({ signin: 'Sign in to continue.', setup: 'Welcome! Create the first admin account. You can add everyone else from Settings afterwards.',
     change: auth.user && auth.user.mustChange ? 'Choose your own password to finish signing in.' : 'Change your password.' })[mode];
   $('#lockBtn').textContent = { signin: 'Sign in', setup: 'Create admin account', change: 'Save password' }[mode];
-  $('#lockAlt').textContent = mode === 'change' && !(auth.user && auth.user.mustChange) ? 'Cancel' : mode === 'change' ? 'Sign Out' : '';
+  $('#lockAlt').textContent = mode === 'change' && !(auth.user && auth.user.mustChange) ? 'Cancel' : mode === 'change' ? 'Sign Out' : mode === 'signin' && auth.token && !isVisitor() ? 'Cancel' : '';
+  const others = mode === 'signin' ? otherAccounts() : [];   // someone else is still signed in here: one tap to carry on as them
+  $('#lockAccts').innerHTML = others.length ? '<p>Or continue as</p>' + others.map(a => `<button type="button" class="pbtn ghost" data-acct="${esc(a.user.username)}">${esc(a.user.name)}</button>`).join('') : '';
   $('#lockAlt').style.display = $('#lockAlt').textContent ? '' : 'none';
   $('#lockErr').textContent = '';
   ['#lockPw', '#lockNew', '#lockNew2'].forEach(x => { $(x).value = ''; $(x).type = 'password'; $(x).closest('.pwwrap').classList.remove('shown'); });
   $('#lock').classList.add('show');
   setTimeout(() => (mode === 'setup' ? $('#lockName') : mode === 'change' ? $('#lockPw') : $('#lockUser').value ? $('#lockPw') : $('#lockUser')).focus(), 300);
 }
+$('#lockAccts').addEventListener('click', e => { const b = e.target.closest('[data-acct]'); if (b) switchUser(b.dataset.acct); });
 $('#lockAlt').onclick = () => {
   if (auth.user && auth.user.mustChange) signOut(); else { $('#lock').classList.remove('show'); }
 };
@@ -5581,8 +5641,9 @@ $('#lockForm').addEventListener('submit', async e => {
       r = await api('changePassword', { current: $('#lockPw').value, password: $('#lockNew').value });
     }
     if (!r.ok) return err(r.error || 'That didn\'t work. Please try again.');
-    const wasChange = lockMode === 'change';
+    const wasChange = lockMode === 'change', before = auth.user && !auth.user.visitor ? auth.user.username : '';
     auth = { token: r.token, user: r.user }; saveAuth(); store.set('lastUser', r.user.username);
+    if (before && before !== r.user.username && !r.user.mustChange) return location.reload();   // another account added: start again as them
     $('#lock').classList.remove('show'); document.activeElement.blur(); renderWelcome();
     toast(wasChange ? 'Password saved' : `Welcome, ${r.user.name}!`);
     if (r.user.mustChange) return showLock('change');
@@ -6416,6 +6477,7 @@ $('#rmBody').addEventListener('click', e => {
 $('#rmRefresh').onclick = openRemote;
 $('#dRemote').onclick = openRemote;
 $('#dPresent').onclick = presentFresh;
+$('#dSwitch').onclick = () => { closeDrawer(); accountMenu(); };
 new MutationObserver(() => { if (!$('#remotePanel').classList.contains('show') && rm) { try { rm.es && rm.es.close(); } catch {} rm = null; } }).observe($('#remotePanel'), { attributes: true, attributeFilter: ['class'] });
 function rmAddList() {
   const q = $('#rmAddQ').value.trim(), list = q ? runSearch(q).map(r => r.s) : songs.slice().sort((a, b) => a.nTitle.localeCompare(b.nTitle));
