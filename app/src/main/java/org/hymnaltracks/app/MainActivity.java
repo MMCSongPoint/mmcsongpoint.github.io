@@ -286,7 +286,7 @@ public class MainActivity extends Activity {
             return true;
         }
 
-        /** {"name": "1.0.12", "code": 12} for the update check. */
+        /** {"name": "1.12", "code": 12} for the update check. */
         @JavascriptInterface
         public String appVersion() {
             try {

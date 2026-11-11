@@ -5114,7 +5114,7 @@ async function checkUpdate(manual = false) {
     store.set('updateChecked', Date.now());
     if (latest > v.code) {
       const asset = (rel.assets || []).find(a => /^MMCSongPoint-[\d.]+\.apk$/i.test(a.name)) || (rel.assets || []).find(a => /^MMCSongPoint\.apk$/i.test(a.name)) || (rel.assets || []).find(a => /\.apk$/i.test(a.name));
-      updateInfo = { version: (rel.name || '').replace(/^.*?(\d+\.\d+\.\d+).*$/, '$1') || '1.0.' + latest, url: asset ? asset.browser_download_url : rel.html_url };
+      updateInfo = { version: ((rel.name || '').match(/\d+(?:\.\d+)+/) || [])[0] || '1.' + latest, url: asset ? asset.browser_download_url : rel.html_url };
       showUpdateBadge(`Version ${updateInfo.version} is available. Tap to download.`);
       if (manual) {   // automatic checks only show the red dot; asking happens when it's tapped
         closeSheet();
@@ -5167,7 +5167,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) chec
   const v = appVersion();
   if (v) { $('#versionLine').textContent = `Version ${v.name} (Android app)`; $('#checkUpdBtn').style.display = ''; }
   else {
-    const w = /^\d/.test(WEB_VERSION) ? WEB_VERSION.split('|') : null;   // "1.0.N|YYYY-MM-DD", stamped when the website is published
+    const w = /^\d/.test(WEB_VERSION) ? WEB_VERSION.split('|') : null;   // "1.N|YYYY-MM-DD", stamped when the website is published
     $('#versionLine').textContent = w ? `Version ${w[0]} (web app, ${new Date(w[1] + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })})`
       : 'Web version';
   }

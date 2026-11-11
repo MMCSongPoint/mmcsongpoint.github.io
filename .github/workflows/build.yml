@@ -40,31 +40,31 @@ jobs:
         run: gradle :app:assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
-        # MMCSongPoint-1.0.N.apk is what people download; the fixed names keep the permanent link and older app versions working
+        # MMCSongPoint-1.N.apk is what people download; the fixed names keep the permanent link and older app versions working
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "MMCSongPoint-1.0.${{ github.run_number }}.apk"
-          cp "MMCSongPoint-1.0.${{ github.run_number }}.apk" MMCSongPoint.apk
+          cp app/build/outputs/apk/release/app-release.apk "MMCSongPoint-1.${{ github.run_number }}.apk"
+          cp "MMCSongPoint-1.${{ github.run_number }}.apk" MMCSongPoint.apk
           cp MMCSongPoint.apk MMC-SongPoint.apk
           cp MMCSongPoint.apk HymnalTracks.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MMCSongPoint-1.0.${{ github.run_number }}
-          path: MMCSongPoint-1.0.${{ github.run_number }}.apk
+          name: MMCSongPoint-1.${{ github.run_number }}
+          path: MMCSongPoint-1.${{ github.run_number }}.apk
 
       - name: Publish release
         if: env.KEYSTORE_FILE != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: MMC SongPoint 1.0.${{ github.run_number }}
+          name: MMC SongPoint 1.${{ github.run_number }}
           make_latest: true
           files: |
-            MMCSongPoint-1.0.${{ github.run_number }}.apk
+            MMCSongPoint-1.${{ github.run_number }}.apk
             MMCSongPoint.apk
             MMC-SongPoint.apk
             HymnalTracks.apk
           body: |
-            Install on Android: download **MMCSongPoint-1.0.${{ github.run_number }}.apk** below on your phone and open it.
+            Install on Android: download **MMCSongPoint-1.${{ github.run_number }}.apk** below on your phone and open it.
             Permanent link to the newest version:
             https://github.com/${{ github.repository }}/releases/latest/download/MMCSongPoint.apk
