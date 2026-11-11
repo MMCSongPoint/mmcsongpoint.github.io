@@ -1,0 +1,42 @@
+{
+  "name": "mmc-songpoint-desktop",
+  "productName": "MMC SongPoint",
+  "version": "1.0.0",
+  "description": "MMC SongPoint for Windows: the web app in its own window, with the projector and PowerPoint built in.",
+  "author": "MMC SongPoint",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "io.github.mmcsongpoint.desktop",
+    "productName": "MMC SongPoint",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "offline/**/*"],
+    "extraResources": [{ "from": "resources/helper", "to": "helper" }],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.png",
+      "artifactName": "SongPoint-Setup.exe"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MMC SongPoint",
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [{ "provider": "generic", "url": "https://github.com/MMCSongPoint/mmcsongpoint.github.io/releases/download/desktop" }]
+  }
+}

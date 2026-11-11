@@ -5,6 +5,7 @@ name: Publish web app
 on:
   push:
     branches: [ main ]
+    paths-ignore: [ 'desktop/**', '.github/workflows/desktop.yml' ]   # the Windows app builds on its own
   workflow_dispatch:
 
 permissions:

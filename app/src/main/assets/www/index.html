@@ -1313,6 +1313,9 @@
   <button class="act" id="mp3Btn">MP3 Review (Flag Problems)</button>
   <button class="act" id="scBtn">Chords on Slides (Place &amp; Check)</button>
   <a class="act" id="pptHelperBtn" href="helper/SongPoint-helper-setup.exe" download style="display:block;text-decoration:none;color:inherit">PowerPoint helper for the projector computer (Windows setup)</a>
+  <a class="act" id="winAppBtn" href="https://github.com/MMCSongPoint/mmcsongpoint.github.io/releases/download/desktop/SongPoint-Setup.exe" style="display:none;text-decoration:none;color:inherit">Windows App (best for the projector computer)</a>
+  <label class="act" id="projScreenRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Projector Screen <select id="projScreen" style="font:inherit;max-width:60%"></select></label>
+  <label class="act" id="lidRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Keep Presenting With the Lid Closed <input type="checkbox" id="lidAwake" style="width:20px;height:20px"></label>
   <button class="act" id="changePwBtn">Change Password</button>
   <button class="act" id="signOutBtn">Sign Out</button>
   <h4 style="margin-top:12px">Song Library</h4>
@@ -1346,6 +1349,7 @@
 const CFG = Object.assign({ appName: 'MMC SongPoint', syncMinutes: 30, collectionOrder: [], driveApi: 'https://www.googleapis.com' }, window.HYMNAL_CONFIG || {});
 // Android app: window.Native (Java). Website / iPhone: window.WebNative (web.js). Opened as a local file: none.
 const N = (window.Native && window.Native.isAndroid ? window.Native : null) || window.WebNative || null;
+const DESK = window.SongPointDesktop || null;   // the Windows app (desktop/): projector placement and PowerPoint built in
 const $ = s => document.querySelector(s);
 const audio = $('#audio');
 const ICON_PLAY = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg>';
@@ -3914,6 +3918,14 @@ function prCloseProj() {
 }
 $('#prProj').onclick = async () => {
   if (prProjOpen()) return prCloseProj();
+  if (DESK) {   // the Windows app opens it full screen on the projector by itself
+    let info = null; try { info = await DESK.screens(); } catch {}
+    prFull = true;
+    const w = window.open('projector.html', 'songpoint-projector'); if (!w) return;
+    prWin = w; prProjLabel();
+    if (info && info.screens.length < 2) toast(PR_WHY.onescreen, 9000);
+    setTimeout(prSend, 600); return;
+  }
   let o = await prOtherScreen(false);                 // already allowed: no prompt, so this click can still open the window
   if (o.why === 'prompt') {                           // first time: the browser asks now
     o = await prOtherScreen(true);
@@ -4667,7 +4679,21 @@ function viewerStep(d) {
 }
 
 // ------------------------------------------------------------------ menu sheet
-function openSheet() { updateSheet(); $('#sheet').classList.add('show'); $('#sheetBg').classList.add('show'); }
+// Windows: the app for the projector computer (a download in the browser; the projector screen choice in the app)
+async function deskSheet() {
+  $('#winAppBtn').style.display = !DESK && !(window.Native && window.Native.isAndroid) && /Windows/i.test(navigator.userAgent) ? 'block' : 'none';
+  if (!DESK) return;
+  $('#pptHelperBtn').style.display = 'none';   // built into the app
+  let info = null; try { info = await DESK.screens(); } catch {}
+  if (!info) return;
+  $('#projScreenRow').style.display = 'flex';
+  $('#projScreen').innerHTML = `<option value="">Automatic${info.auto ? '' : ' (no second screen now)'}</option>` + info.screens.map((x, i) => `<option value="${esc(x.id)}">${esc(x.label || 'Screen ' + (i + 1))} · ${x.width}×${x.height}${x.primary ? ' (main)' : ''}</option>`).join('');
+  $('#projScreen').value = info.picked || '';
+  if (DESK.lid) { $('#lidRow').style.display = 'flex'; try { $('#lidAwake').checked = await DESK.lid(); } catch {} }
+}
+$('#lidAwake').onchange = e => { if (DESK && DESK.lid) DESK.lid(e.target.checked); toast(e.target.checked ? 'During a slideshow, closing the laptop lid won\'t put it to sleep' : 'Closing the lid works as usual again', 3500); };
+$('#projScreen').onchange = e => { if (DESK) DESK.setProjector(e.target.value); toast(e.target.value ? 'The slideshow opens on that screen' : 'The slideshow opens on the other screen', 2500); };
+function openSheet() { deskSheet(); updateSheet(); $('#sheet').classList.add('show'); $('#sheetBg').classList.add('show'); }
 function closeSheet() { $('#sheet').classList.remove('show'); $('#sheetBg').classList.remove('show'); }
 function updateSheet() {
   const mb = N ? (N.downloadedBytes() / 1048576).toFixed(0) : 0;

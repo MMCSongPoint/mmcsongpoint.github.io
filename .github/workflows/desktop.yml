@@ -1,0 +1,64 @@
+name: Build Windows app
+
+# The Windows app (desktop/) is a small shell around the web app, so it only needs building when the shell changes.
+# Each build goes to the "desktop" release (a pre-release, so the Android update check never sees it); installed
+# copies find it there and update themselves.
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'desktop/**', '.github/workflows/desktop.yml', 'web/helper/SongPoint-PowerPoint.ps1' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Gather the app's files
+        # the web app (a copy for when there's no internet the first time), the icon, and the PowerPoint helper
+        run: |
+          cd desktop
+          mkdir -p offline resources/helper build
+          cp -r ../app/src/main/assets/www/. offline/
+          cp -r ../web/icons offline/icons
+          cp ../web/manifest.webmanifest offline/ 2>/dev/null || true
+          cp ../web/icons/icon-512.png build/icon.png
+          cp ../web/helper/SongPoint-PowerPoint.ps1 resources/helper/
+          npm version "1.0.${{ github.run_number }}" --no-git-tag-version --allow-same-version
+
+      - name: Build the installer
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm install --no-audit --no-fund
+          npx electron-builder --win nsis --publish never
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SongPoint-Setup-1.0.${{ github.run_number }}
+          path: desktop/dist/SongPoint-Setup.exe
+
+      - name: Publish to the "desktop" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd desktop/dist
+          if ! gh release view desktop >/dev/null 2>&1; then
+            gh release create desktop --prerelease --latest=false --title "MMC SongPoint for Windows" \
+              --notes "Install on a Windows computer: download **SongPoint-Setup.exe** below and open it. It updates itself after that."
+          fi
+          gh release edit desktop --prerelease --latest=false --title "MMC SongPoint for Windows 1.0.${{ github.run_number }}"
+          gh release upload desktop SongPoint-Setup.exe SongPoint-Setup.exe.blockmap latest.yml --clobber
