@@ -6386,18 +6386,27 @@ async function rvFlag() {
   rvRender(); if (was) rvAudio.play().catch(() => {});
 }
 async function rvLoad() { try { const r = await api('mp3Issues'); if (r.ok) { rvIssues = r.issues; rvReviewed = r.reviewed || {}; setApproved(rvReviewed); rvRender(); } } catch {} }
-async function rvMark(t, ok) {
-  const before = rvReviewed;
+// Marked right away here; the save to the server happens in the background, one at a time and in order, so the
+// review moves straight on to the next file.
+let rvSaving = Promise.resolve();
+function rvMark(t, ok) {
   rvReviewed = Object.assign({}, rvReviewed); if (ok) rvReviewed[t.id] = t.modified || ''; else delete rvReviewed[t.id];
-  try { const r = await api('mp3Review', { fileId: t.id, file: t.name, book: t.collection, modified: t.modified || '', reviewed: ok }); if (r.ok) { rvReviewed = r.reviewed; setApproved(rvReviewed); } else throw 0; }
-  catch { rvReviewed = before; toast('Couldn\'t save that. Check your connection.', 4000); }
+  setApproved(rvReviewed);
+  rvSaving = rvSaving.then(async () => {
+    try { const r = await api('mp3Review', { fileId: t.id, file: t.name, book: t.collection, modified: t.modified || '', reviewed: ok }); if (!r.ok) throw 0; }
+    catch {   // didn't save: put it back the way it was
+      rvReviewed = Object.assign({}, rvReviewed); if (ok) delete rvReviewed[t.id]; else rvReviewed[t.id] = t.modified || '';
+      setApproved(rvReviewed); rvRender(); toast(`Couldn't save “${t.name}”. Check your connection and mark it again.`, 5000);
+    }
+  });
+  return rvSaving;
 }
 // end of an MP3: did it sound good? Yes = reviewed (drops off the list); No = stays. Then on to the next one.
 async function rvEnded() {
   const t = rvCur; if (!t) return;
   const i = rvTracks.findIndex(x => x.id === t.id), next = rvTracks[i + 1];
   const c = await choose('Did it sound good?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }]);
-  if (c === 'yes') { await rvMark(t, true); toast('Marked as reviewed', 1500); }
+  if (c === 'yes') { rvMark(t, true); toast('Marked as reviewed', 1200); }
   else if (c === 'no' && !rvIssues.some(x => x.fileId === t.id)) {
     const note = prompt(`What's wrong with “${t.name}”? (optional; it's saved as a flag at the end of the track)`, '');
     if (note !== null) { try { const r = await api('mp3IssueAdd', { fileId: t.id, file: t.name, folder: t.subfolder || '', book: t.collection, song: t.title || '', part: t.part || '', t: rvAudio.duration || 0, note: note || 'Didn\'t sound right' }); if (r.ok) rvIssues = r.issues; } catch {} }
