@@ -5810,7 +5810,7 @@ function playPitch(p, el) {
   pipeStop = stop;
   setTimeout(() => { if (pipeStop === stop) { mark(false); pipeStop = null; pipeEl = null; } }, (PIPE_HOLD + 0.3) * 1000);
 }
-// tap = play Do (with a little bounce); press and hold, then drag up / down = change key quietly (a picker shows nearby keys)
+// tap = play Do (with a little bounce); press and hold = the key wheel (scroll to a key, Done; Play to hear it)
 let wheelSong = null, wheelIdx = 0, wheelHi = 12, wheelLo = 0, holdTimer = null, held = false, kp = null;
 const KP_HOLD = 350, KP_STEP = 18;   // ms before the picker shows; pixels of drag per half-step
 function keySongFor(b) {
@@ -5837,15 +5837,10 @@ document.addEventListener('pointerdown', e => {
   held = false; clearTimeout(holdTimer);
   const { s, find } = keySongFor(b); if (!s) return;
   const startY = e.clientY, id = e.pointerId;
-  holdTimer = setTimeout(() => {
+  holdTimer = setTimeout(() => {   // press and hold: the key wheel in the middle of the screen
     held = true;
-    const k = songKeyState(s);
-    if (k.i < 0) return openWheel(s);   // no key known: the full picker
-    const base = basePitch(s), mid = base >= 0 ? base : 6, idx = Math.max(mid - 6, Math.min(mid + 6, nearPitch(k.p, mid)));
-    kp = { s, find, btn: b, idx, start: idx, startY, lo: mid - 6, hi: mid + 6, base, id };
-    try { b.setPointerCapture(id); } catch {}
     if (navigator.vibrate) navigator.vibrate(12);
-    $('#keyPick').classList.add('show'); kpDraw();
+    openWheel(s);
   }, KP_HOLD);
 });
 document.addEventListener('pointermove', e => {
@@ -5895,7 +5890,7 @@ function openWheel(s) {
   const base = basePitch(s), mid = base >= 0 ? base : 6;   // the written key in the middle (no key: around F♯)
   wheelHi = mid + 6; wheelLo = mid - 6;
   wheelIdx = k.p >= 0 ? Math.max(wheelLo, Math.min(wheelHi, nearPitch(k.p, mid))) : mid;
-  $('#wheelTitle').textContent = `Starting note · ${s.number ? s.number + '. ' : ''}${s.title}`;
+  $('#wheelTitle').textContent = `Starting Note · ${s.number ? s.number + '. ' : ''}${s.title}`;
   $('#wheelSub').textContent = (s.musicKey ? `Written in ${s.musicKey}.${s.keyChange ? ' ' + s.keyChange + '.' : ''}` : 'No key is listed for this song.') + ' Scroll to choose, then tap Play to hear it. Your choice lasts until you close the app.';
   const sc = $('#wheelScroll');
   // 6 half-steps up at the top, the written key in the middle, 6 down at the bottom
