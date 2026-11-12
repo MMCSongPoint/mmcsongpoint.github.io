@@ -1356,7 +1356,10 @@
     <button data-t="system">Match Device</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
   </div>
   <h4>MIDI Sound</h4>
-  <div class="seg" id="midiSeg"><button data-m="piano">Piano</button><button data-m="organ">Organ</button></div>
+  <label class="act" style="display:flex;align-items:center;justify-content:space-between;gap:10px">Instrument <select id="midiSel" style="font:inherit;max-width:60%"></select></label>
+  <label class="act" style="display:flex;align-items:center;justify-content:space-between;gap:10px">A Different Sound for Each Voice <input type="checkbox" id="midiPerVoice" style="width:20px;height:20px"></label>
+  <div id="midiVoices"></div>
+  <p style="margin:6px 0 0;font-size:12px;color:var(--muted)">Recorded instruments download the first time they're used (2–3 MB each) and then work offline. Sounds: FluidR3 GM by Frank Wen (CC BY 3.0), via midi-js-soundfonts.</p>
   <h4>Foot Pedal</h4>
   <div class="seg" id="pedalSeg">
     <button data-m="smart">Scroll, Then Next Song</button><button data-m="split">Separate Song Buttons</button>
@@ -1479,12 +1482,115 @@ function splitVoices(notes) {
   const used = V.filter(v => pool.some(x => x.vo === v));
   return used.length >= 3 ? used.map(name => ({ tr: -1, name })) : (pool.forEach(x => { x.vo = ''; }), []);
 }
-// The sounds: a few harmonics each (like the pitch pipe's reed), shaped by a volume envelope
-const MIDI_SOUNDS = {
-  piano: { amps: [0, 1, 0.42, 0.22, 0.12, 0.07, 0.04, 0.02], attack: 0.004, decay: 1.6, sustain: 0.18, release: 0.25, gain: 0.22 },
-  organ: { amps: [0, 1, 0.55, 0.3, 0.32, 0.12, 0.14, 0.05, 0.08], attack: 0.03, decay: 0, sustain: 1, release: 0.08, gain: 0.14 },
+// The instruments, all made by the app itself (nothing to download): a set of harmonics (amps), shaped by a volume
+// envelope (attack, decay to sustain, release), with optional vibrato, a slightly detuned second voice (det, cents,
+// for warmth), a filter that opens as the note starts (cut: from → to Hz), and voice-like resonances (formants).
+const MIDI_SOUNDS = {   // made by the app: always there, offline too, and the stand-in while a recorded one loads
+  piano:  { name: 'Piano (Built-in)', amps: [0, 1, 0.42, 0.22, 0.12, 0.07, 0.04, 0.02], attack: 0.004, decay: 1.6, sustain: 0.18, release: 0.25, gain: 0.22, cut: [5000, 1800, 1.2] },
+  organ:  { name: 'Organ (Built-in)', amps: [0, 1, 0.55, 0.3, 0.32, 0.12, 0.14, 0.05, 0.08], attack: 0.03, decay: 0, sustain: 1, release: 0.08, gain: 0.14 },
 };
-let midiSound = store.get('midiSound', 'piano');
+// Recorded instruments: short recordings of each note (the FluidR3 GM sound set, CC BY 3.0, via midi-js-soundfonts),
+// served with the web app from sounds/. Each is downloaded the first time it's used (2–3 MB) and kept for offline use.
+// [name, file, gain, release (s), built-in stand-in]
+const MIDI_SAMPLED = {
+  grand:   ['Grand Piano', 'acoustic_grand_piano', 1.7, 0.3, 'piano'],
+  pipe:    ['Pipe Organ', 'church_organ', 1.0, 0.12, 'organ'],
+  choir:   ['Choir', 'choir_aahs', 2.0, 0.35, 'organ'],
+  strings: ['Strings', 'string_ensemble_1', 1.6, 0.4, 'organ'],
+  guitar:  ['Acoustic Guitar', 'acoustic_guitar_nylon', 1.8, 0.25, 'piano'],
+  flute:   ['Flute', 'flute', 1.3, 0.15, 'organ'],
+};
+for (const [k, v] of Object.entries(MIDI_SAMPLED)) MIDI_SOUNDS[k] = { name: v[0], sampled: v };
+const sampleSets = new Map();   // key -> Promise<Map(midi note -> base64 MP3)>
+const sampleBufs = new Map();   // key + note -> AudioBuffer | Promise
+const NOTE_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+function loadSampleSet(key) {
+  if (sampleSets.has(key)) return sampleSets.get(key);
+  const file = MIDI_SAMPLED[key][1] + '-mp3.js';
+  const p = (async () => {
+    let text = null;
+    const urls = ['sounds/' + file, 'https://mmcsongpoint.github.io/sounds/' + file];
+    let cache = null; try { cache = await caches.open('songpoint-sounds'); } catch {}
+    for (const u of urls) {
+      try {
+        let r = cache && await cache.match(u);
+        if (!r) { r = await fetch(u); if (!r.ok) continue; if (cache) cache.put(u, r.clone()).catch(() => {}); }
+        text = await r.text(); if (text) break;
+      } catch {}
+    }
+    if (!text) throw new Error('Couldn\'t load the ' + MIDI_SAMPLED[key][0] + ' sound');
+    const notes = new Map(), re = /"([A-G])(b?)(-?\d)":\s*"data:audio\/mp3;base64,([^"]+)"/g; let m;
+    while ((m = re.exec(text))) notes.set((+m[3] + 1) * 12 + NOTE_PC[m[1]] - (m[2] ? 1 : 0), m[4]);
+    return notes;
+  })();
+  sampleSets.set(key, p); p.catch(() => sampleSets.delete(key));
+  return p;
+}
+// the recording of one note, decoded (null until it's ready; asking starts it)
+function sampleBuf(ctx, key, n) {
+  const id = key + ':' + n, b = sampleBufs.get(id);
+  if (b && !b.then) return b;
+  if (!b) {
+    const p = loadSampleSet(key).then(async set => {
+      const near = set.has(n) ? n : [...set.keys()].sort((a, c) => Math.abs(a - n) - Math.abs(c - n))[0];
+      const bytes = Uint8Array.from(atob(set.get(near)), c => c.charCodeAt(0));
+      const buf = await new Promise((ok, no) => ctx.decodeAudioData(bytes.buffer, ok, no));
+      let mx = 0; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i += 4) { const a = Math.abs(d[i]); if (a > mx) mx = a; } }
+      const v = { buf, rate: Math.pow(2, (n - near) / 12), norm: mx > 0.01 ? 1 / mx : 1 }; sampleBufs.set(id, v); return v;   // every note recorded at the same loudness
+    });
+    sampleBufs.set(id, p); p.catch(() => sampleBufs.delete(id));
+  }
+  return null;
+}
+let midiSound = store.get('midiSound', 'grand');
+if (!MIDI_SOUNDS[midiSound]) midiSound = 'grand';
+// "A different sound for each voice": Lead, Alto, Tenor and Bass each played on their own instrument
+let midiVoiceSounds = store.get('midiVoiceSounds', null);   // null = off; else { Lead: 'flute', … }
+const MIDI_VOICE_DEFAULTS = { Lead: 'flute', Alto: 'choir', Tenor: 'choir', Bass: 'strings' };
+function midiSoundFor(vo) { return (midiVoiceSounds && vo && MIDI_SOUNDS[midiVoiceSounds[vo === 'Soprano' ? 'Lead' : vo]]) ? midiVoiceSounds[vo === 'Soprano' ? 'Lead' : vo] : midiSound; }
+// one note: its own small set of audio nodes, from start to off (seconds on the audio clock)
+function midiNote(ctx, out, key, f, start, off, peak, waves, n) {
+  const sm = MIDI_SOUNDS[key].sampled;
+  if (sm) {
+    const s = sampleBuf(ctx, key, n);
+    if (!s) return midiNote(ctx, out, sm[4], f, start, off, peak, waves);   // still loading: the built-in sound meanwhile
+    const src = ctx.createBufferSource(), g = ctx.createGain(), end = Math.min(off + sm[3] * 3, start + s.buf.duration / s.rate);
+    src.buffer = s.buf; src.playbackRate.value = s.rate;
+    const p = peak * sm[2] * s.norm;
+    g.gain.setValueAtTime(0, start); g.gain.linearRampToValueAtTime(p, start + 0.004); g.gain.setTargetAtTime(0, off, sm[3] / 3);
+    src.connect(g); g.connect(out); src.start(start); src.stop(Math.max(start + 0.05, end));
+    return { g, oscs: [src], end };
+  }
+  const snd = MIDI_SOUNDS[key]; if (!waves[key]) waves[key] = ctx.createPeriodicWave(new Float32Array(snd.amps.length), new Float32Array(snd.amps));
+  const end = off + snd.release * 2.5, g = ctx.createGain(), oscs = [];
+  let tail = g;
+  if (snd.cut) {   // a filter that opens (brass) or closes (plucked strings) as the note sounds
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.7;
+    lp.frequency.setValueAtTime(Math.max(snd.cut[0], f * 2), start);
+    if (snd.cut[2]) lp.frequency.setTargetAtTime(Math.max(snd.cut[1], f * 1.5), start + 0.005, snd.cut[2] / 3);
+    g.connect(lp); tail = lp;
+  }
+  if (snd.formants) {   // a voice: the "ah" resonances of a singer
+    const mix = ctx.createGain(); mix.gain.value = 1;
+    for (const [fr, amt, bw] of snd.formants) { const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fr; bp.Q.value = fr / bw; const k = ctx.createGain(); k.gain.value = amt * 3; tail.connect(bp); bp.connect(k); k.connect(mix); }
+    tail = mix;
+  }
+  tail.connect(out);
+  for (const d of snd.det ? [-snd.det, snd.det] : [0]) {
+    const o = ctx.createOscillator(); o.setPeriodicWave(waves[key]); o.frequency.value = f; o.detune.value = d;
+    if (snd.vib) {   // vibrato that comes in after the start, like a player or singer
+      const lfo = ctx.createOscillator(), depth = ctx.createGain(); lfo.frequency.value = snd.vib[0];
+      depth.gain.setValueAtTime(0, start); depth.gain.linearRampToValueAtTime(f * snd.vib[1] / 100, start + snd.vib[2] + 0.15);
+      lfo.connect(depth); depth.connect(o.frequency); lfo.start(start); lfo.stop(end); oscs.push(lfo);
+    }
+    o.connect(g); o.start(start); o.stop(end); oscs.push(o);
+  }
+  const p = snd.det ? peak * 0.7 : peak;
+  g.gain.setValueAtTime(0, start); g.gain.linearRampToValueAtTime(p, start + snd.attack);
+  if (snd.decay) g.gain.setTargetAtTime(p * snd.sustain, start + snd.attack, snd.decay / 3);
+  g.gain.setTargetAtTime(0, off, snd.release / 3);
+  return { g, oscs, end };
+}
 class MidiPlayer extends EventTarget {
   constructor() { super(); this.src = ''; this.song = null; this._pos = 0; this.paused = true; this.ended = false; this._rate = 1; this._vol = 1; this.transpose = 0; this.focus = ''; this.readyState = 0; this.voices = []; this.live = []; this.onerror = null; }
   // The sound goes out through an <audio> element (a live stream) rather than straight to the speakers: phones then
@@ -1522,7 +1628,7 @@ class MidiPlayer extends EventTarget {
     this.unload(); this.src = url; const me = this._token = {};
     fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(ab => {
       if (this._token !== me) return;
-      this.song = parseMidi(ab); this.voices = this.song.voices; this.readyState = 4;
+      this.song = parseMidi(ab); this.voices = this.song.voices; this.readyState = 4; try { this._prep(); } catch {}
       ['loadedmetadata', 'durationchange', 'loadeddata', 'canplay', 'canplaythrough'].forEach(e => this._emit(e));
       if (this._wantPlay) { this._wantPlay = false; this.play(); }
     }).catch(() => { if (this._token === me) { this._wantPlay = false; this._emit('error'); } });
@@ -1537,7 +1643,14 @@ class MidiPlayer extends EventTarget {
     return Promise.resolve();
   }
   pause() { if (this.paused) { this._wantPlay = false; return; } this._pos = this.currentTime; this._halt(); this.paused = true; const el = this.outEl; if (el) setTimeout(() => { if (this.paused) el.pause(); }, 300); this._emit('pause'); this._emit('timeupdate'); }
+  // start decoding the recorded notes this song needs (in each voice's instrument), so they're ready when played
+  _prep() {
+    if (!this.song) return;
+    const AC = window.AudioContext || window.webkitAudioContext; const ctx = actx || (actx = new AC()), seen = new Set();
+    for (const x of this.song.notes) { const k = midiSoundFor(x.vo), n = x.n + this.transpose, id = k + n; if (!seen.has(id) && MIDI_SOUNDS[k].sampled) { seen.add(id); sampleBuf(ctx, k, n); } }
+  }
   _go() {
+    this._prep();
     const ctx = this.ctx = this._ctx();
     this._t0 = ctx.currentTime + 0.06; this._at0 = this._pos; this._next = this.song.notes.findIndex(x => x.t + x.d > this._pos); if (this._next < 0) this._next = this.song.notes.length;
     clearInterval(this._timer); this._timer = setInterval(() => this._tick(), 25); this._tick();
@@ -1545,28 +1658,22 @@ class MidiPlayer extends EventTarget {
   }
   _halt(soft) {
     clearInterval(this._timer); clearInterval(this._tu);
-    if (this.ctx) { const t = this.ctx.currentTime; for (const v of this.live) try { v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0, t, soft ? 0.03 : 0.015); v.o.stop(t + 0.2); } catch {} }
+    if (this.ctx) { const t = this.ctx.currentTime; for (const v of this.live) try { v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0, t, soft ? 0.03 : 0.015); for (const o of v.oscs) o.stop(t + 0.2); } catch {} }
     this.live = [];
   }
   _tick() {
     if (this.paused || !this.song) return;
     const ctx = this.ctx, notes = this.song.notes, ahead = document.hidden ? 3 : 0.35;   // a hidden tab only gets a timer once a second
     const pos = this.currentTime, until = pos + ahead * this._rate;
-    const snd = MIDI_SOUNDS[midiSound] || MIDI_SOUNDS.piano;
-    if (!this._wave || this._waveFor !== midiSound) { this._wave = ctx.createPeriodicWave(new Float32Array(snd.amps.length), new Float32Array(snd.amps)); this._waveFor = midiSound; }
+    if (this._wavesCtx !== ctx) { this._waves = {}; this._wavesCtx = ctx; }
     while (this._next < notes.length && notes[this._next].t < until) {
       const x = notes[this._next++]; if (x.t + x.d <= pos - 0.02) continue;
       if (x.ch === 9) continue;   // drums: not for hymns
       const start = Math.max(ctx.currentTime, this._t0 + (x.t - this._at0) / this._rate), len = x.d / this._rate - Math.max(0, (pos - x.t) / this._rate);
       const vf = this.focus ? (x.vo === this.focus ? 1.25 : 0.28) : 1;
-      const f = 440 * Math.pow(2, (x.n + this.transpose - 69) / 12), o = ctx.createOscillator(), g = ctx.createGain();
-      o.setPeriodicWave(this._wave); o.frequency.value = f;
-      const peak = snd.gain * (0.35 + 0.65 * x.v) * vf * Math.min(1, 1.6 - (x.n - 60) / 80), off = start + Math.max(0.03, len);
-      g.gain.setValueAtTime(0, start); g.gain.linearRampToValueAtTime(peak, start + snd.attack);
-      if (snd.decay) g.gain.setTargetAtTime(peak * snd.sustain, start + snd.attack, snd.decay / 3);
-      g.gain.setTargetAtTime(0, off, snd.release / 3);
-      o.connect(g); g.connect(this.out); o.start(start); o.stop(off + snd.release * 2);
-      const v = { o, g, end: off + snd.release * 2 }; this.live.push(v);
+      const key = midiSoundFor(x.vo), snd = MIDI_SOUNDS[key], f = 440 * Math.pow(2, (x.n + this.transpose - 69) / 12);
+      const peak = (snd.gain || 0.22) * (0.35 + 0.65 * x.v) * vf * Math.min(1, 1.6 - (x.n - 60) / 80), off = start + Math.max(0.03, len);
+      this.live.push(midiNote(ctx, this.out, key, f, start, off, peak, this._waves, x.n + this.transpose));
     }
     const now2 = ctx.currentTime; if (this.live.length > 64) this.live = this.live.filter(v => v.end > now2);
     if (pos >= this.duration - 0.01 && this._next >= notes.length) {
@@ -2431,9 +2538,15 @@ function renderPlayerParts() {
   $('#playerParts').innerHTML = (song.parts.length > 1 ? song.parts.map(p =>
     `<button class="pp${p === part ? ' now' : ''}" data-id="${esc(p.id)}">${esc(p.part)}</button>`).join('') : '')
     + (voices.length > 1 ? (song.parts.length > 1 ? '<span class="ppsep"></span>' : '') + [{ name: '' }, ...voices].map(v =>
-      `<button class="pp${audio.midi.focus === v.name ? ' now' : ''}" data-voice="${esc(v.name)}" title="${v.name ? 'Bring the ' + esc(v.name) + ' forward' : 'All voices the same'}">${v.name ? esc(v.name) : 'All Voices'}</button>`).join('') : '');
+      `<button class="pp${audio.midi.focus === v.name ? ' now' : ''}" data-voice="${esc(v.name)}" title="${v.name ? 'Bring the ' + esc(v.name) + ' forward' : 'All voices the same'}">${v.name ? esc(v.name) : 'All Voices'}</button>`).join('') : '')
+    + (part.midi ? `<span class="ppsep"></span><select class="pp ppinst" aria-label="Instrument" title="Instrument">${midiVoiceSounds ? '<option value="">Each Voice Its Own</option>' : ''}${midiOpts(midiVoiceSounds ? '' : midiSound)}</select>` : '');
 }
 audio.midi.addEventListener('loadedmetadata', renderPlayerParts);
+$('#playerParts').addEventListener('change', e => {
+  if (!e.target.classList.contains('ppinst')) return;
+  if (e.target.value) { midiSound = e.target.value; store.set('midiSound', midiSound); if (midiVoiceSounds) { midiVoiceSounds = null; store.set('midiVoiceSounds', null); } }
+  renderMidiSeg(); e.target.blur(); audio.midi._prep();
+});
 $('#playerParts').addEventListener('click', e => {
   const vb = e.target.closest('[data-voice]');
   if (vb && now) { midiFocus = vb.dataset.voice; store.set('midiFocus', midiFocus); renderPlayerParts(); return; }
@@ -5077,9 +5190,16 @@ function keyGlide(target) {
 }
 ['touchstart', 'wheel', 'mousedown'].forEach(t => $('#vBody').addEventListener(t, keyGlideStop, { passive: true }));   // your own scrolling takes over
 // how MIDI songs sound (the app's own synthesizer)
-function renderMidiSeg() { document.querySelectorAll('#midiSeg button').forEach(b => b.classList.toggle('on', b.dataset.m === midiSound)); }
+const midiOpts = sel => Object.entries(MIDI_SOUNDS).map(([k, v]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${v.name}</option>`).join('');
+function renderMidiSeg() {
+  $('#midiSel').innerHTML = midiOpts(midiSound); $('#midiPerVoice').checked = !!midiVoiceSounds;
+  $('#midiVoices').innerHTML = midiVoiceSounds ? ['Lead', 'Alto', 'Tenor', 'Bass'].map(v => `<label class="act" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-left:18px">${v} <select data-v="${v}" style="font:inherit;max-width:60%">${midiOpts(midiVoiceSounds[v])}</select></label>`).join('') : '';
+  if (typeof renderPlayerParts === 'function') renderPlayerParts();
+}
 renderMidiSeg();
-$('#midiSeg').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; midiSound = b.dataset.m; store.set('midiSound', midiSound); renderMidiSeg(); });
+$('#midiSel').onchange = e => { midiSound = e.target.value; store.set('midiSound', midiSound); renderMidiSeg(); audio.midi._prep(); };
+$('#midiPerVoice').onchange = e => { midiVoiceSounds = e.target.checked ? Object.assign({}, MIDI_VOICE_DEFAULTS, store.get('midiVoiceLast', {})) : null; if (midiVoiceSounds) delete midiVoiceSounds.Soprano; store.set('midiVoiceSounds', midiVoiceSounds); renderMidiSeg(); };
+$('#midiVoices').addEventListener('change', e => { const v = e.target.dataset.v; if (!v || !midiVoiceSounds) return; midiVoiceSounds[v] = e.target.value; store.set('midiVoiceSounds', midiVoiceSounds); store.set('midiVoiceLast', midiVoiceSounds); audio.midi._prep(); });
 $('#themeSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   theme = b.dataset.t; store.set('theme', theme); applyTheme();
@@ -7124,7 +7244,7 @@ async function setupShift() {
 async function applyShift() {
   const semis = now ? shiftSemis(now.song) : 0;
   updateShiftLabel(semis);
-  if (now && now.part.midi) { audio.midi.transpose = semis; if (shift) shift.set(1); return; }   // MIDI: the notes themselves move, exactly
+  if (now && now.part.midi) { audio.midi.transpose = semis; audio.midi._prep(); if (shift) shift.set(1); return; }   // MIDI: the notes themselves move, exactly
   if (!semis && !shift) return;                 // nothing to do: normal playback
   try {
     const sh = await setupShift();
