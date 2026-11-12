@@ -1338,7 +1338,6 @@
   <button class="act" id="recordsBtn">Usage Records (Delete Entries)</button>
   <button class="act" id="checkBtn">Library Check (Missing Files)</button>
   <button class="act" id="midiBtn">MIDI Review (Flag Problems)</button>
-  <button class="act" id="mp3Btn">MP3 Review (Flag Problems)</button>
   <button class="act" id="installBtn">Installers</button>
   <label class="act" id="projScreenRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Projector Screen <select id="projScreen" style="font:inherit;max-width:60%"></select></label>
   <label class="act" id="lidRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Keep Presenting With the Lid Closed <input type="checkbox" id="lidAwake" style="width:20px;height:20px"></label>
@@ -5675,7 +5674,6 @@ function renderWelcome() {
   document.body.classList.toggle('visitor', isVisitor() || visitorEnded);
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
-  $('#mp3Btn').style.display = isAdmin() ? '' : 'none';
   $('#midiBtn').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
 }
@@ -6253,7 +6251,6 @@ function rvOpen(kind) {
   rvKind = kind; $('#rvHead').textContent = rvLabel() + ' Review';
   closeSheet(); rvRender(); openPanel('mp3Panel'); rvLoad();
 }
-$('#mp3Btn').onclick = () => rvOpen('mp3');
 $('#midiBtn').onclick = () => rvOpen('midi');
 $('#rvBooks').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) { rvBook = b.dataset.b; rvRender(); } });
 $('#rvQ').addEventListener('input', () => rvRender());
