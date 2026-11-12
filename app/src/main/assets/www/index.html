@@ -1444,9 +1444,40 @@ function parseMidi(buf) {
   tempos.sort((a, c) => a.tick - c.tick);
   const sec = tick => { let t = 0, last = 0, us = 500000; for (const x of tempos) { if (x.tick >= tick) break; t += (x.tick - last) / div * us / 1e6; last = x.tick; us = x.us; } return t + (tick - last) / div * us / 1e6; };
   const notes = raw.map(x => { const t = sec(x.s); return { t, d: Math.max(0.05, sec(x.e) - t), n: x.n, v: x.v / 127, tr: x.tr, ch: x.ch }; }).sort((a, c) => a.t - c.t);
-  const VOICE = /(soprano|alto|tenor|bass|melody|baritone|descant)/i;
-  const voices = [...new Set(notes.map(x => x.tr))].sort((a, c) => a - c).map(tr => ({ tr, name: (names[tr] || '').match(VOICE) ? titleCase((names[tr].match(VOICE) || [])[1].toLowerCase()) : '' })).filter(x => x.name);
+  const VOICE = /(soprano|alto|tenor|bass|lead|melody|baritone|descant)/i;
+  let voices = [...new Set(notes.map(x => x.tr))].sort((a, c) => a - c).map(tr => ({ tr, name: (names[tr] || '').match(VOICE) ? titleCase((names[tr].match(VOICE) || [])[1].toLowerCase()) : '' })).filter(x => x.name);
+  for (const x of notes) { const v = voices.find(y => y.tr === x.tr); x.vo = v ? v.name : ''; }
+  if (voices.length < 2) voices = splitVoices(notes);   // all the voices in one track: work out which note is which voice
   return { notes, duration: notes.reduce((m, x) => Math.max(m, x.t + x.d), 0) + 0.3, voices, fmt };
+}
+// A hymn written as chords in one track (or two, like a piano score): each note is given to Lead, Alto, Tenor or Bass.
+// The top note sounding is the Lead, the bottom one the Bass, and the ones between go to Alto and Tenor; when fewer
+// than four are sounding, each new note goes to the voice whose last note was nearest (keeping them in order).
+function splitVoices(notes) {
+  const V = ['Lead', 'Alto', 'Tenor', 'Bass'], last = { Lead: 72, Alto: 65, Tenor: 57, Bass: 48 }, sounding = [];
+  const pool = notes.filter(x => x.ch !== 9);
+  if (pool.length < 8) return [];
+  for (let i = 0; i < pool.length;) {
+    const t = pool[i].t, group = [];
+    while (i < pool.length && pool[i].t - t < 0.03) group.push(pool[i++]);
+    for (let k = sounding.length - 1; k >= 0; k--) if (sounding[k].t + sounding[k].d <= t + 0.02) sounding.splice(k, 1);
+    const held = sounding.filter(x => x.vo), all = [...held, ...group].sort((a, b) => b.n - a.n);
+    if (all.length >= 4) {   // a full chord (or more): by position
+      all.forEach((x, r) => { if (held.includes(x)) return; x.vo = r === 0 ? 'Lead' : r === all.length - 1 ? 'Bass' : r === 1 ? 'Alto' : r === all.length - 2 ? 'Tenor' : ''; });
+    } else {   // fewer: the free voices, in order, nearest to where each was
+      const free = V.filter(v => !held.some(x => x.vo === v)), g = [...group].sort((a, b) => b.n - a.n);
+      let best = null, bestCost = Infinity;
+      const pick = (start, chosen) => {
+        if (chosen.length === g.length) { const c = chosen.reduce((m, v, j) => m + Math.abs(g[j].n - last[v]), 0); if (c < bestCost) { bestCost = c; best = [...chosen]; } return; }
+        for (let j = start; j < free.length; j++) pick(j + 1, [...chosen, free[j]]);
+      };
+      if (g.length <= free.length) pick(0, []);
+      g.forEach((x, j) => { x.vo = best ? best[j] : ''; });
+    }
+    for (const x of group) { if (x.vo) last[x.vo] = x.n; sounding.push(x); }
+  }
+  const used = V.filter(v => pool.some(x => x.vo === v));
+  return used.length >= 3 ? used.map(name => ({ tr: -1, name })) : (pool.forEach(x => { x.vo = ''; }), []);
 }
 // The sounds: a few harmonics each (like the pitch pipe's reed), shaped by a volume envelope
 const MIDI_SOUNDS = {
@@ -1511,7 +1542,7 @@ class MidiPlayer extends EventTarget {
       const x = notes[this._next++]; if (x.t + x.d <= pos - 0.02) continue;
       if (x.ch === 9) continue;   // drums: not for hymns
       const start = Math.max(ctx.currentTime, this._t0 + (x.t - this._at0) / this._rate), len = x.d / this._rate - Math.max(0, (pos - x.t) / this._rate);
-      const vf = this.focus ? (this.voices.some(v => v.tr === x.tr && v.name === this.focus) ? 1.25 : 0.28) : 1;
+      const vf = this.focus ? (x.vo === this.focus ? 1.25 : 0.28) : 1;
       const f = 440 * Math.pow(2, (x.n + this.transpose - 69) / 12), o = ctx.createOscillator(), g = ctx.createGain();
       o.setPeriodicWave(this._wave); o.frequency.value = f;
       const peak = snd.gain * (0.35 + 0.65 * x.v) * vf * Math.min(1, 1.6 - (x.n - 60) / 80), off = start + Math.max(0.03, len);
