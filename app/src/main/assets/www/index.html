@@ -1583,8 +1583,9 @@ function buildIndex() {
   const aliases = new Map();   // the title-only song a file used to make -> the hymn it's part of (song lists may name the old one)
   const attach = (files, field) => {
     const exactTitles = new Set(files.filter(x => !x.number).map(x => x.collection + '|' + normalize(x.title)));
-    // a file named without its hymn number ("Ten Thousand Angels - Eb.chordpro") joins the numbered hymn with that
-    // title in the same book, when only one hymn there has it
+    // a chord sheet named without its hymn number ("Ten Thousand Angels - Eb.chordpro") joins the numbered hymn with
+    // that title in the same book, when only one hymn there has it. Only chord sheets: sheet music or slides with a
+    // hymn's title but no number can be a different song (Zion's Praises has two "In the Garden"s).
     const numbered = new Map();
     for (const so of songIndex.values()) if (so.number) for (const f of [...so.parts, ...so.sheets, ...so.chords, ...so.slides]) if (f.title)
       for (const t of new Set([normalize(f.title), normalize(baseTitle(f.title))])) { const id = so.collection + '|' + t; if (!numbered.has(id)) numbered.set(id, new Set()); numbered.get(id).add(so.key); }
@@ -1594,7 +1595,7 @@ function buildIndex() {
         const base = x.collection + '|' + normalize(baseTitle(x.title));
         if (songIndex.has(base) && !exactTitles.has(base)) { key = base; s = songIndex.get(base); }
       }
-      if (!s && !x.number) {
+      if (!s && !x.number && field === 'chords') {
         const hits = numbered.get(x.collection + '|' + normalize(x.title)) || numbered.get(x.collection + '|' + normalize(baseTitle(x.title)));
         if (hits && hits.size === 1) { aliases.set(key, [...hits][0]); key = [...hits][0]; s = songIndex.get(key); }
       }
