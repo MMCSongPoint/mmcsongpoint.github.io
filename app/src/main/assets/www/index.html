@@ -1494,8 +1494,8 @@ function splitVoices(notes) {
 // envelope (attack, decay to sustain, release), with optional vibrato, a slightly detuned second voice (det, cents,
 // for warmth), a filter that opens as the note starts (cut: from → to Hz), and voice-like resonances (formants).
 const MIDI_SOUNDS = {   // made by the app: always there, offline too, and the stand-in while a recorded one loads
-  piano:  { name: 'Piano (Built-in)', amps: [0, 1, 0.42, 0.22, 0.12, 0.07, 0.04, 0.02], attack: 0.004, decay: 1.6, sustain: 0.18, release: 0.25, gain: 0.22, cut: [5000, 1800, 1.2] },
-  organ:  { name: 'Organ (Built-in)', amps: [0, 1, 0.55, 0.3, 0.32, 0.12, 0.14, 0.05, 0.08], attack: 0.03, decay: 0, sustain: 1, release: 0.08, gain: 0.14 },
+  piano:  { name: 'Keyboard', amps: [0, 1, 0.42, 0.22, 0.12, 0.07, 0.04, 0.02], attack: 0.004, decay: 1.6, sustain: 0.18, release: 0.25, gain: 0.22, cut: [5000, 1800, 1.2] },
+  organ:  { name: 'Organ', hidden: true, amps: [0, 1, 0.55, 0.3, 0.32, 0.12, 0.14, 0.05, 0.08], attack: 0.03, decay: 0, sustain: 1, release: 0.08, gain: 0.14 },
 };
 // Recorded instruments: short recordings of each note (the FluidR3 GM sound set, CC BY 3.0, via midi-js-soundfonts),
 // served with the web app from sounds/. Each is downloaded the first time it's used (2–3 MB) and kept for offline use.
@@ -1508,6 +1508,7 @@ const MIDI_SAMPLED = {
   guitar:  ['Acoustic Guitar', 'acoustic_guitar_nylon', 1.8, 0.25, 'piano'],
   flute:   ['Flute', 'flute', 1.3, 0.15, 'organ'],
   accordion: ['Accordion', 'accordion', 1.3, 0.15, 'organ'],
+  harp:    ['Harp', 'orchestral_harp', 1.6, 0.6, 'piano'],
 };
 for (const [k, v] of Object.entries(MIDI_SAMPLED)) MIDI_SOUNDS[k] = { name: v[0], sampled: v };
 const sampleSets = new Map();   // key -> Promise<Map(midi note -> base64 MP3)>
@@ -1552,6 +1553,7 @@ function sampleBuf(ctx, key, n) {
   return null;
 }
 let midiSound = store.get('midiSound', 'grand');
+if (midiSound === 'organ') midiSound = 'pipe';   // the built-in organ is only a stand-in now
 if (!MIDI_SOUNDS[midiSound]) midiSound = 'grand';
 // "A different sound for each voice": Lead, Alto, Tenor and Bass each played on their own instrument
 let midiVoiceSounds = store.get('midiVoiceSounds', null);   // null = off; else { Lead: 'flute', … }
@@ -5210,7 +5212,9 @@ function keyGlide(target) {
 }
 ['touchstart', 'wheel', 'mousedown'].forEach(t => $('#vBody').addEventListener(t, keyGlideStop, { passive: true }));   // your own scrolling takes over
 // how MIDI songs sound (the app's own synthesizer)
-const midiOpts = sel => Object.entries(MIDI_SOUNDS).map(([k, v]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${v.name}</option>`).join('');
+// the list: Keyboard (built in, always there) first, then the recorded ones A to Z
+const midiOrder = () => ['piano', ...Object.keys(MIDI_SOUNDS).filter(k => k !== 'piano' && !MIDI_SOUNDS[k].hidden).sort((a, b) => MIDI_SOUNDS[a].name.localeCompare(MIDI_SOUNDS[b].name))];
+const midiOpts = sel => midiOrder().map(k => [k, MIDI_SOUNDS[k]]).map(([k, v]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${v.name}</option>`).join('');
 function renderMidiSeg() {
   $('#midiSel').innerHTML = midiOpts(midiSound); $('#midiPerVoice').checked = !!midiVoiceSounds;
   $('#midiVoices').innerHTML = midiVoiceSounds ? ['Lead', 'Alto', 'Tenor', 'Bass'].map(v => `<label class="act" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-left:18px">${v} <select data-v="${v}" style="font:inherit;max-width:60%">${midiOpts(midiVoiceSounds[v])}</select></label>`).join('') : '';
