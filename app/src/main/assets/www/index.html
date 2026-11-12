@@ -6181,7 +6181,7 @@ const rvLabel = () => rvKind === 'midi' ? 'MIDI' : 'MP3';
 let mp3Approved = store.get('mp3Approved', {});
 const SPARKLE = '<svg class="aimark" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-label="AI-generated recording"><title>AI-generated recording (not reviewed yet)</title><path d="M10 2.5l1.8 5.2 5.2 1.8-5.2 1.8L10 16.5l-1.8-5.2L3 9.5l5.2-1.8zM18.5 13l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/></svg>';
 function isAiTrack(part, song) {
-  if (!part || !song || /^(sfp|songs of faith and praise)$/i.test(song.collection)) return false;
+  if (!part || !song || (!part.midi && /^(sfp|songs of faith and praise)$/i.test(song.collection))) return false;   // SFP's MP3s are real recordings; its MIDIs get reviewed like the rest
   return !(part.id in mp3Approved && (!part.modified || !mp3Approved[part.id] || part.modified <= mp3Approved[part.id]));
 }
 function renderNowTitle() {
@@ -6193,7 +6193,7 @@ async function loadApproved() { try { const r = await api('mp3Approved'); if (r.
 // reviewed = played to the end and marked "sounded good" (and the file hasn't been replaced since)
 const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id] || t.modified <= rvReviewed[t.id]);
 // for now only the songs we know (the green ones) are reviewed; SFP's MP3s aren't AI-generated, so they're left out
-function rvAll() { const ids = new Set(); for (const s of songs) if (isKnown(s) && !/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
+function rvAll() { const ids = new Set(); for (const s of songs) if (isKnown(s) && (rvKind === 'midi' || !/^(sfp|songs of faith and praise)$/i.test(s.collection))) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
 function rvList() {
   const q = normalize($('#rvQ').value || ''), only = $('#rvOnly').checked, showDone = $('#rvDone').checked, flagged = new Set(rvIssues.map(x => x.fileId));
   return rvAll().filter(t => (!rvBook || t.collection === rvBook) && (!only || flagged.has(t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
@@ -7250,8 +7250,7 @@ $('#recList').addEventListener('click', e => {
 // that list is kept on the server so every admin sees the same thing.
 // Text docs (readings etc.) never have an MP3, a key or a PowerPoint, so those aren't counted as missing.
 const CHECKS = [
-  // a MIDI for every song; SFP songs keep their real MP3s for now, so those with one aren't counted
-  { id: 'midi', label: 'MIDI', test: s => !s.parts.some(p => p.midi) && !isTextDoc(s) && !(/^(sfp|songs of faith and praise)$/i.test(s.collection) && s.parts.length) },
+  { id: 'midi', label: 'MIDI', test: s => !s.parts.some(p => p.midi) && !isTextDoc(s) },   // a MIDI for every song, SFP too
   { id: 'sheet', label: 'Sheet Music', test: s => !s.sheets.length },
   { id: 'key', label: 'Key', test: s => !s.musicKey && !isTextDoc(s) },
   { id: 'ppt', label: 'Slides', test: s => !s.slides.length && !isTextDoc(s) },
