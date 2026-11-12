@@ -609,6 +609,7 @@
   .crow .cb { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
   .miss { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; margin: 4px 4px 0 0; background: rgba(229,72,77,.12); color: #c4323a; }
   html.dark .miss, .dark .miss { color: #ff8a8f; }
+  .miss.unc { background: rgba(240,160,32,.16); color: #9a5b00; } html.dark .miss.unc, .dark .miss.unc { color: #f3b552; }
   .crow .pbtn { padding: 6px 10px; font-size: 13px; flex: none; }
   .crow .dl.sm { flex: none; }
   .crow .cnoview { width: 38px; flex: none; }
@@ -961,7 +962,6 @@
     <button class="icon" id="recRefresh" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
   </div>
   <div class="pbody">
-    <p style="color:var(--muted);font-size:13px;margin:0 0 10px">Every saved song list and PowerPoint build in the usage log. Deleting removes it from usage counts for everyone (it's kept in a “Deleted log” tab in the Google Sheet, just in case).</p>
     <input id="recQ" type="search" placeholder="Filter by title, leader or song" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;margin-bottom:8px">
     <div class="recbar"><label><input type="checkbox" id="recAll"> Select all shown</label><span id="recCount"></span><button class="pbtn" id="recDelete" disabled style="background:var(--danger)">Delete</button></div>
     <div id="recList"><div class="vmsg">Loading…</div></div>
@@ -1974,7 +1974,8 @@ const fileChips = s => [s.sheets.length && ['Sheet Music'], s.chords && s.chords
 const openRows = new Set();
 const narrow = () => window.matchMedia('(max-width: 640px)').matches;
 function songRow(s, i, words = [], fuzzy = false, inPanel = false) {
-      const mine = pickPart(s) || {}, playing = !!now && s.parts.includes(now.part), audioLess = !s.parts.length;
+      const mine = pickPart(s) || {}, playing = !!now && s.parts.includes(now.part);
+  const audioLess = !s.parts.length || (!playing && isAiTrack(mine, s));   // an MP3 not confirmed yet (MP3 Review): no play button
   const isMine = myPart && mine.part.toLowerCase().startsWith(myPart.toLowerCase());
   const allSaved = songFiles(s).every(p => downloaded.has(p.id)), busy = songFiles(s).some(p => downloading.has(p.id));
   // the part buttons (Soprano, Alto…) only show on the song that's playing
@@ -6960,22 +6961,30 @@ const CHECKS = [
   { id: 'key', label: 'Key', test: s => !s.musicKey && !isTextDoc(s) },
   { id: 'ppt', label: 'Slides', test: s => !s.slides.length && !isTextDoc(s) },
 ];
+// not missing, but not checked yet: AI MP3s not reviewed (MP3 Review), slides not approved
+const UNCONF = [
+  { id: 'ump3', label: 'Unconfirmed MP3s', chip: 'MP3s not confirmed', test: s => mp3Unchecked(s) },
+  { id: 'uslides', label: 'Unconfirmed Slides', chip: 'Slides not confirmed', test: s => slidesUnchecked(s) },
+];
 let checkIgnored = new Set(store.get('checkIgnored', [])), checkFilter = '', checkBook = '', checkLimit = 150;
 function checkRows() {
-  return songs.map(s => ({ s, miss: CHECKS.filter(c => c.test(s)) })).filter(x => x.miss.length || isTextDoc(x.s));
+  return songs.map(s => ({ s, miss: CHECKS.filter(c => c.test(s)), unc: UNCONF.filter(c => c.test(s)) })).filter(x => x.miss.length || x.unc.length || isTextDoc(x.s));
 }
 function renderCheck() {
   const all = checkRows(), showIgn = $('#checkShowIgn').checked;
   const books = CFG.collectionOrder.filter(b => all.some(x => x.s.collection === b));
   for (const x of all) if (!books.includes(x.s.collection)) books.push(x.s.collection);
   const inBook = all.filter(x => (!checkBook || x.s.collection === checkBook) && !checkIgnored.has(x.s.key));
-  $('#checkTiles').innerHTML = CHECKS.map(c => `<button data-c="${c.id}" class="${checkFilter === c.id ? 'on' : ''}"><b>${inBook.filter(x => x.miss.includes(c)).length}</b><small>No ${c.label}</small></button>`).join('')
-    + `<button data-c="tdoc" class="tdtile${checkFilter === 'tdoc' ? ' on' : ''}"><b>${inBook.filter(x => isTextDoc(x.s)).length}</b><small>Text docs</small></button>`;
+  // a total that's 0 isn't shown (unless it's the one picked)
+  const tile = (id, n, label, cls = '') => n || checkFilter === id ? `<button data-c="${id}" class="${cls}${checkFilter === id ? ' on' : ''}"><b>${n}</b><small>${label}</small></button>` : '';
+  $('#checkTiles').innerHTML = CHECKS.map(c => tile(c.id, inBook.filter(x => x.miss.includes(c)).length, 'No ' + c.label)).join('')
+    + UNCONF.map(c => tile(c.id, inBook.filter(x => x.unc.includes(c)).length, c.label, 'unc ')).join('')
+    + tile('tdoc', inBook.filter(x => isTextDoc(x.s)).length, 'Text Docs', 'tdtile ');
   $('#checkBooks').innerHTML = ['', ...books].map(b => `<button class="chip${checkBook === b ? ' on' : ''}" data-b="${esc(b)}">${b ? esc(b) : 'All books'}</button>`).join('');
   const q = normalize($('#checkQ').value || '');
   let rows = all.filter(x => (!checkBook || x.s.collection === checkBook)
     && (showIgn || !checkIgnored.has(x.s.key))
-    && (checkFilter === 'tdoc' ? isTextDoc(x.s) : !checkFilter || x.miss.some(c => c.id === checkFilter))
+    && (checkFilter === 'tdoc' ? isTextDoc(x.s) : !checkFilter || x.miss.some(c => c.id === checkFilter) || x.unc.some(c => c.id === checkFilter))
     && (!q || x.s.nTitle.includes(q) || x.s.number === q.replace(/^#/, '')));
   rows.sort((a, b) => (CFG.collectionOrder.indexOf(a.s.collection) - CFG.collectionOrder.indexOf(b.s.collection))
     || ((+a.s.number || 1e9) - (+b.s.number || 1e9)) || a.s.title.localeCompare(b.s.title));
@@ -6984,7 +6993,7 @@ function renderCheck() {
     + (rows.length ? rows.slice(0, checkLimit).map(x => { const ig = checkIgnored.has(x.s.key); return `<div class="crow${ig ? ' ign' : ''}">
       ${x.s.sheets.length ? `<button class="dl sm" data-view="${esc(x.s.key)}" aria-label="Preview sheet music" title="Preview sheet music">${ICON_MUSIC}</button>` : '<span class="cnoview"></span>'}
       <div class="ci"><div class="ct">${x.s.number ? `<span class="num">${esc(x.s.number)}</span>` : ''}${esc(x.s.title)}</div>
-      <div class="cb">${esc(x.s.collection)}${isTextDoc(x.s) ? ' · <b class="tdoc">Text doc</b>' : ''}</div><div>${x.miss.map(c => `<span class="miss">No ${c.label}</span>`).join('')}</div></div>
+      <div class="cb">${esc(x.s.collection)}${isTextDoc(x.s) ? ' · <b class="tdoc">Text doc</b>' : ''}</div><div>${x.miss.map(c => `<span class="miss">No ${c.label}</span>`).join('')}${x.unc.map(c => `<span class="miss unc">${c.chip}</span>`).join('')}</div></div>
       <div class="cbtns"><button class="pbtn ghost" data-ign="${esc(x.s.key)}">${ig ? 'Un-ignore' : 'Ignore'}</button>
       ${autoTextDoc(x.s) ? '<span class="m">Text doc (SFP, no MP3)</span>' : `<button class="pbtn ghost" data-tdoc="${esc(x.s.key)}">${isTextDoc(x.s) ? 'Not text doc' : 'Text doc'}</button>`}</div></div>`; }).join('')
       + (rows.length > checkLimit ? `<button class="act" id="checkMore">Show more (${rows.length - checkLimit} left)</button>` : '')
