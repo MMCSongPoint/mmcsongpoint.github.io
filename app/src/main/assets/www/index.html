@@ -1149,16 +1149,16 @@
 <div class="panel" id="mp3Panel">
   <div class="phead">
     <button class="icon" data-close="mp3Panel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>MP3 Review</h2>
+    <h2 id="rvHead">MP3 Review</h2>
   </div>
   <div class="rvbar" id="rvBar">
-    <div class="rvnow"><b id="rvTitle">Pick an MP3 below</b><small id="rvSub"></small></div>
+    <div class="rvnow"><b id="rvTitle">Pick one below</b><small id="rvSub"></small></div>
     <div class="rvctl">
-      <button class="pbtn ghost" id="rvPrev" title="Previous MP3">⏮</button>
+      <button class="pbtn ghost" id="rvPrev" title="Previous">⏮</button>
       <button class="pbtn ghost" id="rvBack" title="Back 5 s (←)">−5s</button>
       <button class="pbtn" id="rvPlay" title="Play / pause (space)">▶</button>
       <button class="pbtn ghost" id="rvFwd" title="Forward 5 s (→)">+5s</button>
-      <button class="pbtn ghost" id="rvNext" title="Next MP3">⏭</button>
+      <button class="pbtn ghost" id="rvNext" title="Next">⏭</button>
       <button class="pbtn rvflag" id="rvFlag" title="Flag a problem here (F)">⚑ Flag</button>
     </div>
     <div class="seek"><span id="rvCur">0:00</span><input type="range" id="rvSeek" min="0" max="1000" value="0"><span id="rvLen">0:00</span></div>
@@ -1168,7 +1168,7 @@
     <div class="chips" id="rvBooks" style="margin:0 0 8px"></div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="rvQ" type="search" placeholder="Filter by title or file name" style="flex:1"><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="rvOnly"> Flagged only</label><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="rvDone"> Reviewed</label></div>
     <p class="m" id="rvCount" style="margin:0 0 6px;font-size:12.5px;color:var(--muted)"></p>
-    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">Plays straight through the list; at the end of each MP3 it asks whether it sounded good (Yes = reviewed, and it leaves the list). Press <b>⚑ Flag</b> (or F) where you hear a problem and type what's wrong. Flags are saved to the server and written to the <b>MP3 Issues</b> folder in Drive (one text file per MP3, plus “_All MP3 issues.txt”).</p>
+    <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">Plays straight through the list; at the end of each one it asks whether it sounded good (Yes = reviewed, and it leaves the list). Press <b>⚑ Flag</b> (or F) where you hear a problem and type what's wrong. Flags are saved to the server and written to the <b>MP3 Issues</b> folder in Drive (one text file per file, plus “_All MP3 issues.txt”).</p>
     <div id="rvList"></div>
   </div>
 </div>
@@ -1337,6 +1337,7 @@
   <button class="act" id="usersBtn">Manage Users</button>
   <button class="act" id="recordsBtn">Usage Records (Delete Entries)</button>
   <button class="act" id="checkBtn">Library Check (Missing Files)</button>
+  <button class="act" id="midiBtn">MIDI Review (Flag Problems)</button>
   <button class="act" id="mp3Btn">MP3 Review (Flag Problems)</button>
   <button class="act" id="installBtn">Installers</button>
   <label class="act" id="projScreenRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Projector Screen <select id="projScreen" style="font:inherit;max-width:60%"></select></label>
@@ -2170,7 +2171,7 @@ let limit = LIMIT_STEP;
 const INFO_DOT = t => `<i class="chipwarn" title="${t}" aria-label="${t}">i</i>`;
 const mp3Unchecked = s => s.parts.some(p => isAiTrack(p, s));
 const slidesUnchecked = s => { const f = s.slides.length && prFile(s); return !!f && !slidesOk(f); };
-const fileChips = s => [s.sheets.length && ['Sheet Music'], s.chords && s.chords.length && ['Chords'], s.parts.length && ['MP3', mp3Unchecked(s) && 'MP3s not reviewed yet'], s.slides.length && ['Slides', slidesUnchecked(s) && 'Slides not approved yet']]
+const fileChips = s => [s.sheets.length && ['Sheet Music'], s.chords && s.chords.length && ['Chords'], s.parts.some(p => !p.midi) && ['MP3', s.parts.some(p => !p.midi && isAiTrack(p, s)) && 'MP3s not reviewed yet'], s.parts.some(p => p.midi) && ['MIDI', s.parts.some(p => p.midi && isAiTrack(p, s)) && 'MIDI not reviewed yet'], s.slides.length && ['Slides', slidesUnchecked(s) && 'Slides not approved yet']]
   .filter(Boolean).map(([t, w], i) => `<span class="slidechip${i ? '' : ' first'}${w ? ' warn' : ''}">${t}${w ? INFO_DOT(w) : ''}</span>`).join('');
 // On a narrow screen, tapping a song's name shows everything (title, book, what it has); tapping again folds it back.
 const openRows = new Set();
@@ -5674,6 +5675,7 @@ function renderWelcome() {
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
   $('#mp3Btn').style.display = isAdmin() ? '' : 'none';
+  $('#midiBtn').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
 }
 function signOut(expired = false) {
@@ -6158,7 +6160,8 @@ $('#dSlides').onclick = () => { closeDrawer(); openSlides(); };
 $('#dSettings').onclick = () => { closeDrawer(); openSheet(); };
 // ---- MP3 review (admins): listen through the MP3s, flag problems at the moment you hear them
 const rvAudio = mediaSwitch(new Audio(), () => !!(rvCur && rvCur.midi)); rvAudio.preload = 'auto';
-let rvIssues = [], rvBook = '', rvCur = null, rvTracks = [], rvReviewed = {};
+let rvIssues = [], rvBook = '', rvCur = null, rvTracks = [], rvReviewed = {}, rvKind = 'mp3';   // MP3 Review or MIDI Review
+const rvLabel = () => rvKind === 'midi' ? 'MIDI' : 'MP3';
 // ✨ by the playing track's name: an AI-generated MP3 (everything but SFP) until it's approved in MP3 review
 let mp3Approved = store.get('mp3Approved', {});
 const SPARKLE = '<svg class="aimark" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-label="AI-generated recording"><title>AI-generated recording (not reviewed yet)</title><path d="M10 2.5l1.8 5.2 5.2 1.8-5.2 1.8L10 16.5l-1.8-5.2L3 9.5l5.2-1.8zM18.5 13l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/></svg>';
@@ -6175,7 +6178,7 @@ async function loadApproved() { try { const r = await api('mp3Approved'); if (r.
 // reviewed = played to the end and marked "sounded good" (and the file hasn't been replaced since)
 const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id] || t.modified <= rvReviewed[t.id]);
 // for now only the songs we know (the green ones) are reviewed; SFP's MP3s aren't AI-generated, so they're left out
-function rvAll() { const ids = new Set(); for (const s of songs) if (isKnown(s) && !/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
+function rvAll() { const ids = new Set(); for (const s of songs) if (isKnown(s) && !/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
 function rvList() {
   const q = normalize($('#rvQ').value || ''), only = $('#rvOnly').checked, showDone = $('#rvDone').checked, flagged = new Set(rvIssues.map(x => x.fileId));
   return rvAll().filter(t => (!rvBook || t.collection === rvBook) && (!only || flagged.has(t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
@@ -6186,15 +6189,15 @@ function rvRender() {
   $('#rvBooks').innerHTML = ['', ...books].map(b => `<button class="chip${b === rvBook ? ' on' : ''}" data-b="${esc(b)}">${esc(b || 'All')}</button>`).join('');
   rvTracks = rvList();
   const all = rvAll(), done = all.filter(rvIsReviewed).length;
-  $('#rvCount').textContent = `${done} of ${all.length} MP3s reviewed (songs we know)${$('#rvDone').checked ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
+  $('#rvCount').textContent = `${done} of ${all.length} ${rvLabel()}s reviewed (songs we know)${$('#rvDone').checked ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
   const count = id => rvIssues.filter(x => x.fileId === id).length;
   $('#rvList').innerHTML = rvTracks.slice(0, 600).map((t, i) => `<div class="rvrow${rvCur && rvCur.id === t.id ? ' now' : ''}" data-i="${i}"><div class="t"><div>${esc(t.name)}</div><small>${esc(t.collection)}${t.subfolder ? ' / ' + esc(t.subfolder) : ''}</small></div>${count(t.id) ? `<span class="fl">⚑ ${count(t.id)}</span>` : ''}</div>`).join('')
-    + (rvTracks.length > 600 ? `<p class="m">Showing 600 of ${rvTracks.length}. Pick a book or filter to narrow it down.</p>` : '') + (rvTracks.length ? '' : '<div class="vmsg">No MP3s match.</div>');
+    + (rvTracks.length > 600 ? `<p class="m">Showing 600 of ${rvTracks.length}. Pick a book or filter to narrow it down.</p>` : '') + (rvTracks.length ? '' : `<div class="vmsg">No ${rvLabel()}s match.</div>`);
   rvRenderNow();
 }
 function rvRenderNow() {
   const t = rvCur;
-  $('#rvTitle').textContent = t ? t.name : 'Pick an MP3 below';
+  $('#rvTitle').textContent = t ? t.name : `Pick ${rvKind === 'midi' ? 'a MIDI' : 'an MP3'} below`;
   $('#rvSub').textContent = t ? `${t.collection}${t.subfolder ? ' / ' + t.subfolder : ''}` : '';
   $('#rvPlay').textContent = rvAudio.paused ? '▶' : '❚❚';
   const mine = t ? rvIssues.filter(x => x.fileId === t.id).sort((a, b) => a.t - b.t) : [];
@@ -6202,7 +6205,7 @@ function rvRenderNow() {
 }
 async function rvPlay(t, autoplay = true) {
   rvCur = t; rvAudio.src = sourceFor(t); rvAudio.currentTime = 0;
-  rvAudio.onerror = async () => { if (rvAudio.dataset.relay === t.id || !canRelay()) return toast('Couldn\'t load this MP3'); rvAudio.dataset.relay = t.id; try { rvAudio.src = await relayFile(t.id); if (autoplay) rvAudio.play().catch(() => {}); } catch { toast('Couldn\'t load this MP3'); } };
+  rvAudio.onerror = async () => { if (rvAudio.dataset.relay === t.id || !canRelay()) return toast(`Couldn't load this ${rvLabel()}`); rvAudio.dataset.relay = t.id; try { rvAudio.src = await relayFile(t.id); if (autoplay) rvAudio.play().catch(() => {}); } catch { toast('Couldn\'t load this MP3'); } };
   if (!audio.paused) audio.pause();   // the app's own player stops while reviewing
   if (autoplay) rvAudio.play().catch(() => {});
   rvRender();
@@ -6244,7 +6247,13 @@ async function rvEnded() {
   const n = next && rvTracks.find(x => x.id === next.id) || rvTracks[Math.min(i, rvTracks.length - 1)];
   if (n && n.id !== t.id) rvPlay(n); else rvRenderNow();
 }
-$('#mp3Btn').onclick = () => { closeSheet(); rvRender(); openPanel('mp3Panel'); rvLoad(); };
+function rvOpen(kind) {
+  if (rvKind !== kind) { if (!rvAudio.paused) rvAudio.pause(); rvCur = null; rvBook = ''; }
+  rvKind = kind; $('#rvHead').textContent = rvLabel() + ' Review';
+  closeSheet(); rvRender(); openPanel('mp3Panel'); rvLoad();
+}
+$('#mp3Btn').onclick = () => rvOpen('mp3');
+$('#midiBtn').onclick = () => rvOpen('midi');
 $('#rvBooks').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) { rvBook = b.dataset.b; rvRender(); } });
 $('#rvQ').addEventListener('input', () => rvRender());
 $('#rvOnly').onchange = () => rvRender();
@@ -7227,14 +7236,15 @@ $('#recList').addEventListener('click', e => {
 // that list is kept on the server so every admin sees the same thing.
 // Text docs (readings etc.) never have an MP3, a key or a PowerPoint, so those aren't counted as missing.
 const CHECKS = [
-  { id: 'mp3', label: 'MP3', test: s => !s.parts.length && !isTextDoc(s) },
+  // a MIDI for every song; SFP songs keep their real MP3s for now, so those with one aren't counted
+  { id: 'midi', label: 'MIDI', test: s => !s.parts.some(p => p.midi) && !isTextDoc(s) && !(/^(sfp|songs of faith and praise)$/i.test(s.collection) && s.parts.length) },
   { id: 'sheet', label: 'Sheet Music', test: s => !s.sheets.length },
   { id: 'key', label: 'Key', test: s => !s.musicKey && !isTextDoc(s) },
   { id: 'ppt', label: 'Slides', test: s => !s.slides.length && !isTextDoc(s) },
 ];
 // not missing, but not checked yet: AI MP3s not reviewed (MP3 Review), slides not approved
 const UNCONF = [
-  { id: 'ump3', label: 'Unconfirmed MP3s', chip: 'MP3s not confirmed', test: s => mp3Unchecked(s) },
+  { id: 'umidi', label: 'Unconfirmed MIDIs', chip: 'MIDI not confirmed', test: s => s.parts.some(p => p.midi && isAiTrack(p, s)) },
   { id: 'uslides', label: 'Unconfirmed Slides', chip: 'Slides not confirmed', test: s => slidesUnchecked(s) },
 ];
 let checkIgnored = new Set(store.get('checkIgnored', [])), checkFilter = '', checkBook = '', checkLimit = 150;
