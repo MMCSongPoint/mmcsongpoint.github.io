@@ -1487,7 +1487,23 @@ const MIDI_SOUNDS = {
 let midiSound = store.get('midiSound', 'piano');
 class MidiPlayer extends EventTarget {
   constructor() { super(); this.src = ''; this.song = null; this._pos = 0; this.paused = true; this.ended = false; this._rate = 1; this._vol = 1; this.transpose = 0; this.focus = ''; this.readyState = 0; this.voices = []; this.live = []; this.onerror = null; }
-  _ctx() { const AC = window.AudioContext || window.webkitAudioContext; actx = actx || new AC(); if (!this.out || this.out.context !== actx) { this.out = actx.createGain(); this.out.gain.value = this._vol; this.out.connect(actx.destination); } return actx; }
+  // The sound goes out through an <audio> element (a live stream) rather than straight to the speakers: phones then
+  // treat it like music (an iPhone's silent switch doesn't mute it, and it can keep playing with the screen off).
+  // If the element can't play, it goes straight to the speakers instead.
+  _ctx() {
+    const AC = window.AudioContext || window.webkitAudioContext; actx = actx || new AC();
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+    if (!this.out || this.out.context !== actx) {
+      this.out = actx.createGain(); this.out.gain.value = this._vol; this._direct = false;
+      try {
+        const dest = actx.createMediaStreamDestination(); this.out.connect(dest);
+        this.outEl = new Audio(); this.outEl.setAttribute('playsinline', ''); this.outEl.srcObject = dest.stream;
+      } catch { this.outEl = null; this._goDirect(); }
+    }
+    if (this.outEl && !this._direct && this.outEl.paused) this.outEl.play().catch(() => this._goDirect());
+    return actx;
+  }
+  _goDirect() { if (this._direct || !this.out) return; this._direct = true; try { this.out.connect(actx.destination); } catch {} }
   _emit(type) { const e = new Event(type); this.dispatchEvent(e); if (type === 'error' && typeof this.onerror === 'function') this.onerror(e); }
   get duration() { return this.song ? this.song.duration : NaN; }
   get currentSrc() { return this.src; }
@@ -1520,7 +1536,7 @@ class MidiPlayer extends EventTarget {
     this.paused = false; this._emit('play'); this._go(); this._emit('playing');
     return Promise.resolve();
   }
-  pause() { if (this.paused) { this._wantPlay = false; return; } this._pos = this.currentTime; this._halt(); this.paused = true; this._emit('pause'); this._emit('timeupdate'); }
+  pause() { if (this.paused) { this._wantPlay = false; return; } this._pos = this.currentTime; this._halt(); this.paused = true; const el = this.outEl; if (el) setTimeout(() => { if (this.paused) el.pause(); }, 300); this._emit('pause'); this._emit('timeupdate'); }
   _go() {
     const ctx = this.ctx = this._ctx();
     this._t0 = ctx.currentTime + 0.06; this._at0 = this._pos; this._next = this.song.notes.findIndex(x => x.t + x.d > this._pos); if (this._next < 0) this._next = this.song.notes.length;
