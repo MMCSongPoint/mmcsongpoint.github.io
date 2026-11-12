@@ -289,6 +289,12 @@
   .kpgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 14px; }
   .kpgrid button { padding: 12px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 17px; font-weight: 700; cursor: pointer; }
   .kpgrid button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .tprow { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); padding: 12px 2px; font: inherit; color: inherit; cursor: pointer; }
+  .tprow:first-child { border-top: 0; } .tprow b { flex: 1; font-weight: 600; } .tprow small { color: var(--muted); }
+  .tpsong { padding: 10px 2px; border-top: 1px solid var(--line); } .tpsong:first-child { border-top: 0; }
+  .tpsong .tt { font-weight: 600; } .tpsong .tt small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .tpbooks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; } .tpbooks button { font-size: 13px; padding: 4px 10px; }
+  .tpbooks button.none { opacity: .45; } .tphead { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
   .inst h4 { margin: 14px 0 8px; } .inst h4:first-child { margin-top: 0; } .inst p.m { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
   .instdl { display: flex; gap: 12px; align-items: flex-start; padding: 12px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--row); color: inherit; text-decoration: none; }
   .instdl svg { flex: none; color: var(--accent-text); margin-top: 2px; } .instdl b { display: block; } .instdl small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; line-height: 1.4; }
@@ -1110,6 +1116,7 @@
   <button class="ditem" id="dRemote"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10.5 7.5 13.5 9.5 10.5 11.5z"/><path d="M10 16h4"/></svg>Remote Control</button>
   <button class="ditem" id="dClosing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Closing Songs</button>
   <button class="ditem" id="dTheory"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Music Theory</button>
+  <button class="ditem" id="dTopics"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h4M4 12h4M4 19h4M12 5h8M12 12h8M12 19h8"/></svg>Topical Index</button>
   <button class="ditem" id="dFavs"><span class="dstar">★</span>Favorites<small id="dFavCount"></small></button>
   <button class="ditem" id="dSwitch"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8h5m0 0-2-2m2 2-2 2M22 15h-5m0 0 2-2m-2 2 2 2"/></svg>Switch User</button>
   <button class="ditem" id="dTutorial"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.4-2.7 4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg>Tutorial</button>
@@ -1193,6 +1200,13 @@
 </div>
 
 <!-- Build log: what changed in each version (buildlog.js, written when the app is built) -->
+<div class="panel" id="topicsPanel">
+  <div class="phead">
+    <button class="icon" id="topicsBack" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2 id="topicsTitle">Topical Index</h2>
+  </div>
+  <div class="pbody"><input id="topicsQ" type="search" placeholder="Find a topic or song" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;margin-bottom:10px"><div id="topicsList"></div></div>
+</div>
 <div class="panel" id="installPanel">
   <div class="phead">
     <button class="icon" data-close="installPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
@@ -6153,6 +6167,53 @@ $('#rmRefresh').onclick = openRemote;
 $('#dRemote').onclick = openRemote;
 $('#dPresent').onclick = presentFresh;
 $('#dSwitch').onclick = () => { closeDrawer(); accountMenu(); };
+// ---- Topical Index (Menu): topics from the three hymnals, each with its songs and their numbers in each book.
+// Tap a book's number to open that song. topics.js is loaded the first time it's opened.
+const TP_BOOKS = [['SFP', 'SFP', 3], ["Zion's Praises", 'ZP', 2], ['Christian Hymnal', 'CH', 1]];   // [collection, short name, column]
+let tpTopic = null;
+function tpLoad() {
+  if (window.TOPICS) return Promise.resolve();
+  return new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'topics.js'; sc.onload = ok; sc.onerror = () => { sc.remove(); no(); }; document.head.appendChild(sc); });
+}
+function tpSongHtml(r, topic) {
+  const books = TP_BOOKS.flatMap(([col, short, i]) => (r[i] ? r[i].split(' ') : []).map(n => {
+    const s = songIndex.get(col + '|#' + n);
+    return `<button class="chip${s ? '' : ' none'}" data-tk="${esc(col + '|#' + n)}" title="${s ? 'Open it' : 'Not in the library'}">${short} ${esc(n)}</button>`;
+  }));
+  return `<div class="tpsong"><div class="tt">${esc(r[0])}${topic ? `<small>${esc(topic)}</small>` : ''}</div><div class="tpbooks">${books.join('')}</div></div>`;
+}
+function renderTopics() {
+  const q = normalize($('#topicsQ').value || ''), box = $('#topicsList');
+  $('#topicsTitle').textContent = tpTopic ? tpTopic[0] : 'Topical Index';
+  if (!window.TOPICS) { box.innerHTML = '<div class="vmsg">Loading…</div>'; return; }
+  if (tpTopic) {   // one topic: its songs
+    const rows = tpTopic[1].filter(r => !q || normalize(r[0]).includes(q) || r.slice(1).join(' ').split(' ').includes(q));
+    box.innerHTML = `<p class="tphead">${rows.length} song${rows.length === 1 ? '' : 's'}</p>` + rows.map(r => tpSongHtml(r)).join('');
+    return;
+  }
+  const topics = window.TOPICS.filter(t => !q || normalize(t[0]).includes(q));
+  let html = topics.map(t => `<button class="tprow" data-tp="${esc(t[0])}"><b>${esc(t[0])}</b><small>${t[1].length}</small></button>`).join('');
+  if (q.length > 2) {   // songs whose titles match, with their topics
+    const hits = new Map();
+    for (const [t, list] of window.TOPICS) for (const r of list) if (normalize(r[0]).includes(q)) { const k = r[0]; if (!hits.has(k)) hits.set(k, { r, ts: [] }); hits.get(k).ts.push(t); }
+    if (hits.size) html += `<p class="tphead" style="margin-top:14px">Songs</p>` + [...hits.values()].slice(0, 60).map(h => tpSongHtml(h.r, h.ts.join(', '))).join('');
+  }
+  box.innerHTML = html || '<div class="vmsg">Nothing found.</div>';
+}
+$('#dTopics').onclick = async () => {
+  closeDrawer(); tpTopic = null; $('#topicsQ').value = ''; openPanel('topicsPanel'); renderTopics();
+  try { await tpLoad(); renderTopics(); } catch { $('#topicsList').innerHTML = '<div class="vmsg">Couldn\'t load the topical index. Check your internet connection.</div>'; }
+};
+$('#topicsQ').addEventListener('input', renderTopics);
+$('#topicsBack').onclick = () => { if (tpTopic) { tpTopic = null; $('#topicsQ').value = ''; renderTopics(); $('#topicsList').scrollIntoView(); } else closePanel('topicsPanel'); };
+$('#topicsList').addEventListener('click', e => {
+  const t = e.target.closest('[data-tp]');
+  if (t) { tpTopic = window.TOPICS.find(x => x[0] === t.dataset.tp); $('#topicsQ').value = ''; renderTopics(); $('#topicsPanel .pbody').scrollTop = 0; return; }
+  const b = e.target.closest('[data-tk]'); if (!b) return;
+  const s = songIndex.get(b.dataset.tk);
+  if (!s) return toast('That one isn\'t in the library yet');
+  if (hasMusic(s)) openViewer(s); else { closePanel('topicsPanel'); $('#q').value = (s.number || '') ; collection = s.collection; search(); }
+});
 new MutationObserver(() => { if (!$('#remotePanel').classList.contains('show') && rm) { try { rm.es && rm.es.close(); } catch {} rm = null; } }).observe($('#remotePanel'), { attributes: true, attributeFilter: ['class'] });
 function rmAddList() {
   const q = $('#rmAddQ').value.trim(), list = q ? runSearch(q).map(r => r.s) : songs.slice().sort((a, b) => a.nTitle.localeCompare(b.nTitle));

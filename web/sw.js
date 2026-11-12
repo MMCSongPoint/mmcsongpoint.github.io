@@ -2,7 +2,7 @@
 const VERSION = '__BUILD__';
 const SHELL = 'songpoint-shell-' + VERSION;
 const FILES = 'songpoint-files-v1';
-const SHELL_FILES = ['./', 'index.html', 'config.js', 'keys.js', 'verses.js', 'known.js', 'buildlog.js', 'web.js', 'projector.html', 'manifest.webmanifest',
+const SHELL_FILES = ['./', 'index.html', 'config.js', 'keys.js', 'verses.js', 'known.js', 'buildlog.js', 'web.js', 'topics.js', 'projector.html', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'vendor/pdf.min.mjs', 'vendor/pdf.worker.min.mjs'];
 
