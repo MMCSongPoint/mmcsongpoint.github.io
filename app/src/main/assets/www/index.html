@@ -293,6 +293,7 @@
   .tprow:first-child { border-top: 0; } .tprow b { flex: 1; font-weight: 600; } .tprow small { color: var(--muted); }
   .tpsong { padding: 10px 2px; border-top: 1px solid var(--line); } .tpsong:first-child { border-top: 0; }
   .tpsong .tt { font-weight: 600; } .tpsong .tt small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .tpknown { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; margin: 0 0 10px; cursor: pointer; } .tpknown input { width: 18px; height: 18px; accent-color: var(--accent); }
   .tpbooks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; } .tpbooks button { font-size: 13px; padding: 4px 10px; }
   .tpbooks button.none { opacity: .45; } .tphead { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
   .inst h4 { margin: 14px 0 8px; } .inst h4:first-child { margin-top: 0; } .inst p.m { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
@@ -1205,7 +1206,7 @@
     <button class="icon" id="topicsBack" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
     <h2 id="topicsTitle">Topical Index</h2>
   </div>
-  <div class="pbody"><input id="topicsQ" type="search" placeholder="Find a topic or song" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;margin-bottom:10px"><div id="topicsList"></div></div>
+  <div class="pbody"><input id="topicsQ" type="search" placeholder="Find a topic or song" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;margin-bottom:10px"><label class="tpknown"><input type="checkbox" id="topicsKnown"> Songs We Know</label><div id="topicsList"></div></div>
 </div>
 <div class="panel" id="installPanel">
   <div class="phead">
@@ -6170,7 +6171,10 @@ $('#dSwitch').onclick = () => { closeDrawer(); accountMenu(); };
 // ---- Topical Index (Menu): topics from the three hymnals, each with its songs and their numbers in each book.
 // Tap a book's number to open that song. topics.js is loaded the first time it's opened.
 const TP_BOOKS = [['SFP', 'SFP', 3], ["Zion's Praises", 'ZP', 2], ['Christian Hymnal', 'CH', 1]];   // [collection, short name, column]
-let tpTopic = null;
+let tpTopic = null, tpKnown = store.get('topicsKnown', false);
+// "Songs We Know": a song counts when it's known in any of its books
+const tpIsKnown = r => TP_BOOKS.some(([col, , i]) => (r[i] ? r[i].split(' ') : []).some(n => { const s = songIndex.get(col + '|#' + n); return s && isKnown(s); }));
+const tpSongs = list => tpKnown ? list.filter(tpIsKnown) : list;
 function tpLoad() {
   if (window.TOPICS) return Promise.resolve();
   return new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'topics.js'; sc.onload = ok; sc.onerror = () => { sc.remove(); no(); }; document.head.appendChild(sc); });
@@ -6187,24 +6191,25 @@ function renderTopics() {
   $('#topicsTitle').textContent = tpTopic ? tpTopic[0] : 'Topical Index';
   if (!window.TOPICS) { box.innerHTML = '<div class="vmsg">Loading…</div>'; return; }
   if (tpTopic) {   // one topic: its songs
-    const rows = tpTopic[1].filter(r => !q || normalize(r[0]).includes(q) || r.slice(1).join(' ').split(' ').includes(q));
+    const rows = tpSongs(tpTopic[1]).filter(r => !q || normalize(r[0]).includes(q) || r.slice(1).join(' ').split(' ').includes(q));
     box.innerHTML = `<p class="tphead">${rows.length} song${rows.length === 1 ? '' : 's'}</p>` + rows.map(r => tpSongHtml(r)).join('');
     return;
   }
-  const topics = window.TOPICS.filter(t => !q || normalize(t[0]).includes(q));
-  let html = topics.map(t => `<button class="tprow" data-tp="${esc(t[0])}"><b>${esc(t[0])}</b><small>${t[1].length}</small></button>`).join('');
+  const topics = window.TOPICS.map(t => [t[0], tpSongs(t[1]).length]).filter(t => t[1] && (!q || normalize(t[0]).includes(q)));
+  let html = topics.map(t => `<button class="tprow" data-tp="${esc(t[0])}"><b>${esc(t[0])}</b><small>${t[1]}</small></button>`).join('');
   if (q.length > 2) {   // songs whose titles match, with their topics
     const hits = new Map();
-    for (const [t, list] of window.TOPICS) for (const r of list) if (normalize(r[0]).includes(q)) { const k = r[0]; if (!hits.has(k)) hits.set(k, { r, ts: [] }); hits.get(k).ts.push(t); }
+    for (const [t, list] of window.TOPICS) for (const r of tpSongs(list)) if (normalize(r[0]).includes(q)) { const k = r[0]; if (!hits.has(k)) hits.set(k, { r, ts: [] }); hits.get(k).ts.push(t); }
     if (hits.size) html += `<p class="tphead" style="margin-top:14px">Songs</p>` + [...hits.values()].slice(0, 60).map(h => tpSongHtml(h.r, h.ts.join(', '))).join('');
   }
   box.innerHTML = html || '<div class="vmsg">Nothing found.</div>';
 }
 $('#dTopics').onclick = async () => {
-  closeDrawer(); tpTopic = null; $('#topicsQ').value = ''; openPanel('topicsPanel'); renderTopics();
+  closeDrawer(); tpTopic = null; $('#topicsQ').value = ''; $('#topicsKnown').checked = tpKnown; openPanel('topicsPanel'); renderTopics();
   try { await tpLoad(); renderTopics(); } catch { $('#topicsList').innerHTML = '<div class="vmsg">Couldn\'t load the topical index. Check your internet connection.</div>'; }
 };
 $('#topicsQ').addEventListener('input', renderTopics);
+$('#topicsKnown').onchange = e => { tpKnown = e.target.checked; store.set('topicsKnown', tpKnown); renderTopics(); };
 $('#topicsBack').onclick = () => { if (tpTopic) { tpTopic = null; $('#topicsQ').value = ''; renderTopics(); $('#topicsList').scrollIntoView(); } else closePanel('topicsPanel'); };
 $('#topicsList').addEventListener('click', e => {
   const t = e.target.closest('[data-tp]');
