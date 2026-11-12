@@ -1612,6 +1612,10 @@ class MidiPlayer extends EventTarget {
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
     if (!this.out || this.out.context !== actx) {
       this.out = actx.createGain(); this.out.gain.value = this._vol; this._direct = false;
+      // only iPhones/iPads need the stream route (their silent switch mutes plain Web Audio); elsewhere it can
+      // sound thin, as Android plays a live stream like a phone call, so the sound goes straight to the speakers
+      const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+      if (!ios) { this.outEl = null; this._goDirect(); return actx; }
       try {
         const dest = actx.createMediaStreamDestination(); this.out.connect(dest);
         this.outEl = new Audio(); this.outEl.setAttribute('playsinline', ''); this.outEl.srcObject = dest.stream;
