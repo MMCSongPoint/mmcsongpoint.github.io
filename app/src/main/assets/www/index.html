@@ -1630,12 +1630,22 @@ class MidiPlayer extends EventTarget {
   get currentSrc() { return this.src; }
   get currentTime() { return this.paused ? this._pos : Math.min(this.duration || 0, this._at0 + (this.ctx.currentTime - this._t0) * this._rate); }
   set currentTime(v) {
+    v = Math.max(0, Math.min(+v || 0, this.duration || 0));
+    if (!this.paused && this.song && Math.abs(v - this.currentTime) < 1) { this._reanchor(v); this._emit('seeked'); this._emit('timeupdate'); return; }   // a small step: notes already sounding carry on
     const was = !this.paused; if (was) this._halt();
     this._pos = Math.max(0, Math.min(+v || 0, this.duration || 0)); this.ended = false;
     if (was) this._go(); this._emit('seeked'); this._emit('timeupdate');
   }
   get playbackRate() { return this._rate; }
-  set playbackRate(r) { r = +r || 1; if (r === this._rate) return; const was = !this.paused; if (was) { this._pos = this.currentTime; this._halt(true); } this._rate = r; if (was) this._go(); this._emit('ratechange'); }
+  set playbackRate(r) { r = +r || 1; if (r === this._rate) return; const pos = this.currentTime; this._rate = r; if (!this.paused && this.song) this._reanchor(pos); this._emit('ratechange'); }
+  // carry on from pos without cutting off the notes that are already sounding: only the ones not started yet are
+  // taken back and scheduled again (so a speed nudge or a tiny step never plays a note twice)
+  _reanchor(pos) {
+    const ctx = this.ctx, t = ctx.currentTime, notes = this.song.notes;
+    this.live = this.live.filter(v => { if (v.start > t + 0.003) { v.cut = true; try { v.g.gain.cancelScheduledValues(t); v.g.gain.setValueAtTime(0, t); for (const o of v.oscs) o.stop(t + 0.01); } catch {} return false; } return true; });
+    this._t0 = t + 0.01; this._at0 = pos;
+    let i = notes.findIndex(x => x.t >= pos - 0.002); this._next = i < 0 ? notes.length : i;
+  }
   get volume() { return this._vol; }
   set volume(v) { this._vol = Math.max(0, Math.min(1, +v)); if (this.out) this.out.gain.value = this._vol; }
   set srcUrl(u) { this.src = u; }
@@ -1688,7 +1698,7 @@ class MidiPlayer extends EventTarget {
       const vf = this.focus ? (x.vo === this.focus ? 1.25 : 0.28) : 1;
       const key = midiSoundFor(x.vo), snd = MIDI_SOUNDS[key], f = 440 * Math.pow(2, (x.n + this.transpose - 69) / 12);
       const peak = (snd.gain || 0.22) * (0.35 + 0.65 * x.v) * vf * Math.min(1, 1.6 - (x.n - 60) / 80), off = start + Math.max(0.03, len);
-      this.live.push(midiNote(ctx, this.out, key, f, start, off, peak, this._waves, x.n + this.transpose));
+      const v = midiNote(ctx, this.out, key, f, start, off, peak, this._waves, x.n + this.transpose); v.start = start; v.idx = this._next - 1; this.live.push(v);
     }
     const now2 = ctx.currentTime; if (this.live.length > 64) this.live = this.live.filter(v => v.end > now2);
     if (pos >= this.duration - 0.01 && this._next >= notes.length) {
@@ -3292,10 +3302,12 @@ function listenSync() {
   const target = st.pos + (srvNow() - st.at) / 1000 * st.rate;
   if (isFinite(audio.duration) && target >= audio.duration - 0.2) { if (!audio.paused) audio.pause(); return; }
   if (audio.paused) { audio.currentTime = target + 0.15 * st.rate; audio.playbackRate = st.rate; audio.play().catch(listenBlocked); return; }
-  const diff = audio.currentTime - target;
-  if (Math.abs(diff) > 0.35) { audio.currentTime = target + 0.04; audio.playbackRate = st.rate; }
-  else if (Math.abs(diff) > 0.025) audio.playbackRate = st.rate * (1 - Math.max(-0.06, Math.min(0.06, diff * 0.8)));   // nudge back in step
-  else audio.playbackRate = st.rate;
+  const raw = audio.currentTime - target;
+  perf.lsDiff = perf.lsDiff == null || Math.abs(raw - perf.lsDiff) > 0.4 ? raw : perf.lsDiff * 0.6 + raw * 0.4;   // smooth out timing jitter
+  const diff = perf.lsDiff;
+  if (Math.abs(diff) > 0.6) { audio.currentTime = target + 0.03; audio.playbackRate = st.rate; perf.lsDiff = null; perf.lsNudge = false; }   // well off: one jump
+  else if (Math.abs(diff) > (perf.lsNudge ? 0.02 : 0.07)) { perf.lsNudge = true; const want = st.rate * (1 - Math.max(-0.04, Math.min(0.04, diff * 0.5))); if (Math.abs(audio.playbackRate - want) > 0.004) audio.playbackRate = want; }   // a little faster or slower until back in step
+  else { perf.lsNudge = false; if (audio.playbackRate !== st.rate) audio.playbackRate = st.rate; }
 }
 function listenBlocked() { toast('Tap ▶ once to let this device play along', 4000); }
 setInterval(() => { if (listenGuest() && perf.following && perf.ls.playing) listenSync(); }, 400);
