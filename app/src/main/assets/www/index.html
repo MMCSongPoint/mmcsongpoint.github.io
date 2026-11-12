@@ -1507,6 +1507,7 @@ const MIDI_SAMPLED = {
   strings: ['Strings', 'string_ensemble_1', 1.6, 0.4, 'organ'],
   guitar:  ['Acoustic Guitar', 'acoustic_guitar_nylon', 1.8, 0.25, 'piano'],
   flute:   ['Flute', 'flute', 1.3, 0.15, 'organ'],
+  accordion: ['Accordion', 'accordion', 1.3, 0.15, 'organ'],
 };
 for (const [k, v] of Object.entries(MIDI_SAMPLED)) MIDI_SOUNDS[k] = { name: v[0], sampled: v };
 const sampleSets = new Map();   // key -> Promise<Map(midi note -> base64 MP3)>
