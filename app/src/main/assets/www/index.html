@@ -1889,6 +1889,7 @@ async function sync(manual = false) {
       const { id, path, collection } = stack.shift();
       for (const f of await driveList(id)) {
         if (f.mimeType === 'application/vnd.google-apps.folder') {
+          if (/^_?archive(d)?$/i.test(f.name.trim())) continue;   // "Archive": old files kept out of the app
           stack.push(collection === null
             ? { id: f.id, path: '', collection: f.name }
             : { id: f.id, path: (path ? path + '/' : '') + f.name, collection });
@@ -6181,7 +6182,7 @@ const rvLabel = () => rvKind === 'midi' ? 'MIDI' : 'MP3';
 let mp3Approved = store.get('mp3Approved', {});
 const SPARKLE = '<svg class="aimark" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-label="AI-generated recording"><title>AI-generated recording (not reviewed yet)</title><path d="M10 2.5l1.8 5.2 5.2 1.8-5.2 1.8L10 16.5l-1.8-5.2L3 9.5l5.2-1.8zM18.5 13l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/></svg>';
 function isAiTrack(part, song) {
-  if (!part || !song || (!part.midi && /^(sfp|songs of faith and praise)$/i.test(song.collection))) return false;   // SFP's MP3s are real recordings; its MIDIs get reviewed like the rest
+  if (!part || !song || /^(sfp|songs of faith and praise)$/i.test(song.collection)) return false;   // SFP: its MIDIs (and the old MP3s) count as approved
   return !(part.id in mp3Approved && (!part.modified || !mp3Approved[part.id] || part.modified <= mp3Approved[part.id]));
 }
 function renderNowTitle() {
@@ -6193,7 +6194,7 @@ async function loadApproved() { try { const r = await api('mp3Approved'); if (r.
 // reviewed = played to the end and marked "sounded good" (and the file hasn't been replaced since)
 const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id] || t.modified <= rvReviewed[t.id]);
 // for now only the songs we know (the green ones) are reviewed; SFP's MP3s aren't AI-generated, so they're left out
-function rvAll() { const ids = new Set(); for (const s of songs) if (isKnown(s) && (rvKind === 'midi' || !/^(sfp|songs of faith and praise)$/i.test(s.collection))) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
+function rvAll() { const ids = new Set(); for (const s of songs) if (isKnown(s) && !/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
 function rvList() {
   const q = normalize($('#rvQ').value || ''), only = $('#rvOnly').checked, showDone = $('#rvDone').checked, flagged = new Set(rvIssues.map(x => x.fileId));
   return rvAll().filter(t => (!rvBook || t.collection === rvBook) && (!only || flagged.has(t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
