@@ -1868,7 +1868,8 @@ async function sync(manual = false) {
   if (manual) { try { checkUpdate(); checkWebUpdate(); } catch {} }   // a refresh also looks for a new app version
   try {
     const tracks = [], seenColl = [];
-    const stack = [{ id: CFG.rootFolder, path: '', collection: null }];
+    // the MP3 folder, and the MIDI folder(s): each has a folder per book (Zion's Praises, Christian Hymnal…)
+    const stack = [CFG.rootFolder, ...[].concat(CFG.midiFolder || [])].filter(Boolean).map(id => ({ id, path: '', collection: null }));
     while (stack.length) {
       const { id, path, collection } = stack.shift();
       for (const f of await driveList(id)) {

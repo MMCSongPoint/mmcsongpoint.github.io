@@ -9,6 +9,8 @@ window.HYMNAL_CONFIG = {
 
   // The shared parent folder. Each subfolder becomes a tab.
   rootFolder: "1PgWHpL8UcC-gSJLue60OmJCZtlr9h3Yc",
+  // MIDI files, a folder per book like the MP3s (SongPoint › Hymnal MIDI, shared "Anyone with the link")
+  midiFolder: "1gbr1Fs8XcyGZ2sIxcAI6w1vzhxp2bjgd",
 
   // Shared folder with sheet music (PDF/PNG), organised in the same book folders.
   sheetsFolder: "1l_7KwdxcOQdNoQGOBykE-FU1yvYZjhRe",
