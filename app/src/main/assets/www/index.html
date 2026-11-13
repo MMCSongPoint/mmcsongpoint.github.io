@@ -1414,7 +1414,7 @@ $('#appName').textContent = CFG.appName; document.title = CFG.appName;
 // The shareable listening page (…/?listen): anyone with the link can play the approved MIDI files (SFP, Zion's Praises,
 // Christian Hymnal) with any instrument and voice. No account, no sheet music, no listening sessions, no downloads.
 // It keeps its own settings on the device (under "listen~"), apart from the app's.
-const LISTEN = /[?&]listen\b/.test(location.search);
+const LISTEN = /[?&]listen\b/.test(location.search) || /(^|\.)songpoint\.(web\.app|firebaseapp\.com)$/i.test(location.hostname);   // …/?listen, or its own site
 if (LISTEN) document.documentElement.classList.add('listen');
 const LISTEN_BOOKS = /^(sfp|songs of faith and praise|zion['’]?s? praises|christian hymnal)$/i;
 const USER_KEYS = new Set(['notes', 'offlineLists', 'pendingLists', 'outbox', 'people', 'listTab', 'favs', 'usage', 'plays']);
@@ -6401,7 +6401,7 @@ $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') 
 // Settings › Copy web app link
 const WEB_APP_URL = CFG.webUrl || 'https://mmcsongpoint.github.io/';
 $('#listenLinkBtn').onclick = async () => {
-  const url = WEB_APP_URL.replace(/[?#].*$/, '') + '?listen';
+  const url = CFG.listenUrl || WEB_APP_URL.replace(/[?#].*$/, '') + '?listen';
   try { await navigator.clipboard.writeText(url); toast('Link copied: ' + url.replace(/^https:\/\//, ''), 3500); }
   catch { const t = Object.assign(document.createElement('textarea'), { value: url }); document.body.appendChild(t); t.select(); try { document.execCommand('copy'); toast('Link copied', 2500); } catch {} t.remove(); }
 };

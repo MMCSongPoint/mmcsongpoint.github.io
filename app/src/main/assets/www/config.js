@@ -26,6 +26,8 @@ window.HYMNAL_CONFIG = {
   // Where the Android app looks for updates (GitHub releases).
   updateRepo: "MMCSongPoint/mmcsongpoint.github.io",
   webUrl: "https://mmcsongpoint.github.io/",
+  // The listening page on its own (Firebase Hosting, project "songpoint"): approved MIDI songs, no sign-in.
+  listenUrl: "https://songpoint.web.app/",
 
   // SongPoint server: accounts, song-list log, PowerPoint builder (Google Sheet "SongPoint Log" via its Apps Script web app).
   logUrl: "https://script.google.com/macros/s/AKfycby1iDryxk6b9SMzWLGpgASr-wnzV1VuCdvAu6IsZjETKKe0Uus_5UNRLRrC2qvsSwE5/exec",

@@ -73,3 +73,20 @@ jobs:
 
       - id: deploy
         uses: actions/deploy-pages@v4
+
+      # The listening page on its own address, songpoint.web.app (Firebase Hosting). The same files: there the app
+      # sees its address and only shows the listening page. GitHub signs in to Google with no stored key
+      # (workload identity federation, trusted only for this repository).
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/242946125629/locations/global/workloadIdentityPools/github/providers/songpoint
+          service_account: github-deploy@songpoint.iam.gserviceaccount.com
+
+      - name: Publish the listening page (songpoint.web.app)
+        run: |
+          mkdir -p /tmp/listen/public && cp -r _site/. /tmp/listen/public/
+          rm -rf /tmp/listen/public/vendor /tmp/listen/public/projector.html /tmp/listen/public/.nojekyll
+          cat > /tmp/listen/firebase.json <<'JSON'
+          { "hosting": { "public": "public", "ignore": [], "headers": [ { "source": "**/*.@(html|js)", "headers": [ { "key": "Cache-Control", "value": "no-cache" } ] } ] } }
+          JSON
+          cd /tmp/listen && npx -y firebase-tools@13 deploy --only hosting --project songpoint --non-interactive
