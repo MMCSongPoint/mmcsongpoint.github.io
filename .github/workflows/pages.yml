@@ -89,5 +89,5 @@ jobs:
           ACCESS_TOKEN: ${{ steps.gauth.outputs.access_token }}
         run: |
           mkdir -p /tmp/listen && cp -r _site/. /tmp/listen/
-          rm -rf /tmp/listen/vendor /tmp/listen/projector.html /tmp/listen/.nojekyll
+          rm -rf /tmp/listen/vendor /tmp/listen/helper /tmp/listen/projector.html /tmp/listen/.nojekyll   # only what the listening page uses
           python3 .github/scripts/firebase_deploy.py /tmp/listen
