@@ -1664,6 +1664,20 @@ class MidiPlayer extends EventTarget {
     this._ctx(); if (actx.state === 'suspended') actx.resume();
     if (!this.song) { this._wantPlay = true; return Promise.resolve(); }
     if (!this.paused) return Promise.resolve();
+    // a recorded instrument that isn't downloaded/decoded yet: wait for it rather than starting on the stand-in sound
+    if (!this._skipWait) {
+      if (this._waiting) { this._wantPlay = true; return Promise.resolve(); }
+      const w = this._readyWait();
+      if (w) {
+        const song = this.song; this._wantPlay = true; this._emit('waiting');
+        const tip = setTimeout(() => { if (this._waiting && this._wantPlay && typeof toast === 'function') toast('Loading the ' + (MIDI_SOUNDS[midiSound] || {}).name + ' sound…', 2500); }, 500);
+        this._waiting = w.then(() => {
+          clearTimeout(tip); this._waiting = null;
+          if (this._wantPlay && this.song === song && this.paused) { this._wantPlay = false; this._skipWait = true; try { this.play(); } finally { this._skipWait = false; } }
+        });
+        return Promise.resolve();
+      }
+    }
     if (this.ended || this._pos >= this.duration - 0.05) { this._pos = 0; this.ended = false; }
     this.paused = false; this._emit('play'); this._go(); this._emit('playing');
     return Promise.resolve();
@@ -1674,6 +1688,13 @@ class MidiPlayer extends EventTarget {
     if (!this.song) return;
     const AC = window.AudioContext || window.webkitAudioContext; const ctx = actx || (actx = new AC()), seen = new Set();
     for (const x of this.song.notes) { const k = midiSoundFor(x.vo), n = x.n + this.transpose, id = k + n; if (!seen.has(id) && MIDI_SOUNDS[k].sampled) { seen.add(id); sampleBuf(ctx, k, n); } }
+  }
+  // resolves once every recorded note this song needs is decoded (null if they all are already); gives up after 20 s
+  // (e.g. offline the first time), and then the built-in stand-in plays instead
+  _readyWait() {
+    this._prep(); const ps = [];
+    for (const v of sampleBufs.values()) if (v && v.then) ps.push(v.catch(() => {}));
+    return ps.length ? Promise.race([Promise.all(ps), new Promise(r => setTimeout(r, 20000))]) : null;
   }
   _go() {
     this._prep();
