@@ -1510,8 +1510,9 @@ const MIDI_SAMPLED = {
   flute:   ['Flute', 'flute', 1.3, 0.15, 'organ'],
   accordion: ['Accordion', 'accordion', 1.3, 0.15, 'organ'],
   harp:    ['Harp', 'orchestral_harp', 1.6, 0.6, 'piano'],
-  // small bells: played an octave up with a short ring; notes below middle C are left out (low bells sound muddy)
-  smallbells: ['Small Bells', 'tinkle_bell', 1.3, 1.2, 'piano', { shift: 12, min: 60, ring: 0.9 }],
+  // small bells: played two octaves up (so tenor and bass land in the bells' range) with a short ring;
+  // anything below the C two octaves under middle C is left out (low bells sound muddy)
+  smallbells: ['Small Bells', 'tinkle_bell', 1.3, 1.2, 'piano', { shift: 24, min: 36, ring: 1.1 }],
   bass:    ['Upright Bass', 'acoustic_bass', 1.9, 0.25, 'piano'],
   harmonica: ['Harmonica', 'harmonica', 1.2, 0.12, 'organ'],
 };
