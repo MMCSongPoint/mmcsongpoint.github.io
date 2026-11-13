@@ -5964,6 +5964,14 @@ $('#usersList').addEventListener('click', async e => {
 window.handleBack = () => {
   if (isVisitor() || visitorEnded) return true;
   if ($('#lock').classList.contains('show')) return false;
+  // things that sit on top of everything else go first
+  if ($('#choiceBox').classList.contains('show')) { if (choose.pending) choose.pending(); return true; }
+  if ($('#readyBox').classList.contains('show')) { $('#readyBox').classList.remove('show'); return true; }
+  if ($('#busyBox').classList.contains('show')) return true;   // working: wait for it
+  if ($('#qrScan').classList.contains('show')) { qrStop(); return true; }
+  if ($('#chEdit').classList.contains('show')) { $('#cheCancel').click(); return true; }
+  if ($('#vsBox').classList.contains('show')) { $('#vsBox').classList.remove('show'); return true; }
+  if ($('#rmAddBox').classList.contains('show')) { $('#rmAddBox').classList.remove('show'); return true; }
   if ($('#rowMenu').classList.contains('show')) { closeRowMenu(); return true; }
   if ($('#drawer').classList.contains('show')) { closeDrawer(); return true; }
   if ($('#pipeBox').classList.contains('show')) { closePipe(); return true; }
@@ -5981,8 +5989,7 @@ window.handleBack = () => {
   if ($('#notePanel').classList.contains('show')) { leaveNote(); return true; }
   if ($('#notesPanel').classList.contains('show')) { closePanel('notesPanel'); return true; }
   if (slidesSel && $('#slidesPanel').classList.contains('show')) { setSlidesSelect(null); return true; }
-  if ($('#choiceBox').classList.contains('show')) { if (choose.pending) choose.pending(); return true; }
-  if ($('#readyBox').classList.contains('show')) { $('#readyBox').classList.remove('show'); return true; }
+  if (tpTopic && $('#topicsPanel').classList.contains('show')) { $('#topicsBack').click(); return true; }
   const panel = [...document.querySelectorAll('.panel.show')].pop();   // Library check, Report a problem, …
   if (panel) { if (panel.id === 'songsPanel') document.body.classList.remove('songspanel');
     if (panel.id === 'bugPanel' && bugRec && bugRec.state === 'recording') bugRec.stop(); closePanel(panel.id); return true; }
@@ -5990,8 +5997,27 @@ window.handleBack = () => {
   if ($('#sheet').classList.contains('show')) { closeSheet(); return true; }
   if ($('#q').value) { $('#q').value = ''; search(); return true; }
   if (collection === '__fav') { collection = ''; store.set('collection', ''); renderTabs(); search(); return true; }
-  return false;
+  // home screen: ask before leaving
+  choose('Are you sure you want to exit?', '', [{ label: 'Exit', value: 'exit', primary: true }, { label: 'Stay', value: 'stay' }]).then(c => {
+    if (c !== 'exit') return;
+    if (window.Native && window.Native.exitApp) window.Native.exitApp();
+    else if (!window.Native) { webBackArmed = false; history.back(); setTimeout(() => { try { window.close(); } catch {} }, 300); }
+  });
+  return true;
 };
+// On the web (installed or in a browser) the phone's back button walks back through history. Keep one extra
+// entry on top so back always comes here first and steps back through the app instead of leaving it.
+let webBackArmed = false;
+if (!window.Native && !/Electron/i.test(navigator.userAgent)) {
+  // added on a tap (browsers ignore history entries a page adds on its own)
+  const arm = () => { if (webBackArmed) return; try { history.pushState({ sp: 1 }, ''); webBackArmed = true; } catch {} };
+  addEventListener('pointerdown', arm, true); addEventListener('keydown', arm, true);
+  addEventListener('popstate', () => {
+    if (!webBackArmed) return;
+    try { history.pushState({ sp: 1 }, ''); } catch {}
+    window.handleBack();
+  });
+}
 
 // ------------------------------------------------------------------ sign-in screen
 const needsLogin = () => !auth.token || !!(auth.user && auth.user.mustChange);
@@ -6599,12 +6625,7 @@ function renderTopics() {
     return;
   }
   const topics = window.TOPICS.map(t => [t[0], tpSongs(t[1]).length]).filter(t => t[1] && (!q || normalize(t[0]).includes(q)));
-  let html = topics.map(t => `<button class="tprow" data-tp="${esc(t[0])}"><b>${esc(t[0])}</b><small>${t[1]}</small></button>`).join('');
-  if (q.length > 2) {   // songs whose titles match, with their topics
-    const hits = new Map();
-    for (const [t, list] of window.TOPICS) for (const r of tpSongs(list)) if (normalize(r[0]).includes(q)) { const k = r[0]; if (!hits.has(k)) hits.set(k, { r, ts: [] }); hits.get(k).ts.push(t); }
-    if (hits.size) html += `<p class="tphead" style="margin-top:14px">Songs</p>` + [...hits.values()].slice(0, 60).map(h => tpSongHtml(h.r, h.ts.join(', '))).join('');
-  }
+  const html = topics.map(t => `<button class="tprow" data-tp="${esc(t[0])}"><b>${esc(t[0])}</b><small>${t[1]}</small></button>`).join('');
   box.innerHTML = html || '<div class="vmsg">Nothing found.</div>';
 }
 $('#dTopics').onclick = async () => {

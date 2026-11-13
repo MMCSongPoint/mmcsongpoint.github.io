@@ -529,6 +529,11 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void exitApp() {
+            main.post(() -> moveTaskToBack(true)); // like Home: music keeps playing
+        }
+
+        @JavascriptInterface
         public void openUrl(String url) {
             main.post(() -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))));
         }
