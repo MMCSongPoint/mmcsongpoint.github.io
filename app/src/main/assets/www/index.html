@@ -1217,7 +1217,7 @@
     <button class="icon" id="topicsBack" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
     <h2 id="topicsTitle">Topical Index</h2>
   </div>
-  <div class="pbody"><input id="topicsQ" type="search" placeholder="Find a topic or song" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;margin-bottom:10px"><label class="tpknown"><input type="checkbox" id="topicsKnown"> Songs We Know</label><div id="topicsList"></div></div>
+  <div class="pbody"><input id="topicsQ" type="search" placeholder="Find a Topic" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;margin-bottom:10px"><label class="tpknown"><input type="checkbox" id="topicsKnown"> Songs We Know</label><div id="topicsList"></div></div>
 </div>
 <div class="panel" id="installPanel">
   <div class="phead">
@@ -6591,6 +6591,7 @@ function tpSongHtml(r, topic) {
 function renderTopics() {
   const q = normalize($('#topicsQ').value || ''), box = $('#topicsList');
   $('#topicsTitle').textContent = tpTopic ? tpTopic[0] : 'Topical Index';
+  $('#topicsQ').placeholder = tpTopic ? 'Find a Song' : 'Find a Topic';
   if (!window.TOPICS) { box.innerHTML = '<div class="vmsg">Loading…</div>'; return; }
   if (tpTopic) {   // one topic: its songs
     const rows = tpSongs(tpTopic[1]).filter(r => !q || normalize(r[0]).includes(q) || r.slice(1).join(' ').split(' ').includes(q));
