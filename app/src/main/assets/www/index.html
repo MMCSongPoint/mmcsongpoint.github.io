@@ -2401,7 +2401,7 @@ function render() {
   const list = $('#list'), words = qWords(lastQ);
   if (!songs.length) {
     list.innerHTML = syncing || !library.synced
-      ? `<div class="empty"><b>Loading your songs…</b>Reading the Google Drive folder.</div>`
+      ? `<div class="empty"><b>Loading your songs…</b></div>`
       : `<div class="empty"><b>No songs found</b>Check that the Drive folder has MP3 files and is shared as “Anyone with the link”.</div>`;
   } else if (!results.length) {
     list.innerHTML = collection === '__fav' && !lastQ
