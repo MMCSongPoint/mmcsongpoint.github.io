@@ -1416,7 +1416,7 @@ $('#appName').textContent = CFG.appName; document.title = CFG.appName;
 // It keeps its own settings on the device (under "listen~"), apart from the app's.
 const LISTEN = /[?&]listen\b/.test(location.search);
 if (LISTEN) document.documentElement.classList.add('listen');
-const LISTEN_BOOKS = /^(sfp|songs of faith and praise|zions? praises|christian hymnal)$/i;
+const LISTEN_BOOKS = /^(sfp|songs of faith and praise|zion['’]?s? praises|christian hymnal)$/i;
 const USER_KEYS = new Set(['notes', 'offlineLists', 'pendingLists', 'outbox', 'people', 'listTab', 'favs', 'usage', 'plays']);
 const curUser = () => { if (LISTEN) return ''; try { const a = JSON.parse(localStorage.getItem('auth') || '{}'); return (a.user && a.user.username) || ''; } catch { return ''; } };
 const skey = k => { if (LISTEN) return k === 'library' ? k : 'listen~' + k; const u = USER_KEYS.has(k) && curUser(); return u ? `u~${u}~${k}` : k; };
@@ -2004,7 +2004,8 @@ function buildIndex() {
   attach(library.slides || [], 'slides');
   for (const s of songIndex.values()) {
     // "With optional ending" versions are left out (unless that's all a song has)
-    if (s.parts.some(p => !/^with optional/i.test(p.part))) s.parts = s.parts.filter(p => !/^with optional/i.test(p.part));
+    const optEnd = p => /^with\b.*\boptional\b/i.test(p.part);
+    if (s.parts.some(p => !optEnd(p))) s.parts = s.parts.filter(p => !optEnd(p));
     if (LISTEN) s.parts = LISTEN_BOOKS.test(s.collection) ? s.parts.filter(p => p.midi && !isAiTrack(p, s)) : [];
     if (s.parts.some(p => p.midi) && s.parts.some(p => !p.midi)) for (const p of s.parts) if (p.midi && !/\(MIDI\)$/.test(p.part)) p.part += ' (MIDI)';
     s.parts.sort((a, b) => partRank(a.part) - partRank(b.part) || a.part.localeCompare(b.part));
