@@ -1367,7 +1367,6 @@
   <h4>Playback Sound</h4>
   <div class="act pscard" style="padding:2px 14px">
     <label class="psrow">Instrument <select id="midiSel" style="font:inherit;max-width:60%"></select></label>
-    <label class="psrow">A Different Sound for Each Voice <input type="checkbox" id="midiPerVoice" style="width:20px;height:20px"></label>
     <div id="midiVoices"></div>
   </div>
   <p style="margin:6px 0 0;font-size:12px;color:var(--muted)">Recorded instruments download the first time they're used (2–3 MB each) and then work offline. Sounds: FluidR3 GM by Frank Wen (CC BY 3.0), via midi-js-soundfonts.</p>
@@ -5267,13 +5266,16 @@ function keyGlide(target) {
 const midiOrder = () => ['piano', ...Object.keys(MIDI_SOUNDS).filter(k => k !== 'piano' && !MIDI_SOUNDS[k].hidden).sort((a, b) => MIDI_SOUNDS[a].name.localeCompare(MIDI_SOUNDS[b].name))];
 const midiOpts = sel => midiOrder().map(k => [k, MIDI_SOUNDS[k]]).map(([k, v]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${v.name}</option>`).join('');
 function renderMidiSeg() {
-  $('#midiSel').innerHTML = midiOpts(midiSound); $('#midiPerVoice').checked = !!midiVoiceSounds;
+  $('#midiSel').innerHTML = midiOpts(midiVoiceSounds ? '' : midiSound) + `<option value="__each"${midiVoiceSounds ? ' selected' : ''}>Each Voice Its Own</option>`;
   $('#midiVoices').innerHTML = midiVoiceSounds ? ['Lead', 'Alto', 'Tenor', 'Bass'].map(v => `<label class="psrow" style="padding-left:18px">${v} <select data-v="${v}" style="font:inherit;max-width:60%">${midiOpts(midiVoiceSounds[v])}</select></label>`).join('') : '';
   if (typeof renderPlayerParts === 'function') renderPlayerParts();
 }
 renderMidiSeg();
-$('#midiSel').onchange = e => { midiSound = e.target.value; store.set('midiSound', midiSound); renderMidiSeg(); audio.midi._prep(); };
-$('#midiPerVoice').onchange = e => { midiVoiceSounds = e.target.checked ? Object.assign({}, MIDI_VOICE_DEFAULTS, store.get('midiVoiceLast', {})) : null; if (midiVoiceSounds) delete midiVoiceSounds.Soprano; store.set('midiVoiceSounds', midiVoiceSounds); renderMidiSeg(); };
+$('#midiSel').onchange = e => {
+  const each = e.target.value === '__each';
+  if (!each) { midiSound = e.target.value; store.set('midiSound', midiSound); }
+  midiVoiceSounds = each ? Object.assign({}, MIDI_VOICE_DEFAULTS, store.get('midiVoiceLast', {})) : null; if (midiVoiceSounds) delete midiVoiceSounds.Soprano; store.set('midiVoiceSounds', midiVoiceSounds); renderMidiSeg(); audio.midi._prep();
+};
 $('#midiVoices').addEventListener('change', e => { const v = e.target.dataset.v; if (!v || !midiVoiceSounds) return; midiVoiceSounds[v] = e.target.value; store.set('midiVoiceSounds', midiVoiceSounds); store.set('midiVoiceLast', midiVoiceSounds); audio.midi._prep(); });
 $('#themeSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
