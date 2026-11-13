@@ -6470,7 +6470,8 @@ function rvMark(t, ok) {
 async function rvEnded() {
   const t = rvCur; if (!t) return;
   const i = rvTracks.findIndex(x => x.id === t.id), next = rvTracks[i + 1];
-  const c = await choose('Did it sound good?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 4000, value: 'yes' } });
+  const flagged = rvIssues.some(x => x.fileId === t.id);   // flagged: it isn't good, so no question; just move on
+  const c = flagged ? 'flagged' : await choose('Did it sound good?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 4000, value: 'yes' } });
   if (c === 'yes') { rvMark(t, true); toast('Approved', 1200); }
   else if (c === 'no' && !rvIssues.some(x => x.fileId === t.id)) {
     const note = prompt(`What's wrong with “${t.name}”? (optional; it's saved as a flag at the end of the track)`, '');
