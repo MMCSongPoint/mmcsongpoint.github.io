@@ -679,6 +679,9 @@
   .rec .rsongs { color: var(--muted); font-size: 12.5px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rec .kind { font-size: 11px; font-weight: 600; border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; margin-left: 6px; color: var(--muted); }
   .rec button { background: none; border: none; color: var(--muted); font-size: 18px; width: 34px; height: 34px; border-radius: 8px; }
+  .choicebar { height: 6px; border-radius: 3px; background: var(--line, rgba(127,127,127,.25)); overflow: hidden; margin: 0 0 14px; }
+  .choicebar i { display: block; height: 100%; width: 0; background: var(--accent); }
+  .choicebar.go i { width: 100%; transition: width linear var(--dur, 3s); }
   .choicebtns { display: flex; flex-direction: column; gap: 8px; }
   .choicebtns .pbtn { width: 100%; padding: 11px; }
   .drawer-bg { position: fixed; inset: 0; background: var(--scrim); z-index: 72; opacity: 0; pointer-events: none; transition: opacity .2s; }
@@ -1167,6 +1170,7 @@
       <button class="pbtn" id="rvPlay" title="Play / pause (space)">▶</button>
       <button class="pbtn ghost" id="rvFwd" title="Forward 5 s (→)">+5s</button>
       <button class="pbtn ghost" id="rvNext" title="Next">⏭</button>
+      <button class="pbtn ghost" id="rvSheet" title="Open the sheet music (S)">📄 Music</button>
       <button class="pbtn rvflag" id="rvFlag" title="Flag a problem here (F)">⚑ Flag</button>
     </div>
     <div class="seek"><span id="rvCur">0:00</span><input type="range" id="rvSeek" min="0" max="1000" value="0"><span id="rvLen">0:00</span></div>
@@ -1330,6 +1334,7 @@
 </div>
 
 <div class="busybox" id="choiceBox"><div><b id="choiceTitle"></b><p id="choiceText" style="color:var(--muted);font-size:14px;margin:8px 0 16px;word-break:break-word"></p>
+  <div class="choicebar" id="choiceBar" hidden><i></i></div>
   <div class="choicebtns" id="choiceBtns"></div></div></div>
 <div class="busybox" id="readyBox"><div><b id="readyTitle">Your file is ready</b><p id="readyText" style="color:var(--muted);font-size:14px;margin:8px 0 16px"></p>
   <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="pbtn" id="readyShare">Share / Save</button><button class="pbtn" id="readyDl">Download</button><button class="pbtn ghost" id="readyClose">Close</button></div></div></div>
@@ -1355,10 +1360,7 @@
   <h4 style="margin-top:12px">Song Library</h4>
   <button class="act" id="syncBtn">Refresh Songs from Google Drive</button>
   <p style="margin:6px 0 0;font-size:12.5px">Tip: you can also pull down from the top of the song list.</p>
-  <h4 style="margin-top:12px">Offline Songs</h4>
-  <p id="storageInfo" style="margin-top:0"></p>
-  <button class="act" id="dlPartBtn" style="display:none"></button>
-  <button class="act danger" id="clearDlBtn">Remove All Saved Songs</button>
+  <div hidden><p id="storageInfo"></p><button class="act" id="dlPartBtn"></button><button class="act danger" id="clearDlBtn"></button></div>
   <h4>Appearance</h4>
   <div class="seg" id="themeSeg">
     <button data-t="system">Match Device</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
@@ -5140,7 +5142,7 @@ function updateSheet() {
   const scope = collection === '__fav' ? 'Favorites' : collection || 'all books';
   $('#dlPartBtn').textContent = `Save every song in ${scope} for offline`;
 
-  $('#clearDlBtn').style.display = N && downloaded.size ? '' : 'none';
+  
   $('#aboutLine').textContent = `${summary()} · ${library.synced ? 'last refreshed ' + ago(library.synced) : 'not refreshed yet'}`;
 }
 let theme = store.get('theme', 'system');
@@ -6376,6 +6378,7 @@ function rvRenderNow() {
   $('#rvTitle').textContent = t ? t.name : `Pick ${rvKind === 'midi' ? 'a MIDI' : 'an MP3'} below`;
   $('#rvSub').textContent = t ? `${t.collection}${t.subfolder ? ' / ' + t.subfolder : ''}` : '';
   $('#rvPlay').textContent = rvAudio.paused ? '▶' : '❚❚';
+  { const s = rvSong(t); $('#rvSheet').disabled = !(s && hasMusic(s)); }
   const mine = t ? rvIssues.filter(x => x.fileId === t.id).sort((a, b) => a.t - b.t) : [];
   $('#rvFlags').innerHTML = (t && rvIsReviewed(t) ? '<button class="pbtn ghost" id="rvUndo" style="padding:4px 10px">✓ Reviewed · Not Reviewed</button>' : '') + mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
 }
@@ -6421,8 +6424,8 @@ function rvMark(t, ok) {
 async function rvEnded() {
   const t = rvCur; if (!t) return;
   const i = rvTracks.findIndex(x => x.id === t.id), next = rvTracks[i + 1];
-  const c = await choose('Did it sound good?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }]);
-  if (c === 'yes') { rvMark(t, true); toast('Marked as reviewed', 1200); }
+  const c = await choose('Did it sound good?', t.name + ' — approving in 3 seconds unless you tap No', [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 3000, value: 'yes' } });
+  if (c === 'yes') { rvMark(t, true); toast('Approved', 1200); }
   else if (c === 'no' && !rvIssues.some(x => x.fileId === t.id)) {
     const note = prompt(`What's wrong with “${t.name}”? (optional; it's saved as a flag at the end of the track)`, '');
     if (note !== null) { try { const r = await api('mp3IssueAdd', { fileId: t.id, file: t.name, folder: t.subfolder || '', book: t.collection, song: t.title || '', part: t.part || '', t: rvAudio.duration || 0, note: note || 'Didn\'t sound right' }); if (r.ok) rvIssues = r.issues; } catch {} }
@@ -6447,6 +6450,8 @@ $('#rvPrev').onclick = () => rvStep(-1); $('#rvNext').onclick = () => rvStep(1);
 $('#rvBack').onclick = () => { rvAudio.currentTime = Math.max(0, rvAudio.currentTime - 5); };
 $('#rvFwd').onclick = () => { rvAudio.currentTime = Math.min(rvAudio.duration || 0, rvAudio.currentTime + 5); };
 $('#rvFlag').onclick = rvFlag;
+function rvSong(t) { return t && [...songIndex.values()].find(x => x.parts.some(p => p.id === t.id)); }
+$('#rvSheet').onclick = () => { const s = rvSong(rvCur); if (!rvCur) return toast('Pick one first'); if (!s || !hasMusic(s)) return toast('No sheet music for this song yet'); openViewer(s); };
 $('#rvFlags').addEventListener('click', async e => {
   const g = e.target.closest('[data-t]'); if (g) { rvAudio.currentTime = Math.max(0, +g.dataset.t - 2); rvAudio.play().catch(() => {}); return; }
   if (e.target.closest('#rvUndo') && rvCur) { await rvMark(rvCur, false); rvRender(); return; }
@@ -6464,6 +6469,7 @@ document.addEventListener('keydown', e => {
   if (!$('#mp3Panel').classList.contains('show') || e.ctrlKey || e.metaKey || e.altKey || (e.target.closest && e.target.closest('input, textarea, select'))) return;
   if (e.key === ' ') { e.preventDefault(); $('#rvPlay').click(); }
   else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); rvFlag(); }
+  else if ((e.key === 's' || e.key === 'S') && !$('#viewer').classList.contains('show')) { e.preventDefault(); $('#rvSheet').click(); }
   else if (e.key === 'ArrowLeft') $('#rvBack').click(); else if (e.key === 'ArrowRight') $('#rvFwd').click();
 });
 // leaving the panel stops the review player
@@ -7557,7 +7563,6 @@ const TUTOR = [
     { go: tDrawer, wait: 300, el: '#dRemote', t: 'Remote Control', x: 'Run the slides from your phone while the computer presents.' } ] },
   { id: 'settings', icon: '⚙', t: 'Settings and Offline', d: 'Appearance, foot pedals, favorites, offline songs', steps: [
     { go: tDrawer, wait: 300, el: '#dFavs', t: 'Favorites', x: 'Songs you starred. Star a song from its ⋮ menu.' },
-    { go: () => { tClear(); openSheet(); }, wait: 350, el: '#storageInfo', t: 'Offline Songs', x: 'Songs saved on this device play with no internet. See or clear them here.' },
     { el: '#themeSeg', t: 'Appearance', x: 'Light, dark, or match your device.' },
     { el: '#pedalSeg', t: 'Foot Pedal', x: 'Choose how a Bluetooth page-turner pedal moves through songs.' },
     { el: '#bugBtn', t: 'Report a Problem', x: 'Tell us what went wrong. You can record a short voice note.' },
@@ -7726,12 +7731,16 @@ function deliverFile(name, base64, mime) {
   offerFiles([new File([bytes], name, { type: mime })], 'Your PowerPoint is ready', true);
 }
 // In-app choice box: resolves with the chosen button's value (or 'cancel').
-function choose(title, text, buttons) {
+// opts.auto = { ms, value }: a bar fills over ms; if nothing is tapped by then, that value is chosen
+function choose(title, text, buttons, opts = {}) {
   return new Promise(res => {
+    const bar = $('#choiceBar'); let timer = null;
+    bar.hidden = !opts.auto; bar.classList.remove('go');
+    if (opts.auto) { bar.style.setProperty('--dur', opts.auto.ms + 'ms'); void bar.offsetWidth; requestAnimationFrame(() => bar.classList.add('go')); timer = setTimeout(() => done(opts.auto.value), opts.auto.ms); }
     $('#choiceTitle').textContent = title; $('#choiceTitle').style.display = title ? '' : 'none';
     $('#choiceText').textContent = text; $('#choiceText').style.display = text ? '' : 'none';
     $('#choiceBtns').innerHTML = buttons.map((b, i) => `<button class="pbtn${b.primary ? '' : ' ghost'}" data-i="${i}">${esc(b.label)}</button>`).join('');
-    const done = v => { $('#choiceBox').classList.remove('show'); choose.pending = null; res(v); };
+    const done = v => { clearTimeout(timer); bar.hidden = true; bar.classList.remove('go'); $('#choiceBox').classList.remove('show'); choose.pending = null; res(v); };
     choose.pending = () => done('cancel');
     $('#choiceBtns').onclick = e => { const b = e.target.closest('[data-i]'); if (b) done(buttons[+b.dataset.i].value); };
     $('#choiceBox').onclick = e => { if (e.target.id === 'choiceBox') done('cancel'); };
