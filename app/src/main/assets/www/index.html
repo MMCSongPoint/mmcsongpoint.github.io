@@ -1611,7 +1611,7 @@ function midiNote(ctx, out, key, f, start, off, peak, waves, n) {
   return { g, oscs, end };
 }
 class MidiPlayer extends EventTarget {
-  constructor() { super(); this.src = ''; this.song = null; this._pos = 0; this.paused = true; this.ended = false; this._rate = 1; this._vol = 1; this.transpose = 0; this.focus = ''; this.readyState = 0; this.voices = []; this.live = []; this.onerror = null; }
+  constructor() { super(); this.src = ''; this.song = null; this._pos = 0; this.paused = true; this.ended = false; this._rate = 1; this._vol = 1; this.transpose = 0; this.focus = ''; this.readyState = 0; this.voices = []; this.live = []; this.onerror = null; this.loop = false; }
   // The sound goes out through an <audio> element (a live stream) rather than straight to the speakers: phones then
   // treat it like music (an iPhone's silent switch doesn't mute it, and it can keep playing with the screen off).
   // If the element can't play, it goes straight to the speakers instead.
@@ -1733,6 +1733,7 @@ class MidiPlayer extends EventTarget {
     }
     const now2 = ctx.currentTime; if (this.live.length > 64) this.live = this.live.filter(v => v.end > now2);
     if (pos >= this.duration - 0.01 && this._next >= notes.length) {
+      if (this.loop) { this._pos = 0; this._go(); this._emit('seeked'); this._emit('timeupdate'); return; }   // repeat: straight back to the start
       clearInterval(this._timer); clearInterval(this._tu); this._pos = this.duration; this.paused = true; this.ended = true;
       this._emit('timeupdate'); this._emit('pause'); this._emit('ended');
     }
@@ -1762,6 +1763,7 @@ function mediaSwitch(el, midiNow) {
         return true;
       }
       if (p === 'onerror') { el.onerror = v; m.onerror = v; return true; }
+      if (p === 'loop') { el.loop = !!v; m.loop = !!v; return true; }   // repeat: both players, whichever is in use
       if (useMidi && MP.has(p)) { m[p] = v; return true; }
       t[p] = v; return true;
     },
