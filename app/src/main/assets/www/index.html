@@ -1511,6 +1511,7 @@ const MIDI_SAMPLED = {
   accordion: ['Accordion', 'accordion', 1.3, 0.15, 'organ'],
   harp:    ['Harp', 'orchestral_harp', 1.6, 0.6, 'piano'],
   bells:   ['Bells', 'tubular_bells', 1.4, 1.5, 'piano'],
+  smallbells: ['Small Bells', 'glockenspiel', 1.2, 1.2, 'piano'],
   harmonica: ['Harmonica', 'harmonica', 1.2, 0.12, 'organ'],
 };
 for (const [k, v] of Object.entries(MIDI_SAMPLED)) MIDI_SOUNDS[k] = { name: v[0], sampled: v };
@@ -6474,13 +6475,13 @@ async function rvEnded() {
   const i = rvTracks.findIndex(x => x.id === t.id), next = rvTracks[i + 1];
   const flags = rvIssues.filter(x => x.fileId === t.id);
   if (flags.length) {   // flagged before: was it fixed? No answer = yes (flags cleared, approved); No = flags stay
-    const c = await choose('Has the issue been resolved?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 4000, value: 'yes' } });
+    const c = await choose('Has the issue been resolved?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 3000, value: 'yes' } });
     if (c === 'yes') {
       rvIssues = rvIssues.filter(x => x.fileId !== t.id); rvMark(t, true); toast('Flags cleared · Approved', 1500);
       rvSaving = rvSaving.then(async () => { for (const x of flags) { try { const r = await api('mp3IssueDelete', { id: x.id }); if (r.ok) rvIssues = r.issues; } catch { toast(`Couldn't clear the flags on “${t.name}”.`, 4000); } } rvRender(); });
     }
   }
-  const c = flags.length ? 'flagged' : await choose('Did it sound good?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 4000, value: 'yes' } });
+  const c = flags.length ? 'flagged' : await choose('Did it sound good?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 3000, value: 'yes' } });
   if (c === 'yes') { rvMark(t, true); toast('Approved', 1200); }
   else if (c === 'no' && !rvIssues.some(x => x.fileId === t.id)) {
     const note = prompt(`What's wrong with “${t.name}”? (optional; it's saved as a flag at the end of the track)`, '');
