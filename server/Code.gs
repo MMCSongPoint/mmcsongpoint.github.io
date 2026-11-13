@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 50 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 51 }); }
 
 function doPost(e) {
   var d;
@@ -159,6 +159,8 @@ function handle_(d) {
   if (a === 'setup') return setupAdmin_(d);
   if (a === 'login') return login_(d);
   if (a === 'visitorJoin') return visitorJoin_(d);
+  // the shareable listening page (…/?listen): no account, it only needs to know which MIDI files are approved
+  if (a === 'midiApproved') return { ok: true, reviewed: mp3Reviewed_() };
 
   var me = checkToken_(d.token);
   if (!me) return { ok: false, error: 'Please sign in again.', signedOut: true };

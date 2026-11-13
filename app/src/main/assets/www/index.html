@@ -780,6 +780,11 @@
   .sheet.show { transform: none; }
   .sheet h3 { margin: 0 0 4px; font-size: 18px; }
   .sheet p { color: var(--muted); font-size: 14px; margin: 4px 0 14px; }
+  html.listen #joinBtn, html.listen #pipeBtn, html.listen #menuBtn, html.listen #welcome, html.listen #updCard, html.listen #installTip,
+  html.listen #filt, html.listen #dlTabBtn, html.listen .song .acts, html.listen #listenBtn, html.listen #musicBtn, html.listen #moreBtn,
+  html.listen #lock, html.listen .tutor { display: none !important; }
+  html.listen #brandIcon { pointer-events: none; }
+  html.listen .song .slidechip { display: none; }
   .psrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; }
   .psrow + .psrow, #midiVoices .psrow, .pscard > #midiVoices:not(:empty) { border-top: 1px solid var(--line); }
   .pscard > #midiVoices .psrow:first-child { border-top: 0; }
@@ -1377,6 +1382,8 @@
   <p class="m pedalhelp" id="pedalHelp"></p>
   <h4>Share</h4>
   <button class="act" id="copyLinkBtn">Copy Web App Link</button>
+  <button class="act" id="listenLinkBtn">Copy Listening Link</button>
+  <p style="margin:6px 0 0;font-size:12px;color:var(--muted)">The listening link lets anyone play the approved MIDI songs (SFP, Zion's Praises, Christian Hymnal) with any instrument and voice. No sign-in needed.</p>
   <h4>About</h4>
   <p id="versionLine" style="margin:0"></p>
   <button class="act" id="buildLogBtn">Build Log</button>
@@ -1404,9 +1411,15 @@ $('#appName').textContent = CFG.appName; document.title = CFG.appName;
 
 // Several people can be signed in on one device: their own things (song lists, favorites, what's waiting to upload…)
 // are kept apart, under "u~<username>~<key>". Everything else (the song library, settings) is shared by the device.
+// The shareable listening page (…/?listen): anyone with the link can play the approved MIDI files (SFP, Zion's Praises,
+// Christian Hymnal) with any instrument and voice. No account, no sheet music, no listening sessions, no downloads.
+// It keeps its own settings on the device (under "listen~"), apart from the app's.
+const LISTEN = /[?&]listen\b/.test(location.search);
+if (LISTEN) document.documentElement.classList.add('listen');
+const LISTEN_BOOKS = /^(sfp|songs of faith and praise|zions? praises|christian hymnal)$/i;
 const USER_KEYS = new Set(['notes', 'offlineLists', 'pendingLists', 'outbox', 'people', 'listTab', 'favs', 'usage', 'plays']);
-const curUser = () => { try { const a = JSON.parse(localStorage.getItem('auth') || '{}'); return (a.user && a.user.username) || ''; } catch { return ''; } };
-const skey = k => { const u = USER_KEYS.has(k) && curUser(); return u ? `u~${u}~${k}` : k; };
+const curUser = () => { if (LISTEN) return ''; try { const a = JSON.parse(localStorage.getItem('auth') || '{}'); return (a.user && a.user.username) || ''; } catch { return ''; } };
+const skey = k => { if (LISTEN) return k === 'library' ? k : 'listen~' + k; const u = USER_KEYS.has(k) && curUser(); return u ? `u~${u}~${k}` : k; };
 const store = {
   get(k, d) { try { const v = localStorage.getItem(skey(k)); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(skey(k), JSON.stringify(v)); } catch {} },
@@ -1990,6 +2003,9 @@ function buildIndex() {
   attach(library.chords || [], 'chords');
   attach(library.slides || [], 'slides');
   for (const s of songIndex.values()) {
+    // "With optional ending" versions are left out (unless that's all a song has)
+    if (s.parts.some(p => !/^with optional/i.test(p.part))) s.parts = s.parts.filter(p => !/^with optional/i.test(p.part));
+    if (LISTEN) s.parts = LISTEN_BOOKS.test(s.collection) ? s.parts.filter(p => p.midi && !isAiTrack(p, s)) : [];
     if (s.parts.some(p => p.midi) && s.parts.some(p => !p.midi)) for (const p of s.parts) if (p.midi && !/\(MIDI\)$/.test(p.part)) p.part += ' (MIDI)';
     s.parts.sort((a, b) => partRank(a.part) - partRank(b.part) || a.part.localeCompare(b.part));
     const kindRank = l => { const i = ['vocal', 'choral', 'satb', 'piano', 'lead'].findIndex(k => l.toLowerCase().startsWith(k)); return i < 0 ? 9 : i; };
@@ -2013,6 +2029,7 @@ function buildIndex() {
     s.grams = trigrams(s.nTitle);
   }
   songs = [...songIndex.values()];
+  if (LISTEN) songs = songs.filter(s => s.parts.length);
   for (const [a, k] of aliases) if (!songIndex.has(a)) songIndex.set(a, songIndex.get(k));
 }
 
@@ -2248,7 +2265,8 @@ function search() {
   lastQ = $('#q').value;
   $('#searchBox').classList.toggle('has', !!lastQ);
   results = runSearch(lastQ);
-  if (filterBy === 'chords') results = results.filter(r => r.s.chords && r.s.chords.length);
+  if (LISTEN) {}
+  else if (filterBy === 'chords') results = results.filter(r => r.s.chords && r.s.chords.length);
   else if (filterBy === 'known') results = results.filter(r => isKnown(r.s));
   sel = -1;
   render();
@@ -5741,6 +5759,7 @@ function deviceName() {
 // One call to the SongPoint server (Google Apps Script). Adds the sign-in token.
 async function api(action, data = {}) {
   if (!CFG.logUrl) throw new Error('No server is set up.');
+  if (LISTEN && action !== 'midiApproved') return { ok: false, error: 'Not available here.' };
   const r = await fetch(CFG.logUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(Object.assign({ action, token: auth.token || '' }, data)) });
   const body = await r.json();
@@ -5749,7 +5768,7 @@ async function api(action, data = {}) {
   return body;
 }
 function logEntry(x) {
-  if (!CFG.logUrl || isGuest()) return;
+  if (!CFG.logUrl || isGuest() || LISTEN) return;
   outbox.push(Object.assign({ id: uid(), at: new Date().toISOString(), leader: userName(), device: deviceName() }, x,
     { songs: (x.songs || []).map(r => ({ key: r.key, book: r.book, number: r.number, title: r.title })) }));
   store.set('outbox', outbox); flushLog();
@@ -6380,6 +6399,11 @@ $('#wheelBox').addEventListener('click', e => { if (e.target.id === 'wheelBox') 
 
 // Settings › Copy web app link
 const WEB_APP_URL = CFG.webUrl || 'https://mmcsongpoint.github.io/';
+$('#listenLinkBtn').onclick = async () => {
+  const url = WEB_APP_URL.replace(/[?#].*$/, '') + '?listen';
+  try { await navigator.clipboard.writeText(url); toast('Link copied: ' + url.replace(/^https:\/\//, ''), 3500); }
+  catch { const t = Object.assign(document.createElement('textarea'), { value: url }); document.body.appendChild(t); t.select(); try { document.execCommand('copy'); toast('Link copied', 2500); } catch {} t.remove(); }
+};
 $('#copyLinkBtn').onclick = async () => {
   try { await navigator.clipboard.writeText(WEB_APP_URL); toast('Link copied: ' + WEB_APP_URL.replace(/^https:\/\//, ''), 3500); }
   catch {
@@ -7903,14 +7927,21 @@ async function joinFromLink(code) {
   startApp(true);
   perfJoin(code);
 }
-if (joinParam) joinFromLink(joinParam);
+async function startListen() {
+  document.title = (CFG.appName || 'SongPoint') + ' · Listen';
+  const load = async () => { try { const r = await api('midiApproved'); if (r.ok) { setApproved(r.reviewed); buildIndex(); renderTabs(); search(); } } catch {} };
+  if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000) { await Promise.all([sync().catch(() => {}), load()]); buildIndex(); renderTabs(); search(); }
+  else load();
+}
+if (LISTEN) startListen();
+else if (joinParam) joinFromLink(joinParam);
 else if (isVisitor()) { startApp(); perfJoin(auth.user.username.split('~')[1] || ''); }   // a visitor reloaded: back to the same performance
 else if (!auth.token) chooseLockMode();
 else if (auth.user && auth.user.mustChange) showLock('change');
 else startApp();
-window.addEventListener('online', () => { if (!needsLogin() && Date.now() - library.synced > CFG.syncMinutes * 60000) sync(); });
+window.addEventListener('online', () => { if ((LISTEN || !needsLogin()) && Date.now() - library.synced > CFG.syncMinutes * 60000) sync(); });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || needsLogin()) return;
+  if (document.visibilityState !== 'visible' || (needsLogin() && !LISTEN)) return;
   if (Date.now() - library.synced > CFG.syncMinutes * 60000) sync();
   flushLog(); if (usageStale && usage && Date.now() - (usage.fetched || 0) > 600000) loadUsage();
 });
