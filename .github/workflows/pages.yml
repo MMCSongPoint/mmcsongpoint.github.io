@@ -55,7 +55,7 @@ jobs:
           cp /tmp/jsqr/package/dist/jsQR.js _site/vendor/jsQR.js
           # recorded instrument sounds for MIDI songs (FluidR3 GM, CC BY 3.0, from midi-js-soundfonts)
           git clone --depth 1 --filter=blob:none --sparse https://github.com/gleitz/midi-js-soundfonts.git /tmp/sf
-          (cd /tmp/sf && git sparse-checkout set --no-cone /FluidR3_GM/acoustic_grand_piano-mp3.js /FluidR3_GM/church_organ-mp3.js /FluidR3_GM/choir_aahs-mp3.js /FluidR3_GM/string_ensemble_1-mp3.js /FluidR3_GM/acoustic_guitar_nylon-mp3.js /FluidR3_GM/flute-mp3.js /FluidR3_GM/accordion-mp3.js /FluidR3_GM/orchestral_harp-mp3.js /FluidR3_GM/tubular_bells-mp3.js /FluidR3_GM/harmonica-mp3.js /FluidR3_GM/tinkle_bell-mp3.js /FluidR3_GM/acoustic_bass-mp3.js)
+          (cd /tmp/sf && git sparse-checkout set --no-cone /FluidR3_GM/acoustic_grand_piano-mp3.js /FluidR3_GM/church_organ-mp3.js /FluidR3_GM/choir_aahs-mp3.js /FluidR3_GM/string_ensemble_1-mp3.js /FluidR3_GM/acoustic_guitar_nylon-mp3.js /FluidR3_GM/flute-mp3.js /FluidR3_GM/accordion-mp3.js /FluidR3_GM/orchestral_harp-mp3.js /FluidR3_GM/harmonica-mp3.js /FluidR3_GM/tinkle_bell-mp3.js /FluidR3_GM/acoustic_bass-mp3.js)
           mkdir -p _site/sounds && cp /tmp/sf/FluidR3_GM/*-mp3.js _site/sounds/
           sed -i "s/__BUILD__/${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}/" _site/sw.js
           # Same version as the Android build from this commit: 1.<server version>.<commits since it changed>

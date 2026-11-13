@@ -1510,7 +1510,6 @@ const MIDI_SAMPLED = {
   flute:   ['Flute', 'flute', 1.3, 0.15, 'organ'],
   accordion: ['Accordion', 'accordion', 1.3, 0.15, 'organ'],
   harp:    ['Harp', 'orchestral_harp', 1.6, 0.6, 'piano'],
-  bells:   ['Bells', 'tubular_bells', 1.4, 1.5, 'piano'],
   smallbells: ['Small Bells', 'tinkle_bell', 1.3, 1.2, 'piano'],
   bass:    ['Upright Bass', 'acoustic_bass', 1.9, 0.25, 'piano'],
   harmonica: ['Harmonica', 'harmonica', 1.2, 0.12, 'organ'],
@@ -1559,6 +1558,7 @@ function sampleBuf(ctx, key, n) {
 }
 let midiSound = store.get('midiSound', 'grand');
 if (midiSound === 'organ') midiSound = 'pipe';   // the built-in organ is only a stand-in now
+if (midiSound === 'bells') midiSound = 'smallbells';   // church bells were taken out
 if (!MIDI_SOUNDS[midiSound]) midiSound = 'grand';
 // "A different sound for each voice": Lead, Alto, Tenor and Bass each played on their own instrument
 let midiVoiceSounds = store.get('midiVoiceSounds', null);   // null = off; else { Lead: 'flute', … }
