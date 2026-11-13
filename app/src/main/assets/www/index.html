@@ -6441,8 +6441,8 @@ function setApproved(map) { mp3Approved = map || {}; store.set('mp3Approved', mp
 async function loadApproved() { try { const r = await api('mp3Approved'); if (r.ok) setApproved(r.reviewed); } catch {} }
 // reviewed = played to the end and marked "sounded good" (and the file hasn't been replaced since)
 const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id] || t.modified <= rvReviewed[t.id]);
-// for now only the songs we know (the green ones) are reviewed; SFP's MP3s aren't AI-generated, so they're left out
-function rvAll() { const ids = new Set(); for (const s of songs) if (isKnown(s) && !/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
+// every song's files, known or not; SFP is left out (its MIDIs count as approved)
+function rvAll() { const ids = new Set(); for (const s of songs) if (!/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
 function rvList() {
   const q = normalize($('#rvQ').value || ''), show = $('#rvShow').value, showDone = show === 'done', flagged = new Set(rvIssues.map(x => x.fileId));
   return rvAll().filter(t => (!rvBook || t.collection === rvBook) && (show === 'flagged' ? flagged.has(t.id) : show !== 'clean' || !flagged.has(t.id) || (rvCur && rvCur.id === t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
@@ -6453,7 +6453,7 @@ function rvRender() {
   $('#rvBooks').innerHTML = ['', ...books].map(b => `<button class="chip${b === rvBook ? ' on' : ''}" data-b="${esc(b)}">${esc(b || 'All')}</button>`).join('');
   rvTracks = rvList();
   const all = rvAll(), done = all.filter(rvIsReviewed).length;
-  $('#rvCount').textContent = `${done} of ${all.length} ${rvLabel()}s reviewed (songs we know)${$('#rvShow').value === 'done' ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
+  $('#rvCount').textContent = `${done} of ${all.length} ${rvLabel()}s reviewed${$('#rvShow').value === 'done' ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
   const count = id => rvIssues.filter(x => x.fileId === id).length;
   $('#rvList').innerHTML = rvTracks.slice(0, 600).map((t, i) => `<div class="rvrow${rvCur && rvCur.id === t.id ? ' now' : ''}" data-i="${i}"><div class="t"><div>${esc(t.name)}</div><small>${esc(t.collection)}${t.subfolder ? ' / ' + esc(t.subfolder) : ''}</small></div>${count(t.id) ? `<span class="fl">⚑ ${count(t.id)}</span>` : ''}</div>`).join('')
     + (rvTracks.length > 600 ? `<p class="m">Showing 600 of ${rvTracks.length}. Pick a book or filter to narrow it down.</p>` : '') + (rvTracks.length ? '' : `<div class="vmsg">No ${rvLabel()}s match.</div>`);
