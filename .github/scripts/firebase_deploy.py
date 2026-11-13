@@ -4,7 +4,7 @@
 Usage: firebase_deploy.py <folder>   (access token in the ACCESS_TOKEN environment variable)
 The token comes from GitHub's own sign-in to Google (workload identity federation), so no key is stored anywhere.
 """
-import gzip, hashlib, json, os, sys, urllib.request
+import gzip, hashlib, json, os, sys, urllib.request, urllib.error
 
 SITE = 'songpoint'
 API = 'https://firebasehosting.googleapis.com/v1beta1'
@@ -15,8 +15,11 @@ root = sys.argv[1]
 def call(method, url, body=None, raw=None, ctype='application/json'):
     data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
     req = urllib.request.Request(url, data=data, method=method, headers={'Authorization': 'Bearer ' + TOKEN, 'Content-Type': ctype})
-    with urllib.request.urlopen(req) as r:
-        txt = r.read().decode() or '{}'
+    try:
+        with urllib.request.urlopen(req) as r:
+            txt = r.read().decode() or '{}'
+    except urllib.error.HTTPError as e:
+        sys.exit(f'{method} {url.split("?")[0]} -> {e.code}: {e.read().decode()[:2000]}')
     return json.loads(txt)
 
 
