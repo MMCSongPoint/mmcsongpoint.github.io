@@ -780,6 +780,9 @@
   .sheet.show { transform: none; }
   .sheet h3 { margin: 0 0 4px; font-size: 18px; }
   .sheet p { color: var(--muted); font-size: 14px; margin: 4px 0 14px; }
+  .psrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; }
+  .psrow + .psrow, #midiVoices .psrow, .pscard > #midiVoices:not(:empty) { border-top: 1px solid var(--line); }
+  .pscard > #midiVoices .psrow:first-child { border-top: 0; }
   .sheet .act { display: block; width: 100%; text-align: left; background: var(--row); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; margin-top: 8px; font-size: 15px; }
   .sheet .act.danger { color: var(--danger); }
   .sheet h4 { margin: 20px 0 8px; font-size: 15px; }
@@ -1356,18 +1359,17 @@
   <button class="act" id="changePwBtn">Change Password</button>
   <button class="act" id="switchUserBtn">Switch User</button>
   <button class="act" id="signOutBtn">Sign Out</button>
-  <h4 style="margin-top:12px">Song Library</h4>
-  <button class="act" id="syncBtn">Refresh Songs from Google Drive</button>
-  <p style="margin:6px 0 0;font-size:12.5px">Tip: you can also pull down from the top of the song list.</p>
-  <div hidden><p id="storageInfo"></p><button class="act" id="dlPartBtn"></button><button class="act danger" id="clearDlBtn"></button></div>
+  <div hidden><button class="act" id="syncBtn"></button><p id="aboutLine"></p><p id="storageInfo"></p><button class="act" id="dlPartBtn"></button><button class="act danger" id="clearDlBtn"></button></div>
   <h4>Appearance</h4>
   <div class="seg" id="themeSeg">
     <button data-t="system">Match Device</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
   </div>
-  <h4>MIDI Sound</h4>
-  <label class="act" style="display:flex;align-items:center;justify-content:space-between;gap:10px">Instrument <select id="midiSel" style="font:inherit;max-width:60%"></select></label>
-  <label class="act" style="display:flex;align-items:center;justify-content:space-between;gap:10px">A Different Sound for Each Voice <input type="checkbox" id="midiPerVoice" style="width:20px;height:20px"></label>
-  <div id="midiVoices"></div>
+  <h4>Playback Sound</h4>
+  <div class="act pscard" style="padding:2px 14px">
+    <label class="psrow">Instrument <select id="midiSel" style="font:inherit;max-width:60%"></select></label>
+    <label class="psrow">A Different Sound for Each Voice <input type="checkbox" id="midiPerVoice" style="width:20px;height:20px"></label>
+    <div id="midiVoices"></div>
+  </div>
   <p style="margin:6px 0 0;font-size:12px;color:var(--muted)">Recorded instruments download the first time they're used (2–3 MB each) and then work offline. Sounds: FluidR3 GM by Frank Wen (CC BY 3.0), via midi-js-soundfonts.</p>
   <h4>Foot Pedal</h4>
   <div class="seg" id="pedalSeg">
@@ -1381,7 +1383,6 @@
   <button class="act" id="buildLogBtn">Build Log</button>
   <button class="act" id="checkUpdBtn" style="display:none">Check for Updates</button>
   <button class="act" id="bugBtn">Report a Problem</button>
-  <p style="margin-top:12px" id="aboutLine"></p>
 </div>
 
 <script>
@@ -5267,7 +5268,7 @@ const midiOrder = () => ['piano', ...Object.keys(MIDI_SOUNDS).filter(k => k !== 
 const midiOpts = sel => midiOrder().map(k => [k, MIDI_SOUNDS[k]]).map(([k, v]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${v.name}</option>`).join('');
 function renderMidiSeg() {
   $('#midiSel').innerHTML = midiOpts(midiSound); $('#midiPerVoice').checked = !!midiVoiceSounds;
-  $('#midiVoices').innerHTML = midiVoiceSounds ? ['Lead', 'Alto', 'Tenor', 'Bass'].map(v => `<label class="act" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-left:18px">${v} <select data-v="${v}" style="font:inherit;max-width:60%">${midiOpts(midiVoiceSounds[v])}</select></label>`).join('') : '';
+  $('#midiVoices').innerHTML = midiVoiceSounds ? ['Lead', 'Alto', 'Tenor', 'Bass'].map(v => `<label class="psrow" style="padding-left:18px">${v} <select data-v="${v}" style="font:inherit;max-width:60%">${midiOpts(midiVoiceSounds[v])}</select></label>`).join('') : '';
   if (typeof renderPlayerParts === 'function') renderPlayerParts();
 }
 renderMidiSeg();
