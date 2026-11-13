@@ -1177,7 +1177,7 @@
   </div>
   <div class="pbody">
     <div class="chips" id="rvBooks" style="margin:0 0 8px"></div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="rvQ" type="search" placeholder="Filter by title or file name" style="flex:1"><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="rvOnly"> Flagged only</label><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="rvDone"> Reviewed</label></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="rvQ" type="search" placeholder="Filter by title or file name" style="flex:1"><select id="rvShow" aria-label="Show" style="font:inherit;font-size:13px"><option value="todo">Unreviewed</option><option value="clean">Unreviewed, Not Flagged</option><option value="flagged">Flagged</option><option value="done">Reviewed</option></select></div>
     <p class="m" id="rvCount" style="margin:0 0 6px;font-size:12.5px;color:var(--muted)"></p>
     <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">Plays straight through the list; at the end of each one it asks whether it sounded good (Yes = reviewed, and it leaves the list). Press <b>⚑ Flag</b> (or F) where you hear a problem and type what's wrong. Flags are saved to the server and written to the <b>MP3 Issues</b> folder in Drive (one text file per file, plus “_All MP3 issues.txt”).</p>
     <div id="rvList"></div>
@@ -6416,8 +6416,8 @@ const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id
 // for now only the songs we know (the green ones) are reviewed; SFP's MP3s aren't AI-generated, so they're left out
 function rvAll() { const ids = new Set(); for (const s of songs) if (isKnown(s) && !/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
 function rvList() {
-  const q = normalize($('#rvQ').value || ''), only = $('#rvOnly').checked, showDone = $('#rvDone').checked, flagged = new Set(rvIssues.map(x => x.fileId));
-  return rvAll().filter(t => (!rvBook || t.collection === rvBook) && (!only || flagged.has(t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
+  const q = normalize($('#rvQ').value || ''), show = $('#rvShow').value, showDone = show === 'done', flagged = new Set(rvIssues.map(x => x.fileId));
+  return rvAll().filter(t => (!rvBook || t.collection === rvBook) && (show === 'flagged' ? flagged.has(t.id) : show !== 'clean' || !flagged.has(t.id) || (rvCur && rvCur.id === t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
     .sort((a, b) => a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.name.localeCompare(b.name));
 }
 function rvRender() {
@@ -6425,7 +6425,7 @@ function rvRender() {
   $('#rvBooks').innerHTML = ['', ...books].map(b => `<button class="chip${b === rvBook ? ' on' : ''}" data-b="${esc(b)}">${esc(b || 'All')}</button>`).join('');
   rvTracks = rvList();
   const all = rvAll(), done = all.filter(rvIsReviewed).length;
-  $('#rvCount').textContent = `${done} of ${all.length} ${rvLabel()}s reviewed (songs we know)${$('#rvDone').checked ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
+  $('#rvCount').textContent = `${done} of ${all.length} ${rvLabel()}s reviewed (songs we know)${$('#rvShow').value === 'done' ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
   const count = id => rvIssues.filter(x => x.fileId === id).length;
   $('#rvList').innerHTML = rvTracks.slice(0, 600).map((t, i) => `<div class="rvrow${rvCur && rvCur.id === t.id ? ' now' : ''}" data-i="${i}"><div class="t"><div>${esc(t.name)}</div><small>${esc(t.collection)}${t.subfolder ? ' / ' + esc(t.subfolder) : ''}</small></div>${count(t.id) ? `<span class="fl">⚑ ${count(t.id)}</span>` : ''}</div>`).join('')
     + (rvTracks.length > 600 ? `<p class="m">Showing 600 of ${rvTracks.length}. Pick a book or filter to narrow it down.</p>` : '') + (rvTracks.length ? '' : `<div class="vmsg">No ${rvLabel()}s match.</div>`);
@@ -6509,7 +6509,7 @@ function rvOpen(kind) {
 $('#midiBtn').onclick = () => rvOpen('midi');
 $('#rvBooks').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) { rvBook = b.dataset.b; rvRender(); } });
 $('#rvQ').addEventListener('input', () => rvRender());
-$('#rvOnly').onchange = () => rvRender();
+$('#rvShow').onchange = () => rvRender();
 $('#rvList').addEventListener('click', e => { const r = e.target.closest('.rvrow'); if (r) rvPlay(rvTracks[+r.dataset.i]); });
 $('#rvPlay').onclick = () => { if (!rvCur) { if (rvTracks[0]) rvPlay(rvTracks[0]); return; } rvAudio.paused ? rvAudio.play().catch(() => {}) : rvAudio.pause(); };
 $('#rvPrev').onclick = () => rvStep(-1); $('#rvNext').onclick = () => rvStep(1);
@@ -6526,7 +6526,6 @@ $('#rvFlags').addEventListener('click', async e => {
 });
 rvAudio.addEventListener('play', rvRenderNow); rvAudio.addEventListener('pause', rvRenderNow);
 rvAudio.addEventListener('ended', rvEnded);
-$('#rvDone').onchange = () => rvRender();
 rvAudio.addEventListener('timeupdate', () => { $('#rvCur').textContent = fmt(rvAudio.currentTime); $('#rvLen').textContent = fmt(rvAudio.duration); if (rvAudio.duration && !rvSeeking) $('#rvSeek').value = Math.round(rvAudio.currentTime / rvAudio.duration * 1000); });
 let rvSeeking = false;
 $('#rvSeek').addEventListener('input', () => { rvSeeking = true; if (rvAudio.duration) $('#rvCur').textContent = fmt($('#rvSeek').value / 1000 * rvAudio.duration); });
