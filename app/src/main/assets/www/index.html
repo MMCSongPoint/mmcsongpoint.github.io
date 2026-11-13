@@ -681,7 +681,6 @@
   .rec button { background: none; border: none; color: var(--muted); font-size: 18px; width: 34px; height: 34px; border-radius: 8px; }
   .choicebar { height: 6px; border-radius: 3px; background: var(--line, rgba(127,127,127,.25)); overflow: hidden; margin: 0 0 14px; }
   .choicebar i { display: block; height: 100%; width: 0; background: var(--accent); }
-  .choicebar.go i { width: 100%; transition: width linear var(--dur, 3s); }
   .choicebtns { display: flex; flex-direction: column; gap: 8px; }
   .choicebtns .pbtn { width: 100%; padding: 11px; }
   .drawer-bg { position: fixed; inset: 0; background: var(--scrim); z-index: 72; opacity: 0; pointer-events: none; transition: opacity .2s; }
@@ -6424,7 +6423,7 @@ function rvMark(t, ok) {
 async function rvEnded() {
   const t = rvCur; if (!t) return;
   const i = rvTracks.findIndex(x => x.id === t.id), next = rvTracks[i + 1];
-  const c = await choose('Did it sound good?', t.name + ' — approving in 3 seconds unless you tap No', [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 3000, value: 'yes' } });
+  const c = await choose('Did it sound good?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 4000, value: 'yes' } });
   if (c === 'yes') { rvMark(t, true); toast('Approved', 1200); }
   else if (c === 'no' && !rvIssues.some(x => x.fileId === t.id)) {
     const note = prompt(`What's wrong with “${t.name}”? (optional; it's saved as a flag at the end of the track)`, '');
@@ -7734,13 +7733,16 @@ function deliverFile(name, base64, mime) {
 // opts.auto = { ms, value }: a bar fills over ms; if nothing is tapped by then, that value is chosen
 function choose(title, text, buttons, opts = {}) {
   return new Promise(res => {
-    const bar = $('#choiceBar'); let timer = null;
-    bar.hidden = !opts.auto; bar.classList.remove('go');
-    if (opts.auto) { bar.style.setProperty('--dur', opts.auto.ms + 'ms'); void bar.offsetWidth; requestAnimationFrame(() => bar.classList.add('go')); timer = setTimeout(() => done(opts.auto.value), opts.auto.ms); }
+    const bar = $('#choiceBar'), fill = bar.firstElementChild; let timer = null;
+    bar.hidden = !opts.auto; fill.style.width = '0';
+    if (opts.auto) {   // filled by a timer (not a CSS transition) so it moves on every device
+      const t0 = Date.now();
+      timer = setInterval(() => { const f = (Date.now() - t0) / opts.auto.ms; fill.style.width = Math.min(100, f * 100) + '%'; if (f >= 1) done(opts.auto.value); }, 40);
+    }
     $('#choiceTitle').textContent = title; $('#choiceTitle').style.display = title ? '' : 'none';
     $('#choiceText').textContent = text; $('#choiceText').style.display = text ? '' : 'none';
     $('#choiceBtns').innerHTML = buttons.map((b, i) => `<button class="pbtn${b.primary ? '' : ' ghost'}" data-i="${i}">${esc(b.label)}</button>`).join('');
-    const done = v => { clearTimeout(timer); bar.hidden = true; bar.classList.remove('go'); $('#choiceBox').classList.remove('show'); choose.pending = null; res(v); };
+    const done = v => { clearInterval(timer); bar.hidden = true; $('#choiceBox').classList.remove('show'); choose.pending = null; res(v); };
     choose.pending = () => done('cancel');
     $('#choiceBtns').onclick = e => { const b = e.target.closest('[data-i]'); if (b) done(buttons[+b.dataset.i].value); };
     $('#choiceBox').onclick = e => { if (e.target.id === 'choiceBox') done('cancel'); };
