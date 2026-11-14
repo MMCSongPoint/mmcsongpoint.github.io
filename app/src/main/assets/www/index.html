@@ -2585,11 +2585,13 @@ function playTrack(song, part, keepTime = false, autoplay = true) {
   if (now && now.part === part) return togglePlay();
   if (!queue.includes(song)) queue = results.some(r => r.s === song) ? results.map(r => r.s).filter(x => x.parts.length) : [song];
   const t = keepTime ? audio.currentTime : 0, resume = autoplay && (!keepTime || !audio.paused);
+  const newSong = !now || now.song !== song;
   now = { song, part };
   if (!N || !N.localUrl(part.id)) { if (!navigator.onLine) { toast('You\'re offline and this song isn\'t saved'); } }
   if ((shift || shiftSemis(song)) && !part.midi) audio.crossOrigin = 'anonymous';
   pendingPlay = !!resume; loadRetries = 0; relayTried = false; clearTimeout(retryTimer);
-  audio.playbackRate = +$('#rate').value;
+  audio.playbackRate = newSong ? 1 : +$('#rate').value;   // a new song starts at its own tempo
+  if (newSong) $('#rate').value = '1';
   // Fade the old track out for a moment before switching, so it isn't cut off with a click.
   const wasPlaying = !audio.paused && !!audio.getAttribute('src');
   const load = () => {
@@ -2790,7 +2792,8 @@ $('#loopBtn').onclick = () => {
   toast(repeatMode === 'off' ? 'Repeat off' : repeatMode === 'on' ? 'Repeat on' : `Play ${n} times (${n} verses)`, 1400);
 };
 $('#rate').onchange = e => { audio.playbackRate = +e.target.value; };
-// Tempo: a MIDI song shows its beats per minute (from the file) and can be set to any tempo, in steps of 2.
+// Tempo: a MIDI song shows its beats per minute (from the file) and can be set to any tempo, in steps of 5.
+// Each new song starts at its own tempo.
 // It only changes how fast it plays here; the file isn't changed. MP3s keep the speed choices (0.5×–2×).
 const RATES = [0.5, 0.75, 0.85, 1, 1.15, 1.25, 1.5, 1.75, 2];
 function renderRate() {
@@ -2798,7 +2801,7 @@ function renderRate() {
   const bpm = audio.isMidi && audio.midi.song && audio.midi.song.bpm;
   let opts;
   if (bpm) {
-    const set = new Set([bpm]); for (let b = Math.max(20, Math.ceil(bpm * 0.5 / 2) * 2); b <= Math.min(300, bpm * 2); b += 2) set.add(b);
+    const set = new Set([bpm]); for (let b = Math.max(20, Math.ceil(bpm * 0.5 / 5) * 5); b <= Math.min(300, bpm * 2); b += 5) set.add(b);
     opts = [...set].sort((a, b) => a - b).map(b => [b / bpm, `${b} BPM`]);
   } else opts = RATES.map(x => [x, x + '×']);
   const pick = opts.reduce((m, o) => Math.abs(o[0] - cur) < Math.abs(m[0] - cur) ? o : m, opts[0]);
