@@ -1188,7 +1188,7 @@
   </div>
   <div class="pbody">
     <div class="chips" id="rvBooks" style="margin:0 0 8px"></div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="rvQ" type="search" placeholder="Filter by title or file name" style="flex:1"><select id="rvShow" aria-label="Show" style="font:inherit;font-size:13px"><option value="todo">Unreviewed</option><option value="clean">Unreviewed, Not Flagged</option><option value="flagged">Flagged</option><option value="done">Reviewed</option></select></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:8px"><input id="rvQ" type="search" placeholder="Filter by title or file name" style="flex:1 1 220px;min-width:0"><select id="rvShow" aria-label="Show" style="font:inherit;font-size:13px"><option value="todo">Unreviewed</option><option value="clean">Unreviewed, Not Flagged</option><option value="flagged">Flagged</option><option value="done">Reviewed</option></select><label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="rvKnown"> Songs We Know</label></div>
     <p class="m" id="rvCount" style="margin:0 0 6px;font-size:12.5px;color:var(--muted)"></p>
     <p class="m" style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">Plays straight through the list; at the end of each one it asks whether it sounded good (Yes = reviewed, and it leaves the list). Press <b>⚑ Flag</b> (or F) where you hear a problem and type what's wrong. Flags are saved to the server and written to the <b>MP3 Issues</b> folder in Drive (one text file per file, plus “_All MP3 issues.txt”).</p>
     <div id="rvList"></div>
@@ -6476,8 +6476,9 @@ const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id
 // every song's files, known or not; SFP is left out (its MIDIs count as approved)
 function rvAll() { const ids = new Set(); for (const s of songs) if (!/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
 function rvList() {
+  const known = $('#rvKnown').checked, knownIds = known ? new Set(songs.filter(isKnown).flatMap(s => s.parts.map(p => p.id))) : null;
   const q = normalize($('#rvQ').value || ''), show = $('#rvShow').value, showDone = show === 'done', flagged = new Set(rvIssues.map(x => x.fileId));
-  return rvAll().filter(t => (!rvBook || t.collection === rvBook) && (show === 'flagged' ? flagged.has(t.id) : show !== 'clean' || !flagged.has(t.id) || (rvCur && rvCur.id === t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
+  return rvAll().filter(t => (!rvBook || t.collection === rvBook) && (!known || knownIds.has(t.id) || (rvCur && rvCur.id === t.id)) && (show === 'flagged' ? flagged.has(t.id) : show !== 'clean' || !flagged.has(t.id) || (rvCur && rvCur.id === t.id)) && (showDone ? rvIsReviewed(t) : !rvIsReviewed(t) || (rvCur && rvCur.id === t.id)) && (!q || normalize(t.name + ' ' + (t.title || '')).includes(q)))
     .sort((a, b) => a.collection.localeCompare(b.collection) || (parseInt(a.number) || 1e9) - (parseInt(b.number) || 1e9) || a.name.localeCompare(b.name));
 }
 function rvRender() {
@@ -6587,6 +6588,8 @@ $('#midiBtn').onclick = () => rvOpen('midi');
 $('#rvBooks').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) { rvBook = b.dataset.b; rvRender(); } });
 $('#rvQ').addEventListener('input', () => rvRender());
 $('#rvShow').onchange = () => rvRender();
+$('#rvKnown').checked = store.get('rvKnown', false);
+$('#rvKnown').onchange = e => { store.set('rvKnown', e.target.checked); rvRender(); };
 $('#rvList').addEventListener('click', e => { const r = e.target.closest('.rvrow'); if (r) rvPlay(rvTracks[+r.dataset.i]); });
 $('#rvPlay').onclick = () => { if (!rvCur) { if (rvTracks[0]) rvPlay(rvTracks[0]); return; } rvAudio.paused ? rvAudio.play().catch(() => {}) : rvAudio.pause(); };
 $('#rvPrev').onclick = () => rvStep(-1); $('#rvNext').onclick = () => rvStep(1);
