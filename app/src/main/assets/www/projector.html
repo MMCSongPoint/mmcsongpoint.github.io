@@ -8,13 +8,15 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
   body.ui { cursor: default; }
-  /* everything fades: a slide, picture or video fades in as the last one fades out (FADE, below, is the same time) */
-  .slide { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity .5s ease; }
+  /* the next slide, picture, title or video fades in on top of the one showing, which stays until it's covered
+     (so there's no dip to black between them). FADE, below, is the same time. Black behind a picture's bars. */
+  .slide { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; opacity: 0; transition: opacity .5s ease; }
+  .instant { transition: none !important; }
   .slide.on { opacity: 1; }
-  #title { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; color: #fff; font: 700 6vw/1.2 system-ui, sans-serif; padding: 5vw; opacity: 0; transition: opacity .5s ease; }
+  #title { position: fixed; inset: 0; background: #000; display: grid; place-items: center; text-align: center; color: #fff; font: 700 6vw/1.2 system-ui, sans-serif; padding: 5vw; opacity: 0; transition: opacity .5s ease; }
   #title.on { opacity: 1; }
   #live { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #000; }
-  #live.on { display: block; }
+  #live.on { display: block; z-index: 1000000; }
   #vid { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; visibility: hidden; opacity: 0; transition: opacity .5s ease, visibility 0s .5s; }
   #vid.on { visibility: visible; opacity: 1; transition: opacity .5s ease, visibility 0s; }
 </style>
@@ -30,17 +32,30 @@ const ch = new BroadcastChannel('songpoint-projector'), title = document.getElem
 const FADE = 500;
 // two picture layers: the next slide loads into the hidden one, then fades in over the one fading out
 const layers = [...document.querySelectorAll('.slide')]; let front = 0, want = '';
+// what's coming in goes on top and fades in; what it covers is taken away (no fade) once it's fully covered
+const all = () => [...layers, title, vid];
+let zTop = 1;
+function cut(el) {
+  el.classList.add('instant'); el.classList.remove('on'); void el.offsetWidth; el.classList.remove('instant');
+  if (el === vid) { vWant = false; clearInterval(vTimer); clearTimeout(vHideT); vid.pause(); }
+}
+function swapTo(el) {
+  if (el.classList.contains('on') && +el.style.zIndex === zTop) return;
+  const mine = ++zTop; el.style.zIndex = mine; el.classList.add('on');
+  for (const o of all()) if (o !== el && o.classList.contains('on'))
+    setTimeout(() => { if (+el.style.zIndex === mine && el.classList.contains('on') && +o.style.zIndex < mine) cut(o); }, FADE + 60);
+}
 const img = { classList: { remove: () => { want = ''; layers.forEach(l => l.classList.remove('on')); } } };   // "hide the slide"
 async function showSlide(src) {
   const cur = layers[front];
   if (want === src && cur.classList.contains('on')) return;
   want = src;
-  if (cur.getAttribute('src') === src) { cur.classList.add('on'); layers[1 - front].classList.remove('on'); return; }
+  if (cur.getAttribute('src') === src) { swapTo(cur); return; }
   const next = layers[1 - front];
   next.src = src;
   try { await next.decode(); } catch (e) {}
   if (want !== src) return;   // another slide came meanwhile
-  front = 1 - front; next.classList.add('on'); cur.classList.remove('on');
+  front = 1 - front; swapTo(next);
 }
 // a speaker's deck playing in Google Slides' own player: the clicker / arrow keys go straight to it
 function showLive(m) {
@@ -56,11 +71,10 @@ let vWant = false, vBlocked = false, vSn = -1, vTimer = 0;
 function vStat() { ch.postMessage({ t: 'vstat', url: vid.dataset.url || '', time: vid.currentTime || 0, dur: vid.duration || 0, ended: vid.ended, blocked: vBlocked }); }
 function vPlay() { vid.play().then(() => { vBlocked = false; vStat(); }).catch(() => { vBlocked = true; vStat(); }); }
 function showVideo(m) {
-  img.classList.remove('on'); title.classList.remove('on');
   if (vid.dataset.url !== m.url) { vid.dataset.url = m.url; vid.src = m.url; vSn = -1; }
   vid.loop = !!m.loop;
   if ((m.sn || 0) !== vSn) { vSn = m.sn || 0; try { vid.currentTime = m.st || 0; } catch (e) {} }   // the presenter moved the time bar
-  clearTimeout(vHideT); vid.classList.add('on'); vWant = !!m.play;
+  clearTimeout(vHideT); swapTo(vid); vWant = !!m.play;
   if (vWant && vid.paused && !vid.ended) vPlay(); else if (!vWant && !vid.paused) vid.pause();
   clearInterval(vTimer); vTimer = setInterval(vStat, 500);
 }
@@ -75,11 +89,14 @@ document.addEventListener('pointerdown', () => { if (vBlocked && vWant) vPlay();
 ch.onmessage = e => {
   const m = e.data || {};
   if (m.t !== 'live' && m.t !== 'close') live.classList.remove('on');
-  if (m.t !== 'video') hideVideo();
+  if (m.t !== 'video' && m.t !== 'slide' && m.t !== 'title') hideVideo();   // a slide or title covers a video instead
   if (m.t === 'video') showVideo(m);
   else if (m.t === 'live') showLive(m);
-  else if (m.t === 'slide') { title.classList.remove('on'); showSlide(m.img); }
-  else if (m.t === 'title') { img.classList.remove('on'); title.textContent = m.text || ''; title.classList.add('on'); }
+  else if (m.t === 'slide') showSlide(m.img);
+  else if (m.t === 'title') {
+    if (title.classList.contains('on') && +title.style.zIndex === zTop) title.textContent = m.text || '';
+    else { title.textContent = m.text || ''; swapTo(title); }
+  }
   else if (m.t === 'blank') { img.classList.remove('on'); title.classList.remove('on'); }
   else if (m.t === 'close') window.close();
 };
