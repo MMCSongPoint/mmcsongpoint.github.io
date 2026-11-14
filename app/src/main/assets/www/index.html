@@ -2802,7 +2802,7 @@ function renderRate() {
   let opts;
   if (bpm) {
     const set = new Set([bpm]); for (let b = Math.max(20, Math.ceil(bpm * 0.5 / 5) * 5); b <= Math.min(300, bpm * 2); b += 5) set.add(b);
-    opts = [...set].sort((a, b) => a - b).map(b => [b / bpm, `${b} BPM`]);
+    opts = [...set].sort((a, b) => a - b).map(b => [b / bpm, `${b} BPM${b === bpm ? ' (original)' : ''}`]);
   } else opts = RATES.map(x => [x, x + '×']);
   const pick = opts.reduce((m, o) => Math.abs(o[0] - cur) < Math.abs(m[0] - cur) ? o : m, opts[0]);
   sel.innerHTML = opts.map(([v, l]) => `<option value="${v}"${v === pick[0] ? ' selected' : ''}>${l}</option>`).join('');
