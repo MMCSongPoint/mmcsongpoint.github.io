@@ -772,6 +772,8 @@
 
   .busybox { position: fixed; inset: 0; z-index: 95; background: var(--scrim); display: none; place-items: center; }
   .busybox.show { display: grid; }
+  .flagopts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; font-size: 15px; }
+  .flagopts label { display: flex; align-items: center; gap: 8px; } .flagopts input { width: 20px; height: 20px; margin: 0; }
   .busybox > div { background: var(--panel); border-radius: 16px; padding: 22px 24px; width: min(330px, 88vw); text-align: center; }
   .busybox .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent-text); margin: 0 auto 12px; animation: spin 1s linear infinite; }
   .sheet-bg { position: fixed; inset: 0; background: var(--scrim); display: none; z-index: 70; }
@@ -1343,6 +1345,11 @@
 <div class="busybox" id="choiceBox"><div><b id="choiceTitle"></b><p id="choiceText" style="color:var(--muted);font-size:14px;margin:8px 0 16px;word-break:break-word"></p>
   <div class="choicebar" id="choiceBar" hidden><i></i></div>
   <div class="choicebtns" id="choiceBtns"></div></div></div>
+<div class="busybox" id="flagBox"><div style="text-align:left"><b id="flagTitle">Flag a problem</b><p id="flagSub" style="color:var(--muted);font-size:13px;margin:4px 0 12px;word-break:break-word"></p>
+  <div class="flagopts"><label><input type="checkbox" value="Wrong Note"> Wrong Note</label><label><input type="checkbox" value="Bad Timing"> Bad Timing</label>
+    <label><input type="checkbox" value="Soprano"> Soprano</label><label><input type="checkbox" value="Alto"> Alto</label><label><input type="checkbox" value="Tenor"> Tenor</label><label><input type="checkbox" value="Bass"> Bass</label></div>
+  <textarea id="flagNote" rows="3" placeholder="Other notes (optional)" style="width:100%;box-sizing:border-box;margin:12px 0 14px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--row);color:var(--text);font:inherit;font-size:14px;resize:vertical"></textarea>
+  <div style="display:flex;gap:8px;justify-content:flex-end"><button class="pbtn ghost" id="flagCancel">Cancel</button><button class="pbtn" id="flagSave">Save Flag</button></div></div></div>
 <div class="busybox" id="readyBox"><div><b id="readyTitle">Your file is ready</b><p id="readyText" style="color:var(--muted);font-size:14px;margin:8px 0 16px"></p>
   <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="pbtn" id="readyShare">Share / Save</button><button class="pbtn" id="readyDl">Download</button><button class="pbtn ghost" id="readyClose">Close</button></div></div></div>
 <div class="busybox" id="busyBox"><div><div class="spinner"></div><b id="busyTitle">Working…</b><p id="busyText" style="color:var(--muted);font-size:14px;margin:8px 0 0"></p></div></div>
@@ -6022,6 +6029,7 @@ window.handleBack = () => {
   if ($('#lock').classList.contains('show')) return false;
   // things that sit on top of everything else go first
   if ($('#choiceBox').classList.contains('show')) { if (choose.pending) choose.pending(); return true; }
+  if ($('#flagBox').classList.contains('show')) { if (flagAsk.pending) flagAsk.pending(); return true; }
   if ($('#readyBox').classList.contains('show')) { $('#readyBox').classList.remove('show'); return true; }
   if ($('#busyBox').classList.contains('show')) return true;   // working: wait for it
   if ($('#qrScan').classList.contains('show')) { qrStop(); return true; }
@@ -6477,10 +6485,27 @@ async function rvPlay(t, autoplay = true) {
   const row = document.querySelector('#rvList .rvrow.now'); if (row) row.scrollIntoView({ block: 'nearest' });
 }
 function rvStep(d) { const i = rvTracks.findIndex(t => rvCur && t.id === rvCur.id), n = rvTracks[i + d]; if (n) rvPlay(n); else toast(d > 0 ? 'End of the list' : 'Start of the list'); }
+// the flag form: tick what's wrong (Wrong Note, Bad Timing, which voice), plus any other notes. null = cancelled
+function flagAsk(title, sub) {
+  return new Promise(res => {
+    const box = $('#flagBox');
+    $('#flagTitle').textContent = title; $('#flagSub').textContent = sub || '';
+    box.querySelectorAll('.flagopts input').forEach(c => { c.checked = false; }); $('#flagNote').value = '';
+    const done = v => { box.classList.remove('show'); flagAsk.pending = null; res(v); };
+    flagAsk.pending = () => done(null);
+    $('#flagCancel').onclick = () => done(null);
+    box.onclick = e => { if (e.target === box) done(null); };
+    $('#flagSave').onclick = () => {
+      const picks = [...box.querySelectorAll('.flagopts input:checked')].map(c => c.value), more = $('#flagNote').value.trim();
+      done([picks.join(', '), more].filter(Boolean).join(' — '));
+    };
+    box.classList.add('show');
+  });
+}
 async function rvFlag() {
   const t = rvCur; if (!t) return toast('Play an MP3 first');
   const at = rvAudio.currentTime || 0, was = !rvAudio.paused; rvAudio.pause();
-  const note = prompt(`Flag at ${fmt(at)} in “${t.name}”. What's wrong? (optional)`, '');
+  const note = await flagAsk(`Flag at ${fmt(at)}`, t.name);
   if (note === null) { if (was) rvAudio.play().catch(() => {}); return; }
   const s = [...songIndex.values()].find(x => x.parts.some(p => p.id === t.id));
   try {
@@ -6521,7 +6546,7 @@ async function rvEnded() {
   const c = flags.length ? 'flagged' : await choose('Did it sound good?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 3000, value: 'yes' } });
   if (c === 'yes') { rvMark(t, true); toast('Approved', 1200); }
   else if (c === 'no' && !rvIssues.some(x => x.fileId === t.id)) {
-    const note = prompt(`What's wrong with “${t.name}”? (optional; it's saved as a flag at the end of the track)`, '');
+    const note = await flagAsk('What\'s wrong?', `${t.name} (saved as a flag at the end of the track)`);
     if (note !== null) { try { const r = await api('mp3IssueAdd', { fileId: t.id, file: t.name, folder: t.subfolder || '', book: t.collection, song: t.title || '', part: t.part || '', t: rvAudio.duration || 0, note: note || 'Didn\'t sound right' }); if (r.ok) rvIssues = r.issues; } catch {} }
   }
   if (!$('#mp3Panel').classList.contains('show')) return;
@@ -6559,7 +6584,7 @@ let rvSeeking = false;
 $('#rvSeek').addEventListener('input', () => { rvSeeking = true; if (rvAudio.duration) $('#rvCur').textContent = fmt($('#rvSeek').value / 1000 * rvAudio.duration); });
 $('#rvSeek').addEventListener('change', () => { rvSeeking = false; if (rvAudio.duration) rvAudio.currentTime = $('#rvSeek').value / 1000 * rvAudio.duration; });
 document.addEventListener('keydown', e => {
-  if (!$('#mp3Panel').classList.contains('show') || e.ctrlKey || e.metaKey || e.altKey || (e.target.closest && e.target.closest('input, textarea, select'))) return;
+  if (!$('#mp3Panel').classList.contains('show') || $('#flagBox').classList.contains('show') || e.ctrlKey || e.metaKey || e.altKey || (e.target.closest && e.target.closest('input, textarea, select'))) return;
   if (e.key === ' ') { e.preventDefault(); $('#rvPlay').click(); }
   else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); rvFlag(); }
   else if ((e.key === 's' || e.key === 'S') && !$('#viewer').classList.contains('show')) { e.preventDefault(); $('#rvSheet').click(); }
