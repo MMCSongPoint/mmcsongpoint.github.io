@@ -2648,8 +2648,11 @@ $('#vsDone').onclick = () => $('#vsBox').classList.remove('show');
 $('#vsBox').addEventListener('click', e => { if (e.target.id === 'vsBox') $('#vsBox').classList.remove('show'); });
 // ⋯: the less-used things
 $('#moreBtn').onclick = async () => {
-  const c = await choose('', '', [{ label: perf && (perf.listen || perf.ls) ? 'Listening Together ✓' : 'Listen Together', value: 'listen' }, { label: 'Close', value: 'cancel' }]);
+  const at = audio.currentTime || 0, t = now && now.part;
+  const c = await choose('', '', [{ label: perf && (perf.listen || perf.ls) ? 'Listening Together ✓' : 'Listen Together', value: 'listen' },
+    ...(isAdmin() && t ? [{ label: `⚑ Flag a Problem at ${fmt(at)}`, value: 'flag' }] : []), { label: 'Close', value: 'cancel' }]);
   if (c === 'listen') $('#listenBtn').click();
+  if (c === 'flag') playerFlag(t, now.song, at);
 };
 audio.midi.addEventListener('loadedmetadata', renderPlayerParts);
 $('#playerParts').addEventListener('change', e => {
@@ -6571,6 +6574,19 @@ async function rvPlay(t, autoplay = true) {
   const row = document.querySelector('#rvList .rvrow.now'); if (row) row.scrollIntoView({ block: 'nearest' });
 }
 function rvStep(d) { const i = rvTracks.findIndex(t => rvCur && t.id === rvCur.id), n = rvTracks[i + d]; if (n) rvPlay(n); else toast(d > 0 ? 'End of the list' : 'Start of the list'); }
+// ⋯ in the player (admins): flag a problem with the track that's playing, at that moment. Same flags as MIDI Review.
+async function playerFlag(t, song, at) {
+  const was = !audio.paused; if (was) audio.pause();
+  const note = await flagAsk(`Flag at ${fmt(at)}`, `${song.number ? song.number + '. ' : ''}${song.title} · ${t.part}`);
+  if (note !== null) {
+    try {
+      const r = await api('mp3IssueAdd', { fileId: t.id, file: t.name, folder: t.subfolder || '', book: song.collection, song: (song.number ? song.number + ' ' : '') + song.title, part: t.part || '', t: at, note });
+      if (!r.ok) throw new Error(r.error);
+      rvIssues = r.issues; toast(`Flagged at ${fmt(at)}`, 1500);
+    } catch (e) { toast((e && e.message) || 'Couldn\'t save the flag. Check your connection.', 4000); }
+  }
+  if (was) audio.play().catch(() => {});
+}
 // the flag form: tick what's wrong (Wrong Note, Bad Timing, which voice), plus any other notes. null = cancelled
 function flagAsk(title, sub) {
   return new Promise(res => {
