@@ -1650,6 +1650,18 @@ function midiNote(ctx, out, key, f, start, off, peak, waves, n) {
   g.gain.setTargetAtTime(0, off, snd.release / 3);
   return { g, oscs, end };
 }
+// MIDI files fetched ahead (MIDI Review gets the next one while it asks about this one): url -> Promise<ArrayBuffer>
+const midiPrefetch = new Map();
+function prefetchMidi(url) {
+  if (!url || midiPrefetch.has(url)) return;
+  const p = fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); });
+  midiPrefetch.set(url, p); p.catch(() => midiPrefetch.delete(url));
+  // and start decoding the instrument notes it needs, so it starts straight away
+  p.then(ab => {
+    const song = parseMidi(ab), AC = window.AudioContext || window.webkitAudioContext; const ctx = actx || (actx = new AC()), seen = new Set();
+    for (const x of song.notes) { const k = midiSoundFor(x.vo), o = MIDI_SOUNDS[k].opts; if (!MIDI_SOUNDS[k].sampled || (o && x.n < o.min)) continue; const n = x.n + (o ? o.shift : 0); if (!seen.has(k + n)) { seen.add(k + n); sampleBuf(ctx, k, n); } }
+  }).catch(() => {});
+}
 class MidiPlayer extends EventTarget {
   constructor() { super(); this.src = ''; this.song = null; this._pos = 0; this.paused = true; this.ended = false; this._rate = 1; this._vol = 1; this.transpose = 0; this.focus = ''; this.readyState = 0; this.voices = []; this.live = []; this.onerror = null; this.loop = false; }
   // The sound goes out through an <audio> element (a live stream) rather than straight to the speakers: phones then
@@ -1699,7 +1711,8 @@ class MidiPlayer extends EventTarget {
   set srcUrl(u) { this.src = u; }
   load(url) {
     this.unload(); this.src = url; const me = this._token = {};
-    fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(ab => {
+    const pre = midiPrefetch.get(url); midiPrefetch.delete(url);
+    (pre || fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })).then(ab => {
       if (this._token !== me) return;
       this.song = parseMidi(ab); this.voices = this.song.voices; this.readyState = 4; try { this._prep(); } catch {}
       ['loadedmetadata', 'durationchange', 'loadeddata', 'canplay', 'canplaythrough'].forEach(e => this._emit(e));
@@ -6682,9 +6695,17 @@ function rvMark(t, ok) {
   return rvSaving;
 }
 // end of an MP3: did it sound good? Yes = reviewed (drops off the list); No = stays. Then on to the next one.
+// the next song in the review: its MIDI file and sheet music start loading in the background
+function rvPrefetch(t) {
+  if (!t) return;
+  try { if (t.midi) prefetchMidi(sourceFor(t)); } catch {}
+  const s = rvSong(t);
+  if (s && s.sheets.length) { const first = s.sheets[0].label; for (const x of s.sheets.filter(y => y.label === first && y.ext !== 'pdf')) { const im = new Image(); im.src = relayed.get(x.id) || sheetSrc(x); (rvPrefetch.keep = rvPrefetch.keep || []).push(im); if (rvPrefetch.keep.length > 12) rvPrefetch.keep.shift(); } }
+}
 async function rvEnded() {
   const t = rvCur; if (!t) return;
   const i = rvTracks.findIndex(x => x.id === t.id), next = rvTracks[i + 1];
+  rvPrefetch(next || rvTracks.find(x => x.id !== t.id));
   const flags = rvIssues.filter(x => x.fileId === t.id);
   if (flags.length) {   // flagged before: was it fixed? No answer = yes (flags cleared, approved); No = flags stay
     const c = await choose('Has the issue been resolved?', t.name, [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no' }], { auto: { ms: 3000, value: 'yes' } });
