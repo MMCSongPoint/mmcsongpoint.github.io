@@ -1192,6 +1192,7 @@
       <button class="pbtn ghost" id="rvNext" title="Next">⏭</button>
       <button class="pbtn ghost" id="rvSheet" title="Open the sheet music (S)">📄 Music</button>
       <button class="pbtn ghost" id="rvKnownBtn" title="Mark as a song we know (or not)">☆ Known</button>
+      <button class="pbtn ghost" id="rvFavBtn" title="Add to your favorites (or take it out)">♡ Favorite</button>
       <button class="pbtn rvflag" id="rvFlag" title="Flag a problem here (F)">⚑ Flag</button>
     </div>
     <div class="seek"><span id="rvCur">0:00</span><input type="range" id="rvSeek" min="0" max="1000" value="0"><span id="rvLen">0:00</span></div>
@@ -6590,7 +6591,9 @@ function rvRenderNow() {
   $('#rvPlay').textContent = rvAudio.paused ? '▶' : '❚❚';
   { const s = rvSong(t); $('#rvSheet').disabled = !(s && hasMusic(s));
     const k = $('#rvKnownBtn'), on = !!(s && isKnown(s)); k.disabled = !s; k.textContent = on ? '★ Known' : '☆ Known'; k.classList.toggle('ghost', !on);
-    k.title = on ? 'A song we know. Tap to unmark it.' : 'Not marked as a song we know. Tap to mark it.'; }
+    k.title = on ? 'A song we know. Tap to unmark it.' : 'Not marked as a song we know. Tap to mark it.';
+    const fb = $('#rvFavBtn'), fav = !!(s && isFav(s)); fb.disabled = !s; fb.textContent = fav ? '♥ Favorite' : '♡ Favorite'; fb.classList.toggle('ghost', !fav);
+    fb.title = fav ? 'In your favorites. Tap to take it out.' : 'Tap to add it to your favorites.'; }
   const mine = t ? rvIssues.filter(x => x.fileId === t.id).sort((a, b) => a.t - b.t) : [];
   $('#rvFlags').innerHTML = (t && rvIsReviewed(t) ? '<button class="pbtn ghost" id="rvUndo" style="padding:4px 10px">✓ Reviewed · Not Reviewed</button>' : '') + mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
 }
@@ -6719,6 +6722,11 @@ $('#rvBack').onclick = () => { rvAudio.currentTime = Math.max(0, rvAudio.current
 $('#rvFwd').onclick = () => { rvAudio.currentTime = Math.min(rvAudio.duration || 0, rvAudio.currentTime + 5); };
 $('#rvFlag').onclick = rvFlag;
 function rvSong(t) { return t && [...songIndex.values()].find(x => x.parts.some(p => p.id === t.id)); }
+$('#rvFavBtn').onclick = () => {
+  const s = rvSong(rvCur); if (!s) return toast('Pick one first');
+  const on = !isFav(s); on ? favs.add(s.key) : favs.delete(s.key); store.set('favs', [...favs]);
+  toast(on ? 'Added to favorites' : 'Removed from favorites'); renderTabs(); if (collection === '__fav') search(); else render(); rvRenderNow();
+};
 $('#rvKnownBtn').onclick = () => { const s = rvSong(rvCur); if (!s) return toast('Pick one first'); setKnownSong(s, !isKnown(s)); rvRenderNow(); };
 $('#rvSheet').onclick = () => { const s = rvSong(rvCur); if (!rvCur) return toast('Pick one first'); if (!s || !hasMusic(s)) return toast('No sheet music for this song yet'); openViewer(s); rvSheetMode(true); };
 function rvSheetMode(on) {
