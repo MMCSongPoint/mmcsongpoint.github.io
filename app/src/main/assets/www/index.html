@@ -6592,7 +6592,13 @@ function rvRenderNow() {
   $('#rvFlags').innerHTML = (t && rvIsReviewed(t) ? '<button class="pbtn ghost" id="rvUndo" style="padding:4px 10px">✓ Reviewed · Not Reviewed</button>' : '') + mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
 }
 async function rvPlay(t, autoplay = true) {
+  const sheetOpen = $('#viewer').classList.contains('show') && $('#mp3Panel').classList.contains('show');
   rvCur = t; rvAudio.src = sourceFor(t); rvAudio.currentTime = 0;
+  if (sheetOpen) {   // looking at the sheet music: show the next song's instead
+    const s = rvSong(t);
+    if (s && hasMusic(s)) { if (viewing !== s) openViewer(s); }
+    else { closeViewer(); toast('No sheet music for this song', 2000); }
+  }
   rvAudio.onerror = async () => { if (rvAudio.dataset.relay === t.id || !canRelay()) return toast(`Couldn't load this ${rvLabel()}`); rvAudio.dataset.relay = t.id; try { rvAudio.src = await relayFile(t.id); if (autoplay) rvAudio.play().catch(() => {}); } catch { toast('Couldn\'t load this MP3'); } };
   if (!audio.paused) audio.pause();   // the app's own player stops while reviewing
   if (autoplay) rvAudio.play().catch(() => {});
