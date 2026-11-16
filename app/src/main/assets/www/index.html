@@ -1184,6 +1184,7 @@
       <button class="pbtn ghost" id="rvFwd" title="Forward 5 s (→)">+5s</button>
       <button class="pbtn ghost" id="rvNext" title="Next">⏭</button>
       <button class="pbtn ghost" id="rvSheet" title="Open the sheet music (S)">📄 Music</button>
+      <button class="pbtn ghost" id="rvKnownBtn" title="Mark as a song we know (or not)">☆ Known</button>
       <button class="pbtn rvflag" id="rvFlag" title="Flag a problem here (F)">⚑ Flag</button>
     </div>
     <div class="seek"><span id="rvCur">0:00</span><input type="range" id="rvSeek" min="0" max="1000" value="0"><span id="rvLen">0:00</span></div>
@@ -1952,7 +1953,7 @@ const knownBase = s => !!(s && (/^misc$/i.test(s.collection) || (s.number && kno
 const isKnown = s => !!s && (s.key in knownEdits ? !!knownEdits[s.key] : knownBase(s));
 function applyKnown(map) {
   const was = JSON.stringify(knownEdits); knownEdits = map || {}; store.set('knownEdits', knownEdits);
-  if (was !== JSON.stringify(knownEdits)) { if (filterBy === 'known') search(); else render(); }
+  if (was !== JSON.stringify(knownEdits)) { if (filterBy === 'known') search(); else render(); if (typeof rvRender === 'function' && $('#mp3Panel').classList.contains('show')) rvRender(); }
 }
 function applyKeyChecks(map) {
   keyChecks = map || {}; store.set('keyChecks', keyChecks);
@@ -6561,7 +6562,9 @@ function rvRenderNow() {
   $('#rvTitle').textContent = t ? t.name : `Pick ${rvKind === 'midi' ? 'a MIDI' : 'an MP3'} below`;
   $('#rvSub').textContent = t ? `${t.collection}${t.subfolder ? ' / ' + t.subfolder : ''}` : '';
   $('#rvPlay').textContent = rvAudio.paused ? '▶' : '❚❚';
-  { const s = rvSong(t); $('#rvSheet').disabled = !(s && hasMusic(s)); }
+  { const s = rvSong(t); $('#rvSheet').disabled = !(s && hasMusic(s));
+    const k = $('#rvKnownBtn'), on = !!(s && isKnown(s)); k.disabled = !s; k.textContent = on ? '★ Known' : '☆ Known'; k.classList.toggle('ghost', !on);
+    k.title = on ? 'A song we know. Tap to unmark it.' : 'Not marked as a song we know. Tap to mark it.'; }
   const mine = t ? rvIssues.filter(x => x.fileId === t.id).sort((a, b) => a.t - b.t) : [];
   $('#rvFlags').innerHTML = (t && rvIsReviewed(t) ? '<button class="pbtn ghost" id="rvUndo" style="padding:4px 10px">✓ Reviewed · Not Reviewed</button>' : '') + mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
 }
@@ -6574,6 +6577,16 @@ async function rvPlay(t, autoplay = true) {
   const row = document.querySelector('#rvList .rvrow.now'); if (row) row.scrollIntoView({ block: 'nearest' });
 }
 function rvStep(d) { const i = rvTracks.findIndex(t => rvCur && t.id === rvCur.id), n = rvTracks[i + d]; if (n) rvPlay(n); else toast(d > 0 ? 'End of the list' : 'Start of the list'); }
+// mark a song as one we know (green) or not, for everyone
+function setKnownSong(s, on) {
+  const before = knownEdits;
+  knownEdits = Object.assign({}, knownEdits, { [s.key]: on }); store.set('knownEdits', knownEdits);
+  if (filterBy === 'known') search(); else render();
+  if ($('#mp3Panel').classList.contains('show')) rvRender();
+  toast(on ? `Marked “${s.title}” as a song we know` : `“${s.title}” is no longer marked`);
+  api('setKnown', { key: s.key, known: on, title: s.title, book: s.collection }).then(r => { if (r.ok) applyKnown(r.known); else { applyKnown(before); toast(r.error || 'Couldn\'t save that', 4000); } })
+    .catch(() => { applyKnown(before); toast('Couldn\'t save that. Check your connection.', 4000); });
+}
 // ⋯ in the player (anyone signed in): flag a problem with the track that's playing, at that moment. Same flags as MIDI Review.
 async function playerFlag(t, song, at) {
   const was = !audio.paused; if (was) audio.pause();
@@ -6674,6 +6687,7 @@ $('#rvBack').onclick = () => { rvAudio.currentTime = Math.max(0, rvAudio.current
 $('#rvFwd').onclick = () => { rvAudio.currentTime = Math.min(rvAudio.duration || 0, rvAudio.currentTime + 5); };
 $('#rvFlag').onclick = rvFlag;
 function rvSong(t) { return t && [...songIndex.values()].find(x => x.parts.some(p => p.id === t.id)); }
+$('#rvKnownBtn').onclick = () => { const s = rvSong(rvCur); if (!s) return toast('Pick one first'); setKnownSong(s, !isKnown(s)); rvRenderNow(); };
 $('#rvSheet').onclick = () => { const s = rvSong(rvCur); if (!rvCur) return toast('Pick one first'); if (!s || !hasMusic(s)) return toast('No sheet music for this song yet'); openViewer(s); };
 $('#rvFlags').addEventListener('click', async e => {
   const g = e.target.closest('[data-t]'); if (g) { rvAudio.currentTime = Math.max(0, +g.dataset.t - 2); rvAudio.play().catch(() => {}); return; }
@@ -7142,14 +7156,7 @@ $('#rowMenu').addEventListener('click', e => {
     renderTabs(); if (collection === '__fav') search(); else render();
   } else if (b.dataset.m === 'dl') toggleDownload(s);
   else if (b.dataset.m === 'live') sendToLive(s);
-  else if (b.dataset.m === 'known') {
-    const on = !isKnown(s), before = knownEdits;
-    knownEdits = Object.assign({}, knownEdits, { [s.key]: on }); store.set('knownEdits', knownEdits);
-    if (filterBy === 'known') search(); else render();
-    toast(on ? `Marked “${s.title}” as a song we know` : `“${s.title}” is no longer marked`);
-    api('setKnown', { key: s.key, known: on, title: s.title, book: s.collection }).then(r => { if (r.ok) applyKnown(r.known); else { applyKnown(before); toast(r.error || 'Couldn\'t save that', 4000); } })
-      .catch(() => { applyKnown(before); toast('Couldn\'t save that. Check your connection.', 4000); });
-  }
+  else if (b.dataset.m === 'known') setKnownSong(s, !isKnown(s));
   else if (b.dataset.m === 'editchords') chEditOpen(s, s.chords[0] || null);
   else if (b.dataset.m === 'savedkey') openKeyPick(s);
   else if (b.dataset.m === 'chords') { chordUploadSong = s; $('#chordFile').value = ''; $('#chordFile').click(); }
