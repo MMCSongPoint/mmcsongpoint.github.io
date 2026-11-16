@@ -351,7 +351,11 @@
   #prAuto .prseek { width: 200px; max-width: 100%; accent-color: var(--accent-text); } #prAuto .prtime { color: #a8989f; font-size: 13px; font-variant-numeric: tabular-nums; min-width: 92px; }
   #prAuto .pbtn.prplay { margin-left: 0; min-width: 74px; }
   .prnav .pbtn.prplay { min-width: 0; padding: 6px 12px; font-size: 13px; margin-left: 8px; } .prnav .pbtn.prplay.on { background: var(--accent); color: #fff; }
-  .prthumbs img[draggable=true] { cursor: grab; }
+  .prthumbs .prth[draggable=true] { cursor: grab; }
+  .prthumbs .prth { position: relative; } .prthumbs .prth img { display: block; }
+  .prnum { position: absolute; top: 5px; left: 5px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; border: 0; background: rgba(0,0,0,.72); color: #fff; font: 600 12px/22px system-ui, sans-serif; cursor: pointer; text-align: center; }
+  .prnum:hover { background: var(--accent); }
+  input.prnumin { width: 52px; height: 26px; line-height: 26px; padding: 0 4px; background: #fff; color: #000; outline: 2px solid var(--accent-text); }
   .prmid { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; justify-content: center; }
   #prAuto { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: center; align-items: center; max-width: 100%; min-width: 0; } #prAuto select { background: #2a2026; color: #eee; border: 1px solid #4a3a42; border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; }
   #prAuto select.on { border-color: var(--accent-text); }
@@ -402,7 +406,7 @@
   .prnext .prmsg { position: absolute; }
   .prthumbs { flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
   .prthumbs img { width: 100%; border-radius: 4px; border: 2px solid transparent; cursor: pointer; background: #000; }
-  .prthumbs img.now { border-color: var(--accent-text); }
+  .prthumbs .now img { border-color: var(--accent-text); }
   @media (max-width: 900px) { .prbody { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; } .prleft { flex-direction: row; } .prsongs { flex-direction: row; overflow-x: auto; } .prsongs button { white-space: nowrap; } .prside { display: none; } }
   .perfbar { display: none; align-items: center; gap: 8px; padding: 6px 10px; background: var(--accent); color: #fff; font-size: 13px; }
   .perfbar.show { display: flex; }
@@ -4362,7 +4366,8 @@ function prRender() {
   }
   $('#prNextImg').src = nextImg || ''; $('#prNextImg').style.display = nextImg ? '' : 'none';
   $('#prNextMsg').textContent = nextMsg; $('#prNextMsg').style.display = nextMsg ? '' : 'none';
-  $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<img src="${u}" data-i="${i}" class="${i === pr.slide ? 'now' : ''}" alt="Slide ${i + 1}">`).join('') : '';
+  const picSet = pr.songs[pr.si] && pr.songs[pr.si].media === 'pics';   // pictures: a number on each (tap it to move that picture)
+  $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<div class="prth${i === pr.slide ? ' now' : ''}" data-i="${i}"><img src="${u}" alt="Slide ${i + 1}" draggable="false">${picSet ? `<button class="prnum" data-pos="${i}" title="Shows ${i + 1}${['st', 'nd', 'rd'][i] || 'th'}. Tap to move it.">${i + 1}</button>` : ''}</div>`).join('') : '';
   const nowThumb = $('#prThumbs .now'); if (nowThumb) nowThumb.scrollIntoView({ block: 'nearest' });
   $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.upP ? '<small>uploading…</small>' : x.media ? `<small>${x.media === 'video' ? 'video' : x.media === 'audio' ? 'music' : x.count === 1 ? 'picture' : x.count + ' pictures'}</small>` : x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'live' ? 'Google Slides' : 'still pictures'}</u>`}</small>` : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
   $('#prPos').dataset.ppt = '';
@@ -4694,7 +4699,7 @@ function mediaRender(s) {
   }
   if (s && (av || s.upP)) { $('#prThumbs').innerHTML = ''; mediaPos(s); }
   if (pics) {   // drag-to-sort
-    document.querySelectorAll('#prThumbs img').forEach(im => im.draggable = true);
+    document.querySelectorAll('#prThumbs .prth').forEach(im => im.draggable = true);
     const k = pr.si + ':' + pr.slide; if (k !== pr.loopK) { pr.loopK = k; pr.loopAt = Date.now(); }
   }
 }
@@ -4709,17 +4714,35 @@ setInterval(() => {
   if (pr.slide < n - 1) pr.slide++; else if (s.auto === 'loop') pr.slide = 0; else return;
   prRender();
 }, 250);
+// move a picture from one place in the order to another (the one showing stays showing)
+function picMove(from, to) {
+  const l = pr.deck.imgs, cur = l[pr.slide];
+  if (to !== from) { l.splice(to, 0, l.splice(from, 1)[0]); const sm = pr.deck.smalls; if (sm) sm.splice(to, 0, sm.splice(from, 1)[0]); pr.slide = l.indexOf(cur); }
+  prRender();
+}
 (() => {   // drag a picture's thumbnail to put the pictures in another order
   const box = $('#prThumbs'); let from = -1;
-  box.addEventListener('dragstart', e => { const im = e.target.closest('img[data-i]'); if (!im || !pr || pr.songs[pr.si].media !== 'pics') return e.preventDefault(); from = +im.dataset.i; e.dataTransfer.effectAllowed = 'move'; });
+  box.addEventListener('dragstart', e => { const im = e.target.closest('.prth[data-i]'); if (!im || !pr || pr.songs[pr.si].media !== 'pics') return e.preventDefault(); from = +im.dataset.i; e.dataTransfer.effectAllowed = 'move'; });
   box.addEventListener('dragover', e => { if (from >= 0) e.preventDefault(); });
   box.addEventListener('drop', e => {
-    const im = e.target.closest('img[data-i]'); if (from < 0 || !im || !pr || !pr.deck) return; e.preventDefault();
-    const to = +im.dataset.i, l = pr.deck.imgs, cur = l[pr.slide];
-    if (to !== from) { l.splice(to, 0, l.splice(from, 1)[0]); const sm = pr.deck.smalls; if (sm) sm.splice(to, 0, sm.splice(from, 1)[0]); pr.slide = l.indexOf(cur); prRender(); }
-    from = -1;
+    const im = e.target.closest('.prth[data-i]'); if (from < 0 || !im || !pr || !pr.deck) return; e.preventDefault();
+    picMove(from, +im.dataset.i); from = -1;
   });
   box.addEventListener('dragend', () => { from = -1; });
+  // the number on a picture: tap it, type where it should go (1 = first), Enter
+  box.addEventListener('click', e => {
+    const b = e.target.closest('.prnum'); if (!b || !pr || !pr.deck) return;
+    e.stopPropagation();
+    const i = +b.dataset.pos, n = pr.deck.imgs.length;
+    const inp = Object.assign(document.createElement('input'), { type: 'number', min: 1, max: n, value: i + 1, className: 'prnum prnumin' });
+    inp.setAttribute('aria-label', `New position (1 to ${n})`);
+    b.replaceWith(inp); inp.focus(); inp.select();
+    let done = false;
+    const finish = ok => { if (done) return; done = true; const v = Math.round(+inp.value); if (ok && v >= 1 && v <= n && v - 1 !== i) picMove(i, v - 1); else prRender(); };
+    inp.addEventListener('keydown', k => { k.stopPropagation(); if (k.key === 'Enter') finish(true); else if (k.key === 'Escape') finish(false); });
+    inp.addEventListener('blur', () => finish(true));
+    inp.addEventListener('click', k => k.stopPropagation());
+  }, true);
 })();
 $('#prVid').addEventListener('timeupdate', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'video' && !prSeen) { s.mT = $('#prVid').currentTime; s.mDur = $('#prVid').duration; mediaPos(s); } });
 $('#prVid').addEventListener('ended', () => { const s = pr && pr.songs[pr.si]; if (s && s.media === 'video' && !prSeen && s.mPlaying && !s.mLoop) { s.mPlaying = false; s.mEnded = true; prRender(); } });
