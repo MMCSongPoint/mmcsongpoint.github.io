@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 52 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 53 }); }
 
 function doPost(e) {
   var d;
@@ -210,6 +210,7 @@ function handle_(d) {
   if (a === 'setArrangement') return setArrangement_(me, d);
   if (a === 'deleteArrangement') return deleteArrangement_(me, d);
 
+  if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);   // anyone signed in can flag a problem with a track (their name is saved with it)
   if (!me.admin) return { ok: false, error: 'Only admins can do that.' };
   if (a === 'listUsers') return { ok: true, users: users_().map(publicUser_) };
   if (a === 'createUser') return createUser_(d);

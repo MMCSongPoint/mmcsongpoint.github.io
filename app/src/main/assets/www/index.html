@@ -2650,7 +2650,7 @@ $('#vsBox').addEventListener('click', e => { if (e.target.id === 'vsBox') $('#vs
 $('#moreBtn').onclick = async () => {
   const at = audio.currentTime || 0, t = now && now.part;
   const c = await choose('', '', [{ label: perf && (perf.listen || perf.ls) ? 'Listening Together ✓' : 'Listen Together', value: 'listen' },
-    ...(isAdmin() && t ? [{ label: `⚑ Flag a Problem at ${fmt(at)}`, value: 'flag' }] : []), { label: 'Close', value: 'cancel' }]);
+    ...(t ? [{ label: `⚑ Flag a Problem at ${fmt(at)}`, value: 'flag' }] : []), { label: 'Close', value: 'cancel' }]);
   if (c === 'listen') $('#listenBtn').click();
   if (c === 'flag') playerFlag(t, now.song, at);
 };
@@ -6574,7 +6574,7 @@ async function rvPlay(t, autoplay = true) {
   const row = document.querySelector('#rvList .rvrow.now'); if (row) row.scrollIntoView({ block: 'nearest' });
 }
 function rvStep(d) { const i = rvTracks.findIndex(t => rvCur && t.id === rvCur.id), n = rvTracks[i + d]; if (n) rvPlay(n); else toast(d > 0 ? 'End of the list' : 'Start of the list'); }
-// ⋯ in the player (admins): flag a problem with the track that's playing, at that moment. Same flags as MIDI Review.
+// ⋯ in the player (anyone signed in): flag a problem with the track that's playing, at that moment. Same flags as MIDI Review.
 async function playerFlag(t, song, at) {
   const was = !audio.paused; if (was) audio.pause();
   const note = await flagAsk(`Flag at ${fmt(at)}`, `${song.number ? song.number + '. ' : ''}${song.title} · ${t.part}`);
