@@ -100,6 +100,9 @@
   .meta-bar .stwrap { flex: 1 0 auto; }
   .meta-bar select { min-width: 0; flex: 0 1 auto; text-overflow: ellipsis; }
   .rvbar { padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  /* MIDI Review with the sheet music open: the review's player (play, flag, known…) stays along the bottom */
+  body.rvsheet #rvBar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 86; border-bottom: 0; border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgba(0,0,0,.18); padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  body.rvsheet #viewer { bottom: var(--rvh, 150px); }
   .rvnow b { display: block; font-size: 15px; } .rvnow small { color: var(--muted); font-size: 12.5px; }
   .rvctl { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; } .rvctl .pbtn { padding: 8px 12px; }
   .rvflag { background: #c0392b; color: #fff; margin-left: auto; }
@@ -6717,7 +6720,14 @@ $('#rvFwd').onclick = () => { rvAudio.currentTime = Math.min(rvAudio.duration ||
 $('#rvFlag').onclick = rvFlag;
 function rvSong(t) { return t && [...songIndex.values()].find(x => x.parts.some(p => p.id === t.id)); }
 $('#rvKnownBtn').onclick = () => { const s = rvSong(rvCur); if (!s) return toast('Pick one first'); setKnownSong(s, !isKnown(s)); rvRenderNow(); };
-$('#rvSheet').onclick = () => { const s = rvSong(rvCur); if (!rvCur) return toast('Pick one first'); if (!s || !hasMusic(s)) return toast('No sheet music for this song yet'); openViewer(s); };
+$('#rvSheet').onclick = () => { const s = rvSong(rvCur); if (!rvCur) return toast('Pick one first'); if (!s || !hasMusic(s)) return toast('No sheet music for this song yet'); openViewer(s); rvSheetMode(true); };
+function rvSheetMode(on) {
+  document.body.classList.toggle('rvsheet', !!on);
+  if (on) requestAnimationFrame(() => { document.documentElement.style.setProperty('--rvh', $('#rvBar').offsetHeight + 'px'); if (typeof fitPages === 'function') fitPages(); });
+}
+new MutationObserver(() => { if (document.body.classList.contains('rvsheet') && (!$('#viewer').classList.contains('show') || !$('#mp3Panel').classList.contains('show'))) rvSheetMode(false); })
+  .observe($('#viewer'), { attributes: true, attributeFilter: ['class'] });
+addEventListener('resize', () => { if (document.body.classList.contains('rvsheet')) rvSheetMode(true); });
 $('#rvFlags').addEventListener('click', async e => {
   const g = e.target.closest('[data-t]'); if (g) { rvAudio.currentTime = Math.max(0, +g.dataset.t - 2); rvAudio.play().catch(() => {}); return; }
   if (e.target.closest('#rvUndo') && rvCur) { await rvMark(rvCur, false); rvRender(); return; }
