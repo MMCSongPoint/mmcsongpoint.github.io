@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 53 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 54 }); }
 
 function doPost(e) {
   var d;
@@ -210,6 +210,7 @@ function handle_(d) {
   if (a === 'setArrangement') return setArrangement_(me, d);
   if (a === 'deleteArrangement') return deleteArrangement_(me, d);
 
+  if (a === 'topicsFile') return topicsFile_(d);   // the Topical Index spreadsheet in the SongPoint folder
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);   // anyone signed in can flag a problem with a track (their name is saved with it)
   if (!me.admin) return { ok: false, error: 'Only admins can do that.' };
   if (a === 'listUsers') return { ok: true, users: users_().map(publicUser_) };
@@ -860,6 +861,16 @@ function checkSharedFolder() {
 // ------------------------------------------------------------------ file relay
 // Google sometimes blocks the app's direct Drive downloads from a busy network ("automated queries").
 // The app then asks the server for the song (or sheet music image) instead. Only library media is served.
+// The Topical Index: "Topical Index.xlsx" in the SongPoint folder (edit it there; the app reads it). Sent only when it
+// changed since the copy the app has (d.mod).
+function topicsFile_(d) {
+  var it = home_().getFilesByName('Topical Index.xlsx'), f = null;
+  while (it.hasNext()) { var x = it.next(); if (!f || x.getLastUpdated() > f.getLastUpdated()) f = x; }
+  if (!f) return { ok: false, error: 'There\'s no Topical Index.xlsx in the SongPoint folder.' };
+  var mod = f.getLastUpdated().toISOString();
+  if (String(d.mod || '') === mod) return { ok: true, same: true, mod: mod };
+  return { ok: true, mod: mod, data: Utilities.base64Encode(f.getBlob().getBytes()) };
+}
 function file_(d) {
   var f = DriveApp.getFileById(String(d.id || ''));
   var mime = f.getMimeType();

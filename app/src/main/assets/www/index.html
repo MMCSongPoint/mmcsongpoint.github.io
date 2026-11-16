@@ -6882,9 +6882,72 @@ let tpTopic = null, tpKnown = store.get('topicsKnown', false);
 // "Songs We Know": a song counts when it's known in any of its books
 const tpIsKnown = r => TP_BOOKS.some(([col, , i]) => (r[i] ? r[i].split(' ') : []).some(n => { const s = songIndex.get(col + '|#' + n); return s && isKnown(s); }));
 const tpSongs = list => tpKnown ? list.filter(tpIsKnown) : list;
-function tpLoad() {
-  if (window.TOPICS) return Promise.resolve();
+// The index comes from "Topical Index.xlsx" in the SongPoint folder on Google Drive (through the server), so editing that
+// spreadsheet changes the app. A copy is kept on the device; topics.js (built into the app) is the fallback.
+let tpChecked = false;
+async function tpLoad() {
+  if (!window.TOPICS) { const c = store.get('topicsXlsx', null); if (c && c.topics) window.TOPICS = c.topics; }
+  if (!tpChecked && navigator.onLine && auth.token) {
+    tpChecked = true;
+    const fresh = (async () => {
+      const c = store.get('topicsXlsx', null), r = await api('topicsFile', { mod: c && c.topics ? c.mod : '' });
+      if (!r.ok || r.same) return;
+      const topics = topicsFromRows(await xlsxRows(Uint8Array.from(atob(r.data), ch => ch.charCodeAt(0)).buffer, 'Combined By Topic'));
+      if (!topics.length) return;
+      window.TOPICS = topics; store.set('topicsXlsx', { mod: r.mod, topics });
+      if ($('#topicsPanel').classList.contains('show')) renderTopics();
+    })().catch(e => console.warn('topical index', e));
+    if (!window.TOPICS) await fresh;   // the first time: wait for it
+  }
+  if (window.TOPICS) return;
   return new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'topics.js'; sc.onload = ok; sc.onerror = () => { sc.remove(); no(); }; document.head.appendChild(sc); });
+}
+// rows -> [topic, [[song, CH, ZP, SFP], …]] (numbers space-separated), topics and songs A–Z
+function topicsFromRows(rows) {
+  const head = (rows[0] || []).map(h => String(h || '').trim().toLowerCase()), col = n => head.indexOf(n);
+  const iT = col('topic'), iS = col('song'), iC = col('ch'), iZ = col('zp'), iF = col('sfp');
+  if (iT < 0 || iS < 0) return [];
+  const nums = v => String(v == null ? '' : v).split(/[,;\s]+/).filter(Boolean).join(' '), map = new Map();
+  for (const r of rows.slice(1)) {
+    const t = String(r[iT] || '').trim(), song = String(r[iS] || '').trim(); if (!t || !song) continue;
+    if (!map.has(t)) map.set(t, []);
+    map.get(t).push([song, iC < 0 ? '' : nums(r[iC]), iZ < 0 ? '' : nums(r[iZ]), iF < 0 ? '' : nums(r[iF])]);
+  }
+  return [...map].sort((a, b) => a[0].localeCompare(b[0])).map(([t, l]) => [t, l.sort((a, b) => a[0].localeCompare(b[0]))]);
+}
+// A small .xlsx reader: the rows of one sheet (by name, else the first) as arrays of cell text.
+async function xlsxRows(buf, want) {
+  const b = new Uint8Array(buf), dv = new DataView(buf), files = {};
+  let e = b.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('Not an xlsx file');
+  let p = dv.getUint32(e + 16, true); const n = dv.getUint16(e + 10, true);
+  for (let i = 0; i < n; i++) {
+    const method = dv.getUint16(p + 10, true), size = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+    files[new TextDecoder().decode(b.subarray(p + 46, p + 46 + nl))] = { method, size, off }; p += 46 + nl + xl + cl;
+  }
+  const read = async name => {
+    const f = files[name]; if (!f) return '';
+    const start = f.off + 30 + dv.getUint16(f.off + 26, true) + dv.getUint16(f.off + 28, true), raw = b.subarray(start, start + f.size);
+    if (!f.method) return new TextDecoder().decode(raw);
+    return await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+  };
+  const xml = async name => new DOMParser().parseFromString(await read(name) || '<x/>', 'application/xml');
+  const tags = (el, t) => [...el.getElementsByTagName(t)];
+  const wb = await xml('xl/workbook.xml'), rels = await xml('xl/_rels/workbook.xml.rels');
+  const sheets = tags(wb, 'sheet'), sh = sheets.find(x => x.getAttribute('name') === want) || sheets[0];
+  const rid = sh && (sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id'));
+  const rel = tags(rels, 'Relationship').find(r => r.getAttribute('Id') === rid);
+  let target = rel ? rel.getAttribute('Target') : 'worksheets/sheet1.xml'; target = target.startsWith('/') ? target.slice(1) : 'xl/' + target;
+  const shared = tags(await xml('xl/sharedStrings.xml'), 'si').map(si => tags(si, 't').map(t => t.textContent).join(''));
+  const colOf = ref => { let c = 0; for (const ch of ref.replace(/\d+$/, '')) c = c * 26 + ch.charCodeAt(0) - 64; return c - 1; };
+  return tags(await xml(target), 'row').map(row => {
+    const out = [];
+    for (const c of tags(row, 'c')) {
+      const t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0], is = c.getElementsByTagName('is')[0];
+      out[colOf(c.getAttribute('r') || 'A1')] = t === 's' ? shared[+(v && v.textContent)] : t === 'inlineStr' ? (is ? tags(is, 't').map(x => x.textContent).join('') : '') : v ? v.textContent : '';
+    }
+    return out;
+  });
 }
 function tpSongHtml(r, topic) {
   const books = TP_BOOKS.flatMap(([col, short, i]) => (r[i] ? r[i].split(' ') : []).map(n => {
