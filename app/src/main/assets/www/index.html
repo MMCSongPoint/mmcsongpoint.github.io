@@ -4213,12 +4213,12 @@ async function presentFresh() {
   closeDrawer && closeDrawer();
   prFresh = true; await prAddPick(true);
 }
-async function presentList(list, larrs = null) {
+async function presentList(list, larrs = null, noteId = null) {
   if (window.Native && window.Native.isAndroid) return toast('Presenter mode runs in the web app on a computer');
   if (!navigator.onLine) return toast('Connect to the internet to present');
   const songsIn = list.filter(Boolean);
   if (!songsIn.length) return;
-  pr = { songs: songsIn, si: 0, slide: 0, blank: false, deck: null, larrs };
+  pr = { songs: songsIn, si: 0, slide: 0, blank: false, deck: null, larrs, noteId };   // noteId: key changes save to that list
   await prLaunch();
   // get every song's slides ready in the background, in order
   (async () => { for (const s of songsIn) { if (!pr) return; try { await prDeck(s); } catch {} } prRender(); })();
@@ -4380,6 +4380,7 @@ function prExit() {
   pptEnd(); clearInterval(pptTimer); mediaStop(pr.songs[pr.si]);
   prCloseProj();
   pr = null; $('#presenter').classList.remove('show');
+  render(); if (editing && $('#notePanel').classList.contains('show')) renderNoteSongs();   // keys: back to this screen's own
   if (N && N.keepScreenOn) N.keepScreenOn(false);
   if (perf && perf.role === 'host') perfStop();
 }
@@ -4841,7 +4842,7 @@ $('#noteHost').onclick = async () => {
   viewerNoteNext = editing.id; openViewer(first, false, list, first.chords.length ? 'chords' : 'sheet');
   if (!perf) await perfHostStart();
 };
-$('#notePresent').onclick = () => presentList(editing.songs.map(r => songIndex.get(r.key)), listArrMap(editing));
+$('#notePresent').onclick = () => presentList(editing.songs.map(r => songIndex.get(r.key)), listArrMap(editing), editing.id);
 
 // ---- musicians: follow the slides in the chord chart (match the slide's words to a line of the chart)
 let followSlides = store.get('followSlides', true);
@@ -5102,6 +5103,7 @@ function closeViewer() {
   if (isVisitor() || visitorEnded) return;   // visitors stay on the performance
   viewing = null; vSheet = null; viewerList = null; $('#slidePip').classList.remove('show'); pipKey = '';
   $('#viewer').classList.remove('show'); updatePlayerMode();
+  render(); if (editing && $('#notePanel').classList.contains('show')) renderNoteSongs();   // keys: back to this screen's own
   if (perf) { renderPerfBar(); if (perf.role === 'host') perfSync(); }
   if (N && N.keepScreenOn) N.keepScreenOn(false);
 }
@@ -5628,7 +5630,7 @@ function leaveNote() {
   if (editingDirty && editing && (editing.songs.length || !editing.isNew)) {
     if (confirm('Save your changes to this song list?')) saveNote();
   }
-  editing = null; editingDirty = false; closePanel('notePanel'); renderNotes();
+  editing = null; editingDirty = false; closePanel('notePanel'); renderNotes(); render();
 }
 $('#noteBack').onclick = leaveNote;
 $('#noteDelete').onclick = async () => {
@@ -6268,7 +6270,43 @@ function applyTextDocs(list) {
   if (was !== [...list].sort().join('|')) { render(); if ($('#checkPanel').classList.contains('show')) renderCheck(); }
 }
 async function loadTextDocs() { try { const r = await api('getTextDocs'); if (r.ok) applyTextDocs(r.textDocs); } catch {} }
-const keyOverrides = new Map();                                      // this session only (values are pitches 0..12)
+// A song's chosen key (values are pitches 0..12). Where it's kept depends on where you are:
+//  - in a song list (its screen, a song opened from it, or presenting it): saved with that list, for that list only
+//    (lists you can't change keep it for this session only);
+//  - anywhere else (the main song list): this session only. Neither changes the other.
+const mainKeys = new Map(), listKeysMem = new Map();
+function keyScopeList() {
+  const byId = id => (editing && editing.id === id ? editing : notes.find(n => n.id === id)) || null;
+  if (pr && pr.noteId) return byId(pr.noteId);
+  if ($('#viewer').classList.contains('show')) return viewerNoteId ? byId(viewerNoteId) : null;
+  if (editing && $('#notePanel').classList.contains('show')) return editing;
+  return null;
+}
+let listKeyT = 0;
+function setListKey(n, songKey, p) {
+  const put = l => l && l.songs.forEach(r => { if (r.key === songKey) { if (p == null) delete r.keyP; else r.keyP = p; } });
+  if (!canEditList(n)) { if (!listKeysMem.has(n.id)) listKeysMem.set(n.id, new Map()); const m = listKeysMem.get(n.id); p == null ? m.set(songKey, null) : m.set(songKey, p); return; }
+  if (editing && editing.id === n.id) {
+    put(editing);
+    if (editing.isNew || editingDirty || !noteViewing) { markDirty(); return; }   // saved with the rest of the list
+  }
+  const m = notes.find(x => x.id === n.id); if (!m) return;
+  put(m); m.version = (m.version || 0) + 1; m.updated = Date.now();
+  pendingIds.add(m.id); saveNotes();
+  clearTimeout(listKeyT); listKeyT = setTimeout(() => { if (navigator.onLine) flushLists().then(renderNotes); }, 1500);   // a few taps of + or −: one save
+}
+const keyOverrides = {
+  _row(k) { const n = keyScopeList(); return n ? { n, r: n.songs.find(x => x.key === k) } : null; },
+  _val(k) {
+    const x = this._row(k); if (!x || !x.r) return mainKeys.has(k) ? mainKeys.get(k) : null;
+    const m = listKeysMem.get(x.n.id); if (m && m.has(k)) return m.get(k);
+    return x.r.keyP != null ? x.r.keyP : null;
+  },
+  has(k) { return this._val(k) != null; },
+  get(k) { const v = this._val(k); return v == null ? undefined : v; },
+  set(k, v) { const x = this._row(k); if (x && x.r) setListKey(x.n, k, v); else mainKeys.set(k, v); return this; },
+  delete(k) { const x = this._row(k); if (x && x.r) setListKey(x.n, k, null); else mainKeys.delete(k); return true; },
+};
 // Pitch numbers: 0 = middle C (C4) up to 12 = high C (C5). NOTE_NAMES index (A = 0) -> pitch:
 const pitchOf = i => (i + 9) % 12;
 const pitchName = (p, flat) => noteLabel(((p + 3) % 12 + 12) % 12, flat);

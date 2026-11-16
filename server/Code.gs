@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 51 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 52 }); }
 
 function doPost(e) {
   var d;
@@ -1008,6 +1008,7 @@ function listClean_(n) {
     songs: (n.songs || []).slice(0, 200).map(function (r) {
       var o = { key: String(r.key || ''), book: String(r.book || ''), number: String(r.number || ''), title: String(r.title || '') };
       var a = listArrClean_(r.arr); if (a) o.arr = a;
+      if (r.keyP !== undefined && r.keyP !== null && isFinite(Number(r.keyP))) o.keyP = Math.round(Number(r.keyP));   // the key chosen for this song in this list
       return o;
     }) };
 }
