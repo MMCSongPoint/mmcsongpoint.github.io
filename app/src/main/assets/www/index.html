@@ -237,6 +237,7 @@
   .sv { display: flex; flex-direction: column; min-height: calc(100vh - 100px); min-height: calc(100dvh - 100px); max-width: 900px; margin: 0 auto; }
   .svimg { background: #000; display: flex; justify-content: center; }
   .svimg img { width: 100%; max-height: 52vh; object-fit: contain; display: block; }
+  .svref { padding: 3px 10px; font-size: 12px; margin-left: 10px; vertical-align: middle; }
   .svmeta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 8px 14px 0; font-size: 13px; color: var(--muted); }
   .svok { color: #3aa76d; font-weight: 600; }
   .svsec { font: inherit; font-size: 14px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); }
@@ -5040,10 +5041,26 @@ function svDraw() {
     : `<div class="vmsg">${!me.s.chords.length ? 'This song has no chord sheet to show the words from.' : sec ? `No “${esc(sec)}” in the chord sheet.` : 'This slide isn\'t marked as a verse or chorus.'}</div>`;
   $('#vPages').innerHTML = `<div class="sv">
     <div class="svimg"><img src="${d.imgs[i]}" alt="Slide ${i + 1}"></div>
-    <div class="svmeta"><span>Slide ${i + 1} of ${n}${isAdmin() ? ' · ' + svSecPick(me, sec) : sec ? ' · ' + esc(sec) : ''}</span>${ok ? `<span class="svok">✓ Approved by ${esc(ok.by)}${ok.at ? ' ' + esc(shortDate(ok.at)) : ''}</span>` : ''}</div>
+    <div class="svmeta"><span>Slide ${i + 1} of ${n}<button class="pbtn ghost svref" data-sv="refresh" title="Get these slides fresh from Google Drive (after they've been updated)">⟳ Refresh</button>${isAdmin() ? ' · ' + svSecPick(me, sec) : sec ? ' · ' + esc(sec) : ''}</span>${ok ? `<span class="svok">✓ Approved by ${esc(ok.by)}${ok.at ? ' ' + esc(shortDate(ok.at)) : ''}</span>` : ''}</div>
     <div class="svwords">${blk ? `<div class="svlab">${esc(blk.label)} · from the chord sheet</div>` : ''}${words}</div>
     <div class="svnav"><button class="pbtn ghost" data-sv="prev"${i ? '' : ' disabled'}>◀ Previous</button>${isAdmin() ? `<button class="pbtn ${ok ? 'ghost' : ''}" data-sv="ok">${ok ? 'Unapprove' : '✓ Approve slides'}</button>` : ''}<button class="pbtn ghost" data-sv="next"${i < n - 1 ? '' : ' disabled'}>Next ▶</button></div>
   </div>`;
+}
+// Refresh: look in Drive again (the song's PowerPoint and its slide pictures), drop the copies kept here, and show them
+async function svRefresh(btn) {
+  if (!sv || !viewing) return;
+  if (!navigator.onLine) return toast('Connect to the internet to refresh');
+  const at = sv.i; btn.disabled = true; btn.textContent = 'Refreshing…';
+  try {
+    const old = viewing, f0 = prFile(old), x0 = f0 && simgFor(f0);
+    if (f0) deckCache.delete(deckKey(old)); if (x0) simgLists.delete(x0.f);
+    await sync();
+    const s = songIndex.get(old.key) || old, f = prFile(s), x = f && simgFor(f);
+    if (f) deckCache.delete(deckKey(s)); if (x) simgLists.delete(x.f);
+    if (s !== old) viewing = s;
+    await svShow(s); if (sv && sv.d) { sv.i = Math.min(at, sv.d.imgs.length - 1); svDraw(); }
+    toast('Slides up to date', 1800);
+  } catch { toast('Couldn\'t refresh. Try again.', 3000); if (sv && sv.d) svDraw(); }
 }
 function svSecPick(me, sec) {   // admins: which part this slide is, from the chord sheet's parts
   const parts = me.chart ? [...new Set(me.chart.blocks.filter(b => b.lines.some(l => l.kind === 'lyric')).map(b => b.label).filter(Boolean))]
@@ -5067,6 +5084,7 @@ $('#vPages').addEventListener('click', async e => {
   const b = e.target.closest('[data-sv]'); if (!b || !sv) return;
   if (b.dataset.sv === 'prev') return svStep(-1);
   if (b.dataset.sv === 'next') return svStep(1);
+  if (b.dataset.sv === 'refresh') return svRefresh(b);
   if (b.dataset.sv === 'ok') {
     const s = sv.s, f = prFile(s), on = !slidesOk(f); b.disabled = true;
     try {
