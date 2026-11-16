@@ -6324,7 +6324,7 @@ function keyScopeList() {
   const byId = id => (editing && editing.id === id ? editing : notes.find(n => n.id === id)) || null;
   if (pr && pr.noteId) return byId(pr.noteId);
   if ($('#viewer').classList.contains('show')) return viewerNoteId ? byId(viewerNoteId) : null;
-  if (editing && $('#notePanel').classList.contains('show')) return editing;
+  if (editing) return editing;   // a song list is open (also while its screen is still opening)
   return null;
 }
 let listKeyT = 0;
