@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 55 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 56 }); }
 
 function doPost(e) {
   var d;
@@ -179,6 +179,7 @@ function handle_(d) {
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
   if (a === 'getKnown') return { ok: true, known: known_() };
+  if (a === 'verseCounts') return verseCounts_();
   if (a === 'getKeyChecks') return { ok: true, keys: keyChecks_() };
   if (a === 'mp3Approved') return { ok: true, reviewed: mp3Reviewed_() };
   if (a === 'slidesApproved') return { ok: true, approved: slidesApproved_() };
@@ -232,6 +233,7 @@ function handle_(d) {
   if (a === 'slideImagesIndexBuild') return slideImagesIndexBuild_();
   if (a === 'slideImagesShare') return slideImagesShare_(Number(d.seconds) || 240, Number(d.part) || 0, Number(d.of) || 1);
   if (a === 'slideImagesStatus') return slideImagesStatus_();
+  if (a === 'verseCountsBuild') return verseCountsBuild_(Number(d.seconds) || 240);
   if (a === 'slideImagesDedupe') return slideImagesDedupe_(Number(d.seconds) || 240, !!d.dry, Number(d.part) || 0, Number(d.of) || 1);
   if (a === 'mp3Issues') return { ok: true, issues: mp3Issues_(), reviewed: mp3Reviewed_() };
   if (a === 'mp3Review') return mp3Review_(me, d);
@@ -1241,6 +1243,47 @@ function slideImagesDedupe_(seconds, dry, part, of) {
   });
   out.errors = out.errors.slice(0, 20);
   return out;
+}
+// ---- How many verses each song has (for the player's "once per verse" repeat): the "Verse Counts" tab of this sheet.
+// Counted from each song's slides (the slide labels: Verse 1, Verse 2… or numbered lines). The Verses column is what the
+// app uses: change it by hand and a later count leaves it alone.
+var VCOUNT = 'Verse Counts', VCHEAD = ['Book', 'Song', 'Verses', 'From slides', 'Slides updated', 'slides.json'];
+function verseCount_(info) {
+  var max = 0, texts = info.texts || [], notes = info.notes || [];
+  for (var i = 0; i < Math.max(texts.length, notes.length); i++) {
+    var n = String(notes[i] || '').split('\n')[0].trim(), sec = '';
+    if (n && n.length <= 30) sec = n;
+    else { var lines = String(texts[i] || '').split('\n'); for (var k = 0; k < lines.length; k++) { var m = lines[k].trim().match(/^(\d{1,2})(?:[-.]\d{1,2})?\s+\S/); if (m) { sec = 'Verse ' + m[1]; break; } } }
+    var v = sec.match(/^(?:verse|v)\s*(\d{1,2})/i); if (v) max = Math.max(max, Number(v[1]));
+  }
+  return max;
+}
+function verseCountsBuild_(seconds) {
+  var t0 = Date.now(), limit = Math.min(seconds, 330) * 1000, base = folder_(SIMG), FOLDER = "mimeType = 'application/vnd.google-apps.folder' and trashed = false", books = {}, songs = {};
+  driveAll_("'" + base.getId() + "' in parents and " + FOLDER, 'id,name').forEach(function (b) { books[b.id] = b.name; });
+  var ids = Object.keys(books);
+  for (var i = 0; i < ids.length; i += 30) driveAll_('(' + ids.slice(i, i + 30).map(function (id) { return "'" + id + "' in parents"; }).join(' or ') + ') and ' + FOLDER, 'id,name,parents').forEach(function (f) { songs[f.id] = { book: books[f.parents[0]], name: f.name }; });
+  var sh = tab_(VCOUNT, VCHEAD), v = sh.getDataRange().getValues(), rows = {}, done = 0, left = 0;
+  for (var r = 1; r < v.length; r++) rows[v[r][5]] = { row: r + 1, verses: v[r][2], from: v[r][3], upd: Number(v[r][4]) };
+  var updates = [], adds = [];
+  driveAll_("name = 'slides.json' and trashed = false", 'id,parents,modifiedTime').forEach(function (f) {
+    var s = f.parents && songs[f.parents[0]]; if (!s) return;
+    var x = rows[f.id], mod = Date.parse(f.modifiedTime); if (x && x.upd === mod) return;
+    if (Date.now() - t0 > limit) { left++; return; }
+    var n = 0; try { n = verseCount_(JSON.parse(DriveApp.getFileById(f.id).getBlob().getDataAsString())); } catch (e) { return; }
+    var keep = x && x.verses !== '' && String(x.verses) !== String(x.from);   // changed by hand: left as it is
+    var row = [s.book, s.name, keep ? x.verses : (n || ''), n || '', mod, f.id];
+    if (x) updates.push([x.row, row]); else adds.push(row);
+    done++;
+  });
+  updates.forEach(function (u) { sh.getRange(u[0], 1, 1, u[1].length).setValues([u[1]]); });
+  if (adds.length) sh.getRange(sh.getLastRow() + 1, 1, adds.length, adds[0].length).setValues(adds);
+  return { ok: true, done: done, left: left };
+}
+function verseCounts_() {
+  var v = tab_(VCOUNT, VCHEAD).getDataRange().getValues(), out = [];
+  for (var r = 1; r < v.length; r++) if (v[r][0] && v[r][1] && Number(v[r][2]) > 0) out.push([String(v[r][0]), String(v[r][1]), Number(v[r][2])]);
+  return { ok: true, verses: out };
 }
 function slideImagesStatus_() {
   var v = tab_(SIMG, SIHEAD).getDataRange().getValues().slice(1);

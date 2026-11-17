@@ -2000,9 +2000,19 @@ async function loadKnown() { try { const r = await api('getKnown'); if (r.ok) ap
 const verseNumbers = new Map(), verseTitles = new Map();
 for (const b of window.SONG_VERSES_BY_NUMBER || []) for (const book of [b.book, ...(b.aka || [])]) for (const n in b.verses) verseNumbers.set(book + '|' + n, b.verses[n]);
 (() => { const v = window.SONG_VERSES; if (v) for (const t in v.songs) for (const x of [t, baseTitle(t)]) { const id = v.book + '|' + normalize(x); if (!verseTitles.has(id)) verseTitles.set(id, v.songs[t]); } })();
+// …and from the server: the "Verse Counts" tab of the SongPoint Log sheet (counted from the slides, editable there), first
+let sheetVerses = new Map();
+function applyVerseCounts(list) {
+  sheetVerses = new Map();
+  for (const [book, name, n] of list || []) { const p = parseName(name + '.x'), k = book + '|' + (p.number ? '#' + p.number : normalize(p.title)); if (!sheetVerses.has(k)) sheetVerses.set(k, n); }
+  for (const s of songs) delete s.verses;
+  try { renderLoop(); } catch {}
+}
+applyVerseCounts(store.get('verseCounts', []));
+async function loadVerseCounts() { try { const r = await api('verseCounts'); if (r.ok) { store.set('verseCounts', r.verses); applyVerseCounts(r.verses); } } catch {} }
 function versesOf(s) {
   if (!s) return 0;
-  if (s.verses === undefined) s.verses = (s.number && verseNumbers.get(s.collection + '|' + s.number))
+  if (s.verses === undefined) s.verses = sheetVerses.get(s.collection + '|' + (s.number ? '#' + s.number : s.nTitle)) || sheetVerses.get(s.collection + '|' + normalize(baseTitle(s.title))) || (s.number && verseNumbers.get(s.collection + '|' + s.number))
     || verseTitles.get(s.collection + '|' + s.nTitle) || verseTitles.get(s.collection + '|' + normalize(baseTitle(s.title))) || 0;
   return s.verses;
 }
@@ -8308,7 +8318,7 @@ function startApp(fresh = false) {
     flushLog();
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
-    if (navigator.onLine && auth.token) loadKnown();
+    if (navigator.onLine && auth.token) { loadKnown(); loadVerseCounts(); }
     if (navigator.onLine && auth.token) { loadKeyChecks(); loadSlideSecs(); shareNewPictures(); }
     if (navigator.onLine && auth.token) { loadApproved(); loadSlidesApproved(); }
     if (navigator.onLine && auth.token) loadArrangements(true);
