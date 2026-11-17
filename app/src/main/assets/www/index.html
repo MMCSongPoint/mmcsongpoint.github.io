@@ -3226,8 +3226,8 @@ function parseChordPro(text) {
   for (const b of blocks) while (b.lines.length && b.lines[b.lines.length - 1].kind === 'blank') b.lines.pop();
   return { meta, blocks };
 }
-function renderChordChart(chart, semis, table) {
-  const tc = c => esc(transposeChord(c, semis, table));
+function renderChordChart(chart, semis, table, simple = false) {
+  const tc = c => { const t = transposeChord(c, semis, table); return esc(simple ? simplifyChord(t) : t); };
   return chart.blocks.map(b => {
     const body = b.lines.map(l => {
       if (l.kind === 'blank') return '<div class="cblank"></div>';
@@ -3266,7 +3266,15 @@ async function loadChordText(x) {
   try { localStorage.setItem(k, text); } catch {}
   return text;
 }
-let chordSize = store.get('chordSize', 18), chordsOnly = false, chordFile = null, chordChart = null;
+let chordSize = store.get('chordSize', 18), chordsOnly = false, chordFile = null, chordChart = null, simpleChords = store.get('simpleChords', false);
+// "Simple" chords for guitar players: every chord as a plain major or minor (C7, Cmaj7, Csus4, Cadd9, Caug -> C;
+// Cm7, Cm6, Cdim, Cdim7, Cm7b5 -> Cm). The bass note of a slash chord is left off (G/B -> G).
+const MINORISH = new Set(['m', 'm7', 'm6', 'dim', 'dim7', 'm7b5']);
+function simplifyChord(name) {
+  const c = chordParse(name); if (!c) return name;
+  const root = String(name).trim().replace(/^\(/, '').match(/^[A-G][#b♯♭]?/)[0];
+  return root + (MINORISH.has(c.q) ? 'm' : '');
+}
 const chordOffset = new Map();   // songs with no known key: plain up/down steps (this session)
 // The key the chart is shown in: the song's chosen key (key button), else its book key, else the chart's own key.
 function chordKeyState(s, chart) {
@@ -3390,6 +3398,7 @@ function drawChords() {
       <div class="cgrp"><button data-c="down" aria-label="Key down">−</button><span class="ckey">${esc(k.label || 'Key')}</span><button data-c="up" aria-label="Key up">+</button>${keyOverrides.has(s.key) || chordOffset.get(s.key) ? '<button data-c="reset" aria-label="Back to the original key" title="Back to the original key">↺</button>' : ''}</div>
       <div class="cgrp"><button data-c="small" aria-label="Smaller text">A−</button><button data-c="big" aria-label="Larger text">A+</button></div>
       <button class="ctog${chordsOnly ? '' : ' on'}" data-c="only" aria-label="Show lyrics" title="${chordsOnly ? 'Show the words' : 'Hide the words (chords only)'}">Lyrics</button>
+      <button class="ctog${simpleChords ? ' on' : ''}" data-c="simple" aria-label="Simple chords" title="${simpleChords ? 'Show the chords as written' : 'Show every chord as a plain major or minor (easier on guitar)'}">Simple</button>
     </div>
     <div class="cview">
       ${L || G ? `<div class="cgrp seg">${L ? `<button class="${shownView === 'list' ? 'on' : ''}" data-c="list" title="The order for ${esc(L.listTitle || 'this song list')}">List</button>` : ''}${G ? `<button class="${shownView === 'arranged' ? 'on' : ''}" data-c="arranged" title="The song's usual order">Arranged</button>` : ''}<button class="${shownView === 'original' ? 'on' : ''}" data-c="original">Original</button></div>` : ''}
@@ -3404,7 +3413,7 @@ function drawChords() {
     ${m.subtitle || m.artist ? `<div class="cmeta">${esc([m.subtitle, m.artist].filter(Boolean).join(' · '))}</div>` : ''}
     ${info ? `<div class="cmeta">${esc(info)}</div>` : ''}
     <div class="cclear"></div>
-    ${renderChordChart(ch, k.semis, k.table)}
+    ${renderChordChart(ch, k.semis, k.table, simpleChords)}
     ${m.copyright || m.ccli ? `<div class="cmeta cfoot">${esc([m.copyright ? (/^©/.test(m.copyright) ? '' : '© ') + m.copyright : '', m.ccli ? 'CCLI Song # ' + m.ccli : ''].filter(Boolean).join(' · '))}</div>` : ''}
     </div>
   </div>`;
@@ -3436,6 +3445,7 @@ $('#vPages').addEventListener('click', e => {
   else if (c === 'reset') { keyOverrides.delete(viewing.key); chordOffset.delete(viewing.key); afterKeyChange(viewing); }
   else if (c === 'small' || c === 'big') { chordSize = Math.max(12, Math.min(34, chordSize + (c === 'big' ? 2 : -2))); store.set('chordSize', chordSize); drawChords(); }
   else if (c === 'only') { chordsOnly = !chordsOnly; drawChords(); }
+  else if (c === 'simple') { simpleChords = !simpleChords; store.set('simpleChords', simpleChords); drawChords(); toast(simpleChords ? 'Simple chords: plain major and minor' : 'Chords as written', 1800); }
   else if (c === 'arranged' || c === 'original' || c === 'list') { chordView = c; if (c !== 'original') applyArrKey(viewing, viewArr(chordFile)); drawChords(); }
   else if (c === 'arrange') openArrange();
   else if (c === 'editsheet') chEditOpen(viewing, chordFile);
