@@ -6346,6 +6346,8 @@ function keyScopeList() {
   return null;
 }
 let listKeyT = 0;
+// the song list's screen shows the new key straight away (whichever way it was changed)
+const listKeyShown = () => { if (editing && $('#notePanel').classList.contains('show')) setTimeout(renderNoteSongs, 0); };
 function setListKey(n, songKey, p) {
   const put = l => l && l.songs.forEach(r => { if (r.key === songKey) { if (p == null) delete r.keyP; else r.keyP = p; } });
   if (!canEditList(n)) { if (!listKeysMem.has(n.id)) listKeysMem.set(n.id, new Map()); const m = listKeysMem.get(n.id); p == null ? m.set(songKey, null) : m.set(songKey, p); return; }
@@ -6367,8 +6369,8 @@ const keyOverrides = {
   },
   has(k) { return this._val(k) != null; },
   get(k) { const v = this._val(k); return v == null ? undefined : v; },
-  set(k, v) { const x = this._row(k); if (x && x.r) setListKey(x.n, k, v); else mainKeys.set(k, v); return this; },
-  delete(k) { const x = this._row(k); if (x && x.r) setListKey(x.n, k, null); else mainKeys.delete(k); return true; },
+  set(k, v) { const x = this._row(k); if (x && x.r) { setListKey(x.n, k, v); listKeyShown(); } else mainKeys.set(k, v); return this; },
+  delete(k) { const x = this._row(k); if (x && x.r) { setListKey(x.n, k, null); listKeyShown(); } else mainKeys.delete(k); return true; },
 };
 // Pitch numbers: 0 = middle C (C4) up to 12 = high C (C5). NOTE_NAMES index (A = 0) -> pitch:
 const pitchOf = i => (i + 9) % 12;
