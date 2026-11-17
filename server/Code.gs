@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 58 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 59 }); }
 
 function doPost(e) {
   var d;
@@ -214,6 +214,7 @@ function handle_(d) {
 
   if (a === 'topicsFile') return topicsFile_(d);   // the Topical Index spreadsheet in the SongPoint folder
   if (a === 'tuneFile') return homeXlsx_('Hymn tune index.xlsx', d);   // songs that share a melody (tune groups)
+  if (a === 'firstLinesFile') return homeXlsx_('First Lines.xlsx', d);   // the first words of each song (search by words)
   if (a === 'getTuneMains') return { ok: true, mains: tuneMains_() };
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);   // anyone signed in can flag a problem with a track (their name is saved with it)
   if (!me.admin) return { ok: false, error: 'Only admins can do that.' };

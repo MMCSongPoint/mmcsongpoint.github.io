@@ -587,6 +587,7 @@
   .bar100 { height: 4px; background: var(--accent-text); border-radius: 2px; margin-top: 5px; opacity: .7; }
   .used { color: var(--accent-text); }
   .tuneln { color: var(--muted); font-style: italic; }
+  .fline { font-style: italic; }
   .lock .who, .lock input + input { margin-top: 10px; }
   .lock .link { background: none; border: none; color: var(--accent-text); margin-top: 14px; font-size: 14px; padding: 6px; width: auto; }
   .keyb { min-width: 38px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--accent-text); font-weight: 700; font-size: 13.5px; padding: 0 6px; margin-right: 2px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
@@ -2092,6 +2093,34 @@ async function showTuneMates(s) {
   if (hasMusic(x)) openViewer(x);
   else { collection = x.collection; store.set('collection', collection); renderTabs(); $('#q').value = x.title; search(); window.scrollTo({ top: 0 }); }
 }
+// ---- First lines: "First Lines.xlsx" in the SongPoint folder (Book, No., Title, First Line), so a song is found by its
+// words as well as its title ("each day I'll do a golden deed" finds A Beautiful Life). Hymnals match by book and number,
+// Misc and Worship Team by title.
+var firstLines = (store.get('firstLinesXlsx', null) || {}).rows || [], flDone = null;
+const FL_WORDS = { "ev'ry": 'every', "o'er": 'over', "e'er": 'ever', "ne'er": 'never', "ris'n": 'risen', "pow'r": 'power', "heav'n": 'heaven', "tho't": 'thought', "thro'": 'through', 'thru': 'through' };
+function applyFirstLines() {
+  if (flDone === songs) return; flDone = songs;
+  const byTitle = new Map();
+  for (const s of songs) { s.firstLine = ''; s.nFirst = ''; const k = s.collection + '|' + normalize(s.title); if (!byTitle.has(k)) byTitle.set(k, s); }
+  for (const [book, no, title, line] of firstLines) {
+    const s = (no && songIndex.get(book + '|#' + no)) || byTitle.get(book + '|' + normalize(title)); if (!s || s.firstLine) continue;
+    const plain = line.replace(/[’‘]/g, "'").replace(/\b[\w']+\b/g, w => FL_WORDS[w.toLowerCase()] || w);
+    s.firstLine = line; s.nFirst = normalize(plain) + ' ' + normalize(plain.replace(/'/g, ''));   // "I'll" both as "i ll" and "ill"
+  }
+}
+async function loadFirstLines() {
+  try {
+    const c = store.get('firstLinesXlsx', null), r = await api('firstLinesFile', { mod: c && c.rows ? c.mod : '' });
+    if (!r.ok || r.same) return;
+    const rows = await xlsxRows(Uint8Array.from(atob(r.data), ch => ch.charCodeAt(0)).buffer, 'First Lines');
+    const head = (rows[0] || []).map(h => String(h || '').trim().toLowerCase()), col = n => head.indexOf(n);
+    const iB = col('book'), iN = head.findIndex(h => /^no\.?$|^number$/.test(h)), iT = col('title'), iL = head.findIndex(h => /first/.test(h));
+    if (iB < 0 || iL < 0) return;
+    const out = rows.slice(1).map(x => [String(x[iB] || '').trim(), String(iN < 0 ? '' : x[iN] || '').trim().replace(/^0+(?=\d)/, '').replace(/\.0$/, ''), String(iT < 0 ? '' : x[iT] || '').trim(), String(x[iL] || '').trim()]).filter(x => x[0] && x[3]);
+    firstLines = out; flDone = null; store.set('firstLinesXlsx', { mod: r.mod, rows: out });
+    if (lastQ) search();
+  } catch (e) { console.warn('first lines', e); }
+}
 // search: the hymns found, then their tune-mates (other songs sung to the same melody, marked "same tune") at the end
 function withTuneMates(res) {
   if (!tuneGroups.length || collection === '__fav') return res;
@@ -2376,8 +2405,9 @@ function runSearch(q) {
   }
 
   const scored = [];
+  applyFirstLines();
   for (const s of pool) {
-    let score = 0, ok = true;
+    let score = 0, ok = true, lyric = false;
     for (const w of words) {
       if (/^\d+[a-z]?$/.test(w)) {
         if (s.number === w) score += 100;
@@ -2387,9 +2417,10 @@ function runSearch(q) {
       else if ((' ' + s.nTitle).includes(' ' + w)) score += 20;
       else if (s.nTitle.includes(w)) score += 10;
       else if (s.nAll.includes(w)) score += 4;
+      else if (s.nFirst && (' ' + s.nFirst).includes(' ' + w)) { score += 3; lyric = true; }   // in the first line of the words
       else { ok = false; break; }
     }
-    if (ok) scored.push({ s, score, fuzzy: false });
+    if (ok) scored.push({ s, score, fuzzy: false, lyric });
   }
   scored.sort((a, b) => b.score - a.score || a.s.nTitle.localeCompare(b.s.nTitle));
 
@@ -2535,7 +2566,7 @@ const fileChips = s => [s.sheets.length && ['Sheet Music'], s.chords && s.chords
 // On a narrow screen, tapping a song's name shows everything (title, book, what it has); tapping again folds it back.
 const openRows = new Set();
 const narrow = () => window.matchMedia('(max-width: 640px)').matches;
-function songRow(s, i, words = [], fuzzy = false, inPanel = false, tuneOf = null) {
+function songRow(s, i, words = [], fuzzy = false, inPanel = false, tuneOf = null, lyric = false) {
       const mine = pickPart(s) || {}, playing = !!now && s.parts.includes(now.part);
   const audioLess = !s.parts.length || (!playing && isAiTrack(mine, s));   // an MP3 not confirmed yet (MP3 Review): no play button
   const isMine = myPart && mine.part.toLowerCase().startsWith(myPart.toLowerCase());
@@ -2547,6 +2578,7 @@ function songRow(s, i, words = [], fuzzy = false, inPanel = false, tuneOf = null
       : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
     <div class="info"${audioLess && hasMusic(s) ? ' data-act="sheet"' : ''}>
       <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}${tuneOf ? `<span class="badge" title="Same melody as ${esc(tuneOf.title)}">same tune</span>` : ''}</div>
+      ${lyric && s.firstLine ? `<div class="sub fline">“${highlight(s.firstLine, words)}…”</div>` : ''}
       <div class="sub">${picking ? highlight(s.collection, words) + fileChips(s) + tuneLine(s) : `${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${fileChips(s)}${tuneLine(s)}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}`}</div>
     </div>
     <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${hasMusic(s) ? `<button class="dl sm" data-act="sheet" aria-label="Sheet Music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
@@ -2565,7 +2597,7 @@ function render() {
       ? `<div class="empty"><b>No favorites yet</b>Tap ⋮ next to a song, then “Add to favorites”.</div>`
       : `<div class="empty"><b>No matches${lastQ ? ` for “${esc(lastQ)}”` : ''}</b>${collection ? 'Try the “All” tab, or fewer words.' : 'Try fewer words.'}</div>`;
   } else {
-    list.innerHTML = results.slice(0, limit).map(({ s, fuzzy, tune }, i) => songRow(s, i, words, fuzzy, false, tune)).join('') + (results.length > limit ? `<div class="empty" style="padding:18px"><button class="chip" id="moreBtn">Show more (${results.length - limit})</button></div>` : '');
+    list.innerHTML = results.slice(0, limit).map(({ s, fuzzy, tune, lyric }, i) => songRow(s, i, words, fuzzy, false, tune, lyric)).join('') + (results.length > limit ? `<div class="empty" style="padding:18px"><button class="chip" id="moreBtn">Show more (${results.length - limit})</button></div>` : '');
   }
   if ($('#songsPanel').classList.contains('show')) renderSongsPanel();
   if (viewing) renderViewerKey();
@@ -8431,7 +8463,7 @@ function startApp(fresh = false) {
     flushLog();
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
-    if (navigator.onLine && auth.token) { loadKnown(); loadVerseCounts(); syncFavs(); loadTunes(); }
+    if (navigator.onLine && auth.token) { loadKnown(); loadVerseCounts(); syncFavs(); loadTunes(); loadFirstLines(); }
     if (navigator.onLine && auth.token) { loadKeyChecks(); loadSlideSecs(); shareNewPictures(); }
     if (navigator.onLine && auth.token) { loadApproved(); loadSlidesApproved(); }
     if (navigator.onLine && auth.token) loadArrangements(true);
