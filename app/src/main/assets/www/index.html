@@ -2092,16 +2092,14 @@ async function showTuneMates(s) {
   if (hasMusic(x)) openViewer(x);
   else { collection = x.collection; store.set('collection', collection); renderTabs(); $('#q').value = x.title; search(); window.scrollTo({ top: 0 }); }
 }
-// search: a hymn found also brings its tune-mates (just after it, marked "same tune")
+// search: the hymns found, then their tune-mates (other songs sung to the same melody, marked "same tune") at the end
 function withTuneMates(res) {
   if (!tuneGroups.length || collection === '__fav') return res;
-  const have = new Set(res.map(r => r.s.key)), out = [];
-  res.forEach((r, i) => {
-    out.push(r);
-    if (r.fuzzy || i >= 12) return;
-    for (const x of tuneMates(r.s) || []) if (!have.has(x.key) && (!collection || x.collection === collection)) { have.add(x.key); out.push({ s: x, fuzzy: false, tune: r.s }); }
+  const have = new Set(res.map(r => r.s.key)), more = [];
+  res.slice(0, 12).forEach(r => {
+    for (const x of tuneMates(r.s) || []) if (!have.has(x.key) && (!collection || x.collection === collection)) { have.add(x.key); more.push({ s: x, fuzzy: false, tune: r.s }); }
   });
-  return out;
+  return res.concat(more);
 }
 function applyKeyChecks(map) {
   keyChecks = map || {}; store.set('keyChecks', keyChecks);
@@ -2395,24 +2393,6 @@ function runSearch(q) {
   }
   scored.sort((a, b) => b.score - a.score || a.s.nTitle.localeCompare(b.s.nTitle));
 
-  // Typo-tolerant extras when exact matching finds little
-  const textWords = words.filter(w => !/^\d+[a-z]?$/.test(w));
-  if (scored.length < 8 && textWords.length) {
-    const g = trigrams(textWords.join(' ')), seen = new Set(scored.map(x => x.s));
-    const fuzzy = [];
-    for (const s of pool) {
-      if (seen.has(s)) continue;
-      let hit = 0; for (const t of g) if (s.grams.has(t)) hit++;
-      let sim = hit / g.size;
-      // word-by-word typo check: "angus" ~ "agnus", "rapsody" ~ "rhapsody"
-      const tw = s.tWords || (s.tWords = s.nTitle.split(' '));
-      const close = textWords.filter(w => tw.some(t => typoMatch(w, t))).length / textWords.length;
-      sim = Math.max(sim, close * 0.9);
-      if (sim >= 0.45) fuzzy.push({ s, score: sim, fuzzy: true });
-    }
-    fuzzy.sort((a, b) => b.score - a.score);
-    scored.push(...fuzzy.slice(0, 40));
-  }
   return scored;
 }
 // Damerau-Levenshtein distance with a small cap (swaps, typos, missing letters)
