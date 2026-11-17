@@ -13,7 +13,7 @@ var UHEAD = ['Username', 'Name', 'Admin', 'Salt', 'Hash', 'Must change password'
 var ROUNDS = 2000;
 // A guest account (shared, e.g. for visiting musicians): views songs and follows presentations; nothing else.
 var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSlides', 'finalizeSlides', 'chordUpload',
-  'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log', 'slideUpload', 'listPeople'];
+  'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log', 'slideUpload', 'listPeople', 'favsSync'];
 // A visitor (joined by QR code, no account) can only follow the performance they joined.
 var VISITOR_OK = ['me', 'perfJoin', 'perfSend', 'perfPoll', 'perfState', 'file', 'slideDeck', 'deckFile', 'slideLive', 'getArrangements', 'slideSections',
   'slidesApproved', 'mp3Approved', 'getKnown', 'getKeyChecks', 'getTextDocs', 'slideImagesIndex', 'slideChordsIndex', 'slideChordsGet'];
@@ -180,6 +180,7 @@ function handle_(d) {
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
   if (a === 'getKnown') return { ok: true, known: known_() };
   if (a === 'verseCounts') return verseCounts_();
+  if (a === 'favsSync') return favsSync_(me, d);   // this person's favorite songs (kept per user, on every device)
   if (a === 'getKeyChecks') return { ok: true, keys: keyChecks_() };
   if (a === 'mp3Approved') return { ok: true, reviewed: mp3Reviewed_() };
   if (a === 'slidesApproved') return { ok: true, approved: slidesApproved_() };
@@ -715,6 +716,27 @@ function setKnown_(me, d) {
     if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
   } finally { lock.releaseLock(); }
   return { ok: true, known: known_() };
+}
+
+/** Favorite songs, per person: one row per user and song in the "Favorites" tab. favsSync applies the changes made in
+ *  the app ({ songKey: true/false }) and returns that person's favorites. */
+var FAVS = 'Favorites', FHEAD = ['User', 'Song', 'When'];
+function favsSync_(me, d) {
+  var ch = d.changes || {}, user = me.username, lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(FAVS, FHEAD), n = sh.getLastRow() - 1;
+    var rows = n > 0 ? sh.getRange(2, 1, n, 3).getValues() : [], changed = false;
+    Object.keys(ch).forEach(function (k) {
+      var i = -1; for (var j = 0; j < rows.length; j++) if (String(rows[j][0]) === user && String(rows[j][1]) === k) { i = j; break; }
+      if (ch[k] && i < 0) { rows.push([user, k, new Date()]); changed = true; }
+      if (!ch[k] && i >= 0) { rows.splice(i, 1); changed = true; }
+    });
+    if (changed) {
+      if (n > 0) sh.getRange(2, 1, n, 3).clearContent();
+      if (rows.length) sh.getRange(2, 1, rows.length, 3).setValues(rows);
+    }
+    return { ok: true, favs: rows.filter(function (r) { return String(r[0]) === user; }).map(function (r) { return String(r[1]); }) };
+  } finally { lock.releaseLock(); }
 }
 
 // ------------------------------------------------------------------ MP3 review (admins)

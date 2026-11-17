@@ -1454,7 +1454,7 @@ $('#appName').textContent = CFG.appName; document.title = CFG.appName;
 const LISTEN = /[?&]listen\b/.test(location.search) || /(^|\.)songpoint\.(web\.app|firebaseapp\.com)$/i.test(location.hostname);   // …/?listen, or its own site
 if (LISTEN) document.documentElement.classList.add('listen');
 const LISTEN_BOOKS = /^(sfp|songs of faith and praise|zion['’]?s? praises|christian hymnal)$/i;
-const USER_KEYS = new Set(['notes', 'offlineLists', 'pendingLists', 'outbox', 'people', 'listTab', 'favs', 'usage', 'plays']);
+const USER_KEYS = new Set(['notes', 'offlineLists', 'pendingLists', 'outbox', 'people', 'listTab', 'favs', 'favsPend', 'favsSynced', 'usage', 'plays']);
 const curUser = () => { if (LISTEN) return ''; try { const a = JSON.parse(localStorage.getItem('auth') || '{}'); return (a.user && a.user.username) || ''; } catch { return ''; } };
 const skey = k => { if (LISTEN) return k === 'library' ? k : 'listen~' + k; const u = USER_KEYS.has(k) && curUser(); return u ? `u~${u}~${k}` : k; };
 const store = {
@@ -1958,8 +1958,36 @@ let library = store.get('library', { tracks: [], collections: [], synced: 0 });
 let songs = [], songIndex = new Map();
 let plays = store.get('plays', {});
 let downloaded = new Set();
-let favs = new Set(store.get('favs', []));   // favorite songs (this device)
+let favs = new Set(store.get('favs', []));   // favorite songs: this person's, kept on the server (a copy here for offline)
 const isFav = s => favs.has(s.key);
+// mark / unmark: saved here at once, and sent to the server (or when back online)
+function setFav(s, on) {
+  on ? favs.add(s.key) : favs.delete(s.key); store.set('favs', [...favs]);
+  const p = store.get('favsPend', {}); p[s.key] = on; store.set('favsPend', p);
+  syncFavs();
+}
+// send what changed here, and take the server's list (the favorites made on this person's other devices)
+// the first time on a device, the favorites already here are added to the server's
+let favSyncing = false, favAgain = false;
+async function syncFavs() {
+  if (LISTEN || !auth.token || !auth.user || auth.user.guest || auth.user.visitor || !navigator.onLine) return;
+  if (favSyncing) { favAgain = true; return; }
+  favSyncing = true;
+  try {
+    const p = store.get('favsPend', {});
+    if (!store.get('favsSynced', false)) for (const k of favs) if (!(k in p)) p[k] = true;
+    const r = await api('favsSync', { changes: p });
+    if (r.ok && Array.isArray(r.favs)) {
+      const left = store.get('favsPend', {}); for (const k in p) if (left[k] === p[k]) delete left[k];
+      store.set('favsPend', left); store.set('favsSynced', true);
+      const next = new Set(r.favs); for (const k in left) left[k] ? next.add(k) : next.delete(k);
+      const same = next.size === favs.size && [...next].every(k => favs.has(k));
+      favs = next; store.set('favs', [...favs]);
+      if (!same) { renderTabs(); if (collection === '__fav') search(); else render(); }
+    }
+  } catch {} finally { favSyncing = false; if (favAgain) { favAgain = false; syncFavs(); } }
+}
+addEventListener('online', () => { if (Object.keys(store.get('favsPend', {})).length) syncFavs(); });
 const downloading = new Set();
 
 function refreshDownloaded() {
@@ -2506,7 +2534,7 @@ function rowAction(s, btn, act, list = null) {
   }
   else if (act === 'more') { openRowMenu(s, btn); }
   else if (act === 'fav') {
-    isFav(s) ? favs.delete(s.key) : favs.add(s.key); store.set('favs', [...favs]);
+    setFav(s, !isFav(s));
     renderTabs(); if (collection === '__fav') search(); else render();
   }
   else if (act === 'dl') toggleDownload(s);
@@ -6912,7 +6940,7 @@ $('#rvFlag').onclick = rvFlag;
 function rvSong(t) { return t && [...songIndex.values()].find(x => x.parts.some(p => p.id === t.id)); }
 $('#rvFavBtn').onclick = () => {
   const s = rvSong(rvCur); if (!s) return toast('Pick one first');
-  const on = !isFav(s); on ? favs.add(s.key) : favs.delete(s.key); store.set('favs', [...favs]);
+  const on = !isFav(s); setFav(s, on);
   toast(on ? 'Added to favorites' : 'Removed from favorites'); renderTabs(); if (collection === '__fav') search(); else render(); rvRenderNow();
 };
 $('#rvKnownBtn').onclick = () => { const s = rvSong(rvCur); if (!s) return toast('Pick one first'); setKnownSong(s, !isKnown(s)); rvRenderNow(); };
@@ -7452,7 +7480,7 @@ $('#rowMenu').addEventListener('click', e => {
   const b = e.target.closest('[data-m]'); const s = rowMenuSong; if (!b || !s) return;
   closeRowMenu();
   if (b.dataset.m === 'fav') {
-    const on = !isFav(s); on ? favs.add(s.key) : favs.delete(s.key); store.set('favs', [...favs]);
+    const on = !isFav(s); setFav(s, on);
     toast(on ? 'Added to favorites' : 'Removed from favorites');
     renderTabs(); if (collection === '__fav') search(); else render();
   } else if (b.dataset.m === 'dl') toggleDownload(s);
@@ -8331,7 +8359,7 @@ function startApp(fresh = false) {
     flushLog();
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
-    if (navigator.onLine && auth.token) { loadKnown(); loadVerseCounts(); }
+    if (navigator.onLine && auth.token) { loadKnown(); loadVerseCounts(); syncFavs(); }
     if (navigator.onLine && auth.token) { loadKeyChecks(); loadSlideSecs(); shareNewPictures(); }
     if (navigator.onLine && auth.token) { loadApproved(); loadSlidesApproved(); }
     if (navigator.onLine && auth.token) loadArrangements(true);
