@@ -16,7 +16,7 @@ var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSl
   'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log', 'slideUpload', 'listPeople', 'favsSync'];
 // A visitor (joined by QR code, no account) can only follow the performance they joined.
 var VISITOR_OK = ['me', 'perfJoin', 'perfSend', 'perfPoll', 'perfState', 'file', 'slideDeck', 'deckFile', 'slideLive', 'getArrangements', 'slideSections',
-  'slidesApproved', 'mp3Approved', 'getKnown', 'getKeyChecks', 'getTextDocs', 'slideImagesIndex', 'slideChordsIndex', 'slideChordsGet'];
+  'slidesApproved', 'mp3Approved', 'getKnown', 'getTuneMains', 'getKeyChecks', 'getTextDocs', 'slideImagesIndex', 'slideChordsIndex', 'slideChordsGet'];
 var CHORDS_FOLDER = '1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ';   // Chord Pro (one subfolder per book): uploaded chord sheets go here
 var SHARED_SLIDES_FOLDER = '1A_h83VBsar3VD4j2LQ2js8sbdrBAIGQc';   // built PowerPoints are saved here (PowerPoint Presentations)
 
@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 57 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 58 }); }
 
 function doPost(e) {
   var d;
@@ -213,6 +213,8 @@ function handle_(d) {
   if (a === 'deleteArrangement') return deleteArrangement_(me, d);
 
   if (a === 'topicsFile') return topicsFile_(d);   // the Topical Index spreadsheet in the SongPoint folder
+  if (a === 'tuneFile') return homeXlsx_('Hymn tune index.xlsx', d);   // songs that share a melody (tune groups)
+  if (a === 'getTuneMains') return { ok: true, mains: tuneMains_() };
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);   // anyone signed in can flag a problem with a track (their name is saved with it)
   if (!me.admin) return { ok: false, error: 'Only admins can do that.' };
   if (a === 'listUsers') return { ok: true, users: users_().map(publicUser_) };
@@ -225,6 +227,7 @@ function handle_(d) {
   if (a === 'setIgnored') return setIgnored_(me, d);
   if (a === 'setTextDoc') return setTextDoc_(me, d);
   if (a === 'setKnown') return setKnown_(me, d);
+  if (a === 'setTuneMain') return setTuneMain_(me, d);
   if (a === 'setKeyCheck') return setKeyCheck_(me, d);
   if (a === 'setSlidesApproved') return setSlidesApproved_(me, d);
   if (a === 'setSlideSections') return setSlideSections_(me, d);
@@ -739,6 +742,33 @@ function favsSync_(me, d) {
   } finally { lock.releaseLock(); }
 }
 
+/** The main tune of each tune group (the hymn people know that melody by), chosen by admins: song key -> main yes/no.
+ *  Kept per song, so the choice survives the tune index being made again. */
+var TMAIN = 'Main Tunes', TMHEAD = ['Song', 'Main', 'Title', 'Book', 'Marked by', 'When'];
+function tuneMains_() {
+  var sh = tab_(TMAIN, TMHEAD), n = sh.getLastRow() - 1, out = {};
+  if (n < 1) return out;
+  sh.getRange(2, 1, n, 2).getValues().forEach(function (r) { if (r[0]) out[String(r[0])] = r[1] === true || r[1] === 'TRUE'; });
+  return out;
+}
+// d.key: the song; d.main: true (this is the group's main tune) or false (no choice: the app suggests one);
+// d.others: the other songs in its group (no longer the main one when this one is)
+function setTuneMain_(me, d) {
+  var key = String(d.key || ''); if (!key) return { ok: false, error: 'No song given.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = tab_(TMAIN, TMHEAD), n = sh.getLastRow() - 1;
+    var keys = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [];
+    var put = function (k, on, title, book) {
+      var row = [k, on, String(title || ''), String(book || ''), me.name || me.username, new Date()], i = keys.indexOf(k);
+      if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else { sh.appendRow(row); keys.push(k); }
+    };
+    if (d.main) (d.others || []).forEach(function (o) { if (o && o.key && o.key !== key && keys.indexOf(String(o.key)) >= 0) put(String(o.key), false, o.title, o.book); });
+    put(key, !!d.main, d.title, d.book);
+  } finally { lock.releaseLock(); }
+  return { ok: true, mains: tuneMains_() };
+}
+
 // ------------------------------------------------------------------ MP3 review (admins)
 // Flags on MP3s ("at 1:23 the alto drops out"). Kept in the "MP3 Issues" tab, and written out as text files in the
 // "MP3 Issues" folder next to this sheet: one file per MP3, plus "_All MP3 issues.txt", for whoever fixes them.
@@ -888,10 +918,12 @@ function checkSharedFolder() {
 // The app then asks the server for the song (or sheet music image) instead. Only library media is served.
 // The Topical Index: "Topical Index.xlsx" in the SongPoint folder (edit it there; the app reads it). Sent only when it
 // changed since the copy the app has (d.mod).
-function topicsFile_(d) {
-  var it = home_().getFilesByName('Topical Index.xlsx'), f = null;
+function topicsFile_(d) { return homeXlsx_('Topical Index.xlsx', d); }
+// a spreadsheet in the SongPoint folder, sent to the app (only when it changed since the copy the app has: d.mod)
+function homeXlsx_(name, d) {
+  var it = home_().getFilesByName(name), f = null;
   while (it.hasNext()) { var x = it.next(); if (!f || x.getLastUpdated() > f.getLastUpdated()) f = x; }
-  if (!f) return { ok: false, error: 'There\'s no Topical Index.xlsx in the SongPoint folder.' };
+  if (!f) return { ok: false, error: 'There\'s no ' + name + ' in the SongPoint folder.' };
   var mod = f.getLastUpdated().toISOString();
   if (String(d.mod || '') === mod) return { ok: true, same: true, mod: mod };
   return { ok: true, mod: mod, data: Utilities.base64Encode(f.getBlob().getBytes()) };

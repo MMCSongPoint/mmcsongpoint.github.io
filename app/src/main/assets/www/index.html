@@ -586,6 +586,7 @@
   .urow .n small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
   .bar100 { height: 4px; background: var(--accent-text); border-radius: 2px; margin-top: 5px; opacity: .7; }
   .used { color: var(--accent-text); }
+  .tuneln { color: var(--muted); font-style: italic; }
   .lock .who, .lock input + input { margin-top: 10px; }
   .lock .link { background: none; border: none; color: var(--accent-text); margin-top: 14px; font-size: 14px; padding: 6px; width: auto; }
   .keyb { min-width: 38px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--accent-text); font-weight: 700; font-size: 13.5px; padding: 0 6px; margin-right: 2px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
@@ -2019,6 +2020,88 @@ function applyKnown(map) {
   const was = JSON.stringify(knownEdits); knownEdits = map || {}; store.set('knownEdits', knownEdits);
   if (was !== JSON.stringify(knownEdits)) { if (filterBy === 'known') search(); else render(); if (typeof rvRender === 'function' && $('#mp3Panel').classList.contains('show')) rvRender(); }
 }
+// ---- Hymn tune index: songs that share a melody ("Hymn tune index.xlsx" in the SongPoint folder, through the server).
+// A group's main tune is the hymn people know that melody by: chosen by an admin (★ Main Tune, shared through the
+// server), otherwise suggested: a song we know, then the one led most often, then the most played, then the first listed.
+const TUNE_BOOKS = { ZP: "Zion's Praises", SFP: 'SFP', CH: 'Christian Hymnal' }, TUNE_SHORT = { "Zion's Praises": 'ZP', SFP: 'SFP', 'Christian Hymnal': 'CH' };
+var tuneGroups = (store.get('tuneXlsx', null) || {}).groups || [];   // [[[book, number], …], …] as in the spreadsheet
+var tuneMains = store.get('tuneMains', {}), tuneIdx = null;
+function tuneIndex() {   // song key -> the songs in its group (only groups with 2+ songs in the library)
+  if (tuneIdx && tuneIdx.songs === songs) return tuneIdx.map;
+  const map = new Map();
+  for (const g of tuneGroups) {
+    const mem = [...new Set(g.map(([b, n]) => songIndex.get((TUNE_BOOKS[b] || b) + '|#' + n)).filter(Boolean))];
+    if (mem.length > 1) for (const x of mem) map.set(x.key, mem);
+  }
+  tuneIdx = { songs, map }; return map;
+}
+const tuneMates = s => (s && tuneGroups.length && tuneIndex().get(s.key)) || null;
+const tuneChosen = g => g.find(x => tuneMains[x.key] === true) || null;
+const tuneMain = g => tuneChosen(g) || g.slice().sort((a, b) => (isKnown(b) - isKnown(a)) || ((usageMap[b.key] || {}).count || 0) - ((usageMap[a.key] || {}).count || 0) || songPlays(b) - songPlays(a))[0];
+const tuneName = x => `${TUNE_SHORT[x.collection] || x.collection} ${x.number}`;
+// on a song row: "♪ Tune: All Hail the Power" when the melody is better known by another hymn
+function tuneLine(s) {
+  const g = tuneMates(s), m = g && tuneMain(g);
+  return m && m !== s ? ` · <span class="tuneln" title="Same melody as ${esc(tuneName(m))}">♪ Tune: ${esc(m.title)}</span>` : '';
+}
+async function loadTunes() {
+  try { const r = await api('getTuneMains'); if (r.ok) applyTuneMains(r.mains); } catch {}
+  try {
+    const c = store.get('tuneXlsx', null), r = await api('tuneFile', { mod: c && c.groups ? c.mod : '' });
+    if (!r.ok || r.same) return;
+    const groups = tuneGroupsFromRows(await xlsxRows(Uint8Array.from(atob(r.data), ch => ch.charCodeAt(0)).buffer, 'Tune groups'));
+    if (!groups.length) return;
+    tuneGroups = groups; tuneIdx = null; store.set('tuneXlsx', { mod: r.mod, groups }); render();
+  } catch (e) { console.warn('tune index', e); }
+}
+// the "Tune groups" sheet: a row with a Group number starts a group; the rows under it (no number) belong to it
+function tuneGroupsFromRows(rows) {
+  const head = (rows[0] || []).map(h => String(h || '').trim().toLowerCase()), iG = head.indexOf('group'), iB = head.indexOf('book'), iN = head.findIndex(h => /^no\.?$|^number$/.test(h));
+  if (iG < 0 || iB < 0 || iN < 0) return [];
+  const out = []; let g = null;
+  for (const r of rows.slice(1)) {
+    const b = String(r[iB] || '').trim(), n = String(r[iN] || '').trim().replace(/^0+(?=\d)/, '');
+    if (String(r[iG] || '').trim()) { g = []; out.push(g); }
+    if (g && b && n) g.push([b, n]);
+  }
+  return out.filter(x => x.length > 1);
+}
+function applyTuneMains(map) {
+  const was = JSON.stringify(tuneMains); tuneMains = map || {}; store.set('tuneMains', tuneMains);
+  if (was !== JSON.stringify(tuneMains)) render();
+}
+// admins: this song is (or isn't) the one its group's melody is known by
+async function setTuneMain(s, on) {
+  const g = tuneMates(s); if (!g) return;
+  if (on) for (const x of g) if (x !== s && tuneMains[x.key]) tuneMains[x.key] = false;
+  tuneMains[s.key] = on; store.set('tuneMains', tuneMains); render();
+  toast(on ? `“${s.title}” is now the main tune` : 'Main tune cleared (the app suggests one)');
+  try {
+    const r = await api('setTuneMain', { key: s.key, main: on, title: s.title, book: s.collection, others: g.map(x => ({ key: x.key, title: x.title, book: x.collection })) });
+    if (r.ok) applyTuneMains(r.mains); else toast(r.error || 'Couldn\'t save that');
+  } catch { toast('Couldn\'t reach the server. Check your internet connection.'); }
+}
+// ⋯ › Same Tune As…: the other songs with this melody (★ the main tune); pick one to open it
+async function showTuneMates(s) {
+  const g = tuneMates(s); if (!g) return;
+  const m = tuneMain(g), others = g.filter(x => x !== s);
+  const v = await choose(`Same Tune As “${s.title}”`, `★ = the main tune${tuneChosen(g) ? '' : ' (suggested)'}${m === s ? ': this one' : ''}  ·  ✓ = a song we know`,
+    [...others.map(x => ({ label: `${x === m ? '★ ' : ''}${tuneName(x)} · ${x.title}${isKnown(x) ? ' ✓' : ''}`, value: x.key, primary: x === m })), { label: 'Close', value: 'cancel' }]);
+  const x = others.find(o => o.key === v); if (!x) return;
+  if (hasMusic(x)) openViewer(x);
+  else { collection = x.collection; store.set('collection', collection); renderTabs(); $('#q').value = x.title; search(); window.scrollTo({ top: 0 }); }
+}
+// search: a hymn found also brings its tune-mates (just after it, marked "same tune")
+function withTuneMates(res) {
+  if (!tuneGroups.length || collection === '__fav') return res;
+  const have = new Set(res.map(r => r.s.key)), out = [];
+  res.forEach((r, i) => {
+    out.push(r);
+    if (r.fuzzy || i >= 12) return;
+    for (const x of tuneMates(r.s) || []) if (!have.has(x.key) && (!collection || x.collection === collection)) { have.add(x.key); out.push({ s: x, fuzzy: false, tune: r.s }); }
+  });
+  return out;
+}
 function applyKeyChecks(map) {
   keyChecks = map || {}; store.set('keyChecks', keyChecks);
   for (const s of songs) s.musicKey = (keyChecks[s.key] && keyChecks[s.key].key) || s.keyOrig || '';
@@ -2358,6 +2441,7 @@ function search() {
   lastQ = $('#q').value;
   $('#searchBox').classList.toggle('has', !!lastQ);
   results = runSearch(lastQ);
+  if (!LISTEN && lastQ.trim()) results = withTuneMates(results);
   if (LISTEN) {}
   else if (filterBy === 'chords') results = results.filter(r => r.s.chords && r.s.chords.length);
   else if (filterBy === 'known') results = results.filter(r => isKnown(r.s));
@@ -2470,7 +2554,7 @@ const fileChips = s => [s.sheets.length && ['Sheet Music'], s.chords && s.chords
 // On a narrow screen, tapping a song's name shows everything (title, book, what it has); tapping again folds it back.
 const openRows = new Set();
 const narrow = () => window.matchMedia('(max-width: 640px)').matches;
-function songRow(s, i, words = [], fuzzy = false, inPanel = false) {
+function songRow(s, i, words = [], fuzzy = false, inPanel = false, tuneOf = null) {
       const mine = pickPart(s) || {}, playing = !!now && s.parts.includes(now.part);
   const audioLess = !s.parts.length || (!playing && isAiTrack(mine, s));   // an MP3 not confirmed yet (MP3 Review): no play button
   const isMine = myPart && mine.part.toLowerCase().startsWith(myPart.toLowerCase());
@@ -2481,8 +2565,8 @@ function songRow(s, i, words = [], fuzzy = false, inPanel = false) {
     ${audioLess ? '<span></span>'
       : `<button class="play" data-act="play" aria-label="Play">${playing && !audio.paused ? ICON_PAUSE : ICON_PLAY}</button>`}
     <div class="info"${audioLess && hasMusic(s) ? ' data-act="sheet"' : ''}>
-      <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}</div>
-      <div class="sub">${picking ? highlight(s.collection, words) + fileChips(s) : `${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${fileChips(s)}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}`}</div>
+      <div class="title">${s.number ? `<span class="num">${highlight(s.number, words)}</span>` : ''}${highlight(s.title, words)}${fuzzy ? '<span class="badge">close match</span>' : ''}${tuneOf ? `<span class="badge" title="Same melody as ${esc(tuneOf.title)}">same tune</span>` : ''}</div>
+      <div class="sub">${picking ? highlight(s.collection, words) + fileChips(s) + tuneLine(s) : `${highlight(s.collection, words)}${s.subfolder ? ' / ' + esc(s.subfolder) : ''}${fileChips(s)}${tuneLine(s)}${usageMap[s.key] ? ` · <span class="used">used ${shortDate(usageMap[s.key].last)}</span>` : ''}${mine.duration ? ' · ' + fmt(mine.duration) : ''}`}</div>
     </div>
     <div class="acts">${keyButton(s)}${picking ? `<button class="dl pick${picking.songs.some(x => x.key === s.key) ? ' on' : ''}" data-act="pick" aria-label="Add to song list">${picking.songs.some(x => x.key === s.key) ? '✓' : '+'}</button>` : ''}${hasMusic(s) ? `<button class="dl sm" data-act="sheet" aria-label="Sheet Music">${ICON_MUSIC}</button>` : ''}<button class="dl more${isFav(s) ? ' fav' : ''}${busy ? ' busy' : ''}" data-act="more" aria-label="More options"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
     ${showParts ? `<div class="parts">${s.parts.map(p =>
@@ -2500,7 +2584,7 @@ function render() {
       ? `<div class="empty"><b>No favorites yet</b>Tap ⋮ next to a song, then “Add to favorites”.</div>`
       : `<div class="empty"><b>No matches${lastQ ? ` for “${esc(lastQ)}”` : ''}</b>${collection ? 'Try the “All” tab, or fewer words.' : 'Try fewer words.'}</div>`;
   } else {
-    list.innerHTML = results.slice(0, limit).map(({ s, fuzzy }, i) => songRow(s, i, words, fuzzy)).join('') + (results.length > limit ? `<div class="empty" style="padding:18px"><button class="chip" id="moreBtn">Show more (${results.length - limit})</button></div>` : '');
+    list.innerHTML = results.slice(0, limit).map(({ s, fuzzy, tune }, i) => songRow(s, i, words, fuzzy, false, tune)).join('') + (results.length > limit ? `<div class="empty" style="padding:18px"><button class="chip" id="moreBtn">Show more (${results.length - limit})</button></div>` : '');
   }
   if ($('#songsPanel').classList.contains('show')) renderSongsPanel();
   if (viewing) renderViewerKey();
@@ -5994,6 +6078,9 @@ function togglePick(s) {
   const i = picking.songs.findIndex(x => x.key === s.key);
   if (i >= 0) picking.songs.splice(i, 1); else picking.songs.push(songRef(s));
   editingDirty = true; updatePickBar(); render();
+  // a hymn we don't know, sung to a melody we do: say so
+  const g = i < 0 && !isKnown(s) && tuneMates(s), m = g && tuneMain(g);
+  if (m && m !== s && isKnown(m)) toast(`Same tune as “${m.title}” (${tuneName(m)}), a song we know`, 4000);
 }
 function finishPicking() {
   document.body.classList.remove('picking'); $('#pickBar').classList.remove('show');
@@ -7441,6 +7528,8 @@ function openRowMenu(s, btn) {
     + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Replace Chord Sheet (Upload a File)' : 'Upload a Chord Sheet'}</button>`
     + (isAdmin() ? `<button data-m="savedkey"><span class="ic">♯</span>Change Saved Key${s.musicKey ? ` (${esc(s.musicKey.replace('b', '♭').replace('#', '♯'))})` : ''}</button>` : '')
     + (isAdmin() ? `<button data-m="known"><span class="ic known">▍</span>${isKnown(s) ? 'Not a Song We Know' : 'Mark as a Song We Know'}</button>` : '')
+    + (tuneMates(s) ? `<button data-m="tune"><span class="ic">♫</span>Same Tune As… (${tuneMates(s).length - 1})</button>` : '')
+    + (tuneMates(s) && isAdmin() ? `<button data-m="tunemain"><span class="ic star">${tuneMains[s.key] === true ? '★' : '☆'}</span>${tuneMains[s.key] === true ? 'Not the Main Tune' : 'Make This the Main Tune'}</button>` : '')
     + (myLive && !(perf && perf.role === 'host') ? liveBtn(myLive) : '');
   const m = $('#rowMenu'); m.classList.add('show');
   checkMyLive().then(x => { if (rowMenuSong === s && x && !m.querySelector('[data-m=live]') && !(perf && perf.role === 'host')) { m.insertAdjacentHTML('beforeend', liveBtn(x)); placeRowMenu(btn); } });
@@ -7486,6 +7575,8 @@ $('#rowMenu').addEventListener('click', e => {
   } else if (b.dataset.m === 'dl') toggleDownload(s);
   else if (b.dataset.m === 'live') sendToLive(s);
   else if (b.dataset.m === 'known') setKnownSong(s, !isKnown(s));
+  else if (b.dataset.m === 'tune') showTuneMates(s);
+  else if (b.dataset.m === 'tunemain') setTuneMain(s, tuneMains[s.key] !== true);
   else if (b.dataset.m === 'editchords') chEditOpen(s, s.chords[0] || null);
   else if (b.dataset.m === 'savedkey') openKeyPick(s);
   else if (b.dataset.m === 'chords') { chordUploadSong = s; $('#chordFile').value = ''; $('#chordFile').click(); }
@@ -8359,7 +8450,7 @@ function startApp(fresh = false) {
     flushLog();
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
-    if (navigator.onLine && auth.token) { loadKnown(); loadVerseCounts(); syncFavs(); }
+    if (navigator.onLine && auth.token) { loadKnown(); loadVerseCounts(); syncFavs(); loadTunes(); }
     if (navigator.onLine && auth.token) { loadKeyChecks(); loadSlideSecs(); shareNewPictures(); }
     if (navigator.onLine && auth.token) { loadApproved(); loadSlidesApproved(); }
     if (navigator.onLine && auth.token) loadArrangements(true);
