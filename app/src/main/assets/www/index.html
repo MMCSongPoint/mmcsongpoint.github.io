@@ -6750,8 +6750,11 @@ function rvRender() {
   const books = [...new Set(rvAll().map(t => t.collection))];
   $('#rvBooks').innerHTML = ['', ...books].map(b => `<button class="chip${b === rvBook ? ' on' : ''}" data-b="${esc(b)}">${esc(b || 'All')}</button>`).join('');
   rvTracks = rvList();
-  const all = rvAll(), done = all.filter(rvIsReviewed).length;
-  $('#rvCount').textContent = `${done} of ${all.length} ${rvLabel()}s reviewed${$('#rvShow').value === 'done' ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
+  // counts for the book picked and the Songs We Know box
+  const knownIds = $('#rvKnown').checked ? new Set(songs.filter(isKnown).flatMap(s => s.parts.map(p => p.id))) : null;
+  const all = rvAll().filter(t => (!rvBook || t.collection === rvBook) && (!knownIds || knownIds.has(t.id))), done = all.filter(rvIsReviewed).length;
+  const pct = all.length ? Math.floor(done / all.length * 100) : 0;
+  $('#rvCount').textContent = `${done} of ${all.length} ${rvLabel()}s reviewed · ${all.length - done} left · ${pct}% done${$('#rvShow').value === 'done' ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
   const count = id => rvIssues.filter(x => x.fileId === id).length;
   $('#rvList').innerHTML = rvTracks.slice(0, 600).map((t, i) => `<div class="rvrow${rvCur && rvCur.id === t.id ? ' now' : ''}" data-i="${i}"><div class="t"><div>${esc(t.name)}</div><small>${esc(t.collection)}${t.subfolder ? ' / ' + esc(t.subfolder) : ''}</small></div>${count(t.id) ? `<span class="fl">⚑ ${count(t.id)}</span>` : ''}</div>`).join('')
     + (rvTracks.length > 600 ? `<p class="m">Showing 600 of ${rvTracks.length}. Pick a book or filter to narrow it down.</p>` : '') + (rvTracks.length ? '' : `<div class="vmsg">No ${rvLabel()}s match.</div>`);
