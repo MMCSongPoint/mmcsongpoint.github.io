@@ -2039,10 +2039,11 @@ const tuneMates = s => (s && tuneGroups.length && tuneIndex().get(s.key)) || nul
 const tuneChosen = g => g.find(x => tuneMains[x.key] === true) || null;
 const tuneMain = g => tuneChosen(g) || g.slice().sort((a, b) => (isKnown(b) - isKnown(a)) || ((usageMap[b.key] || {}).count || 0) - ((usageMap[a.key] || {}).count || 0) || songPlays(b) - songPlays(a))[0];
 const tuneName = x => `${TUNE_SHORT[x.collection] || x.collection} ${x.number}`;
-// on a song row: "♪ Tune: All Hail the Power" when the melody is better known by another hymn
+// on a song row: "♪ Tune: All Hail the Power" when the melody is better known by another hymn (with another name)
 function tuneLine(s) {
   const g = tuneMates(s), m = g && tuneMain(g);
-  return m && m !== s ? ` · <span class="tuneln" title="Same melody as ${esc(tuneName(m))}">♪ Tune: ${esc(m.title)}</span>` : '';
+  const same = m && normalize(baseTitle(m.title)) === normalize(baseTitle(s.title));   // same name: nothing to add
+  return m && m !== s && !same ? ` · <span class="tuneln" title="Same melody as ${esc(tuneName(m))}">♪ Tune: ${esc(m.title)}</span>` : '';
 }
 async function loadTunes() {
   try { const r = await api('getTuneMains'); if (r.ok) applyTuneMains(r.mains); } catch {}
