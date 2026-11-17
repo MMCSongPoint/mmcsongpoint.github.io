@@ -1207,6 +1207,7 @@
       <button class="pbtn ghost" id="rvSheet" title="Open the sheet music (S)">📄 Music</button>
       <button class="pbtn ghost" id="rvKnownBtn" title="Mark as a song we know (or not)">☆ Known</button>
       <button class="pbtn ghost" id="rvFavBtn" title="Add to your favorites (or take it out)">♡ Favorite</button>
+      <select id="rvRate" title="Playback speed (stays for the next songs)" aria-label="Playback speed" style="font:inherit;font-size:14px"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option><option value="2">2×</option></select>
       <button class="pbtn rvflag" id="rvFlag" title="Flag a problem here (F)">⚑ Flag</button>
     </div>
     <div class="seek"><span id="rvCur">0:00</span><input type="range" id="rvSeek" min="0" max="1000" value="0"><span id="rvLen">0:00</span></div>
@@ -6769,6 +6770,9 @@ function rvRenderNow() {
   const mine = t ? rvIssues.filter(x => x.fileId === t.id).sort((a, b) => a.t - b.t) : [];
   $('#rvFlags').innerHTML = (t && rvIsReviewed(t) ? '<button class="pbtn ghost" id="rvUndo" style="padding:4px 10px">✓ Reviewed · Not Reviewed</button>' : '') + mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
 }
+// review speed: kept from song to song (and next time)
+let rvRate = store.get('rvRate', 1);
+const rvApplyRate = () => { try { rvAudio.playbackRate = rvRate; if ('defaultPlaybackRate' in rvAudio.el) rvAudio.el.defaultPlaybackRate = rvRate; } catch {} };
 async function rvPlay(t, autoplay = true) {
   const sheetOpen = $('#viewer').classList.contains('show') && $('#mp3Panel').classList.contains('show');
   rvCur = t; rvAudio.src = sourceFor(t); rvAudio.currentTime = 0;
@@ -6908,6 +6912,9 @@ $('#rvFavBtn').onclick = () => {
   toast(on ? 'Added to favorites' : 'Removed from favorites'); renderTabs(); if (collection === '__fav') search(); else render(); rvRenderNow();
 };
 $('#rvKnownBtn').onclick = () => { const s = rvSong(rvCur); if (!s) return toast('Pick one first'); setKnownSong(s, !isKnown(s)); rvRenderNow(); };
+$('#rvRate').value = String(rvRate);
+$('#rvRate').onchange = e => { rvRate = +e.target.value || 1; store.set('rvRate', rvRate); rvApplyRate(); e.target.blur(); };
+rvAudio.addEventListener('loadedmetadata', rvApplyRate); rvAudio.addEventListener('play', rvApplyRate);
 $('#rvSheet').onclick = () => { const s = rvSong(rvCur); if (!rvCur) return toast('Pick one first'); if (!s || !hasMusic(s)) return toast('No sheet music for this song yet'); openViewer(s); rvSheetMode(true); };
 function rvSheetMode(on) {
   document.body.classList.toggle('rvsheet', !!on);
