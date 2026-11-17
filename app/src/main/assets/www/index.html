@@ -281,6 +281,10 @@
   .chordpop svg { display: block; margin: 4px auto 2px; color: var(--text); }
   .chordpop .cpnav { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; color: var(--muted); }
   .chordpop .cpnav button { padding: 4px 10px; font-size: 13px; }
+  .chordpop { width: 214px; }
+  .cpinst { display: flex; gap: 2px; background: var(--row); border-radius: 9px; padding: 2px; margin-bottom: 6px; }
+  .cpinst button { flex: 1; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; padding: 4px; border-radius: 7px; cursor: pointer; }
+  .cpinst button.on { background: var(--accent); color: var(--accent-ink, #fff); font-weight: 600; }
   .cl.plain .ct { white-space: pre-wrap; }
   .cl.conly .cs { margin-right: .6em; }
   .ccom { font-style: italic; color: var(--muted); margin: .2em 0 .4em; }
@@ -2962,15 +2966,34 @@ function chordSvg(frets) {
   });
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Chord diagram">${g}</svg>`;
 }
-let chordPopAt = null;
+// piano: the chord's notes from its root (root position), on two octaves of keys; a slash chord's bass note in outline
+const CHORD_TONES = { maj: [0,4,7], m: [0,3,7], '7': [0,4,7,10], m7: [0,3,7,10], maj7: [0,4,7,11], sus4: [0,5,7], sus2: [0,2,7], '7sus4': [0,5,7,10], '6': [0,4,7,9], m6: [0,3,7,9], '9': [0,4,7,10,14], dim: [0,3,6], dim7: [0,3,6,9], aug: [0,4,8], m7b5: [0,3,6,10], add9: [0,4,7,14] };
+function pianoSvg(c) {
+  let notes = CHORD_TONES[c.q].map(x => c.pc + x), bass = null;
+  if (c.bass) { const b = notePc(c.bass); bass = c.pc - ((c.pc - b + 11) % 12 + 1); notes = notes.filter(n => n % 12 !== b || n !== bass); }   // the bass note just below the root
+  const lowest = Math.min(...notes, bass == null ? Infinity : bass), shift = lowest < 0 ? 12 : 0;
+  notes = notes.map(n => n + shift); if (bass != null) bass += shift;
+  if (Math.max(...notes) > 23) notes = notes.map(n => n > 23 ? n - 12 : n);
+  const WHITE = [0, 2, 4, 5, 7, 9, 11], kw = 13, H = 66, BW = 8, BH = 40;
+  let x = 0, g = '', blacks = '', whites = 0;
+  const mark = (n, cx, cy, white) => n === bass ? `<circle cx="${cx}" cy="${cy}" r="4.2" fill="none" stroke="${white ? '#a01848' : '#ff7aa6'}" stroke-width="2.2"/>` : notes.includes(n) ? `<circle cx="${cx}" cy="${cy}" r="4.6" fill="${white ? '#a01848' : '#ff7aa6'}"/>` : '';
+  for (let n = 0; whites < 15; n++) {
+    if (WHITE.includes(n % 12)) { g += `<rect x="${x}" y="0" width="${kw}" height="${H}" fill="#fff" stroke="#333" stroke-width="1"/>` + mark(n, x + kw / 2, H - 10, true); x += kw; whites++; }
+    else blacks += `<rect x="${x - BW / 2}" y="0" width="${BW}" height="${BH}" fill="#222"/>` + mark(n, x, BH - 8, false);
+  }
+  return `<svg width="${x}" height="${H + 2}" viewBox="-1 -1 ${x + 2} ${H + 2}" role="img" aria-label="Piano keys">${g}${blacks}</svg>`;
+}
+let chordPopAt = null, chordInst = store.get('chordInst', 'guitar');
 function showChordPop(name, el, k = 0) {
   const c = chordParse(name), pop = $('#chordPop');
   if (!c) return toast(`No diagram for “${name}”`, 2000);
-  const vs = chordVoicings(c); if (!vs.length) return toast(`No diagram for “${name}”`, 2000);
+  const vs = chordInst === 'piano' ? [{ piano: true, exact: true, label: '' }] : chordVoicings(c); if (!vs.length) return toast(`No diagram for “${name}”`, 2000);
   const i = ((k % vs.length) + vs.length) % vs.length, v = vs[i];
-  const shown = c.root + QUALITY_NAMES[c.q === 'add9' ? 'maj' : c.q];
-  const note = [c.bass ? `Bass note ${c.bass}` : '', !v.exact || c.simpler ? `Plain ${v.exact ? shown : c.root} shown` : ''].filter(Boolean).join(' · ');
-  pop.innerHTML = `<b>${esc(name.replace(/b(?=[^a-z]|$)/, '♭').replace('#', '♯'))}</b><small>${esc(note || v.label)}</small>${chordSvg(v.frets)}`
+  const shown = c.root + QUALITY_NAMES[c.q === 'add9' && !v.piano ? 'maj' : c.q];
+  const names = CHORD_TONES[c.q].map(x => noteLabel(((c.pc + x - 9) % 12 + 12) % 12, /b/.test(c.root) || ['F'].includes(c.root) || /m/.test(c.q) && ['C', 'D', 'G'].includes(c.root))).join(' ');
+  const note = [v.piano ? names : '', c.bass ? `Bass note ${c.bass}` : '', !v.exact || c.simpler ? `Plain ${v.exact ? shown : c.root} shown` : ''].filter(Boolean).join(' · ');
+  pop.innerHTML = `<div class="cpinst"><button class="${chordInst === 'guitar' ? 'on' : ''}" data-ci="guitar">Guitar</button><button class="${chordInst === 'piano' ? 'on' : ''}" data-ci="piano">Piano</button></div>`
+    + `<b>${esc(name.replace(/b(?=[^a-z]|$)/, '♭').replace('#', '♯'))}</b><small>${esc(note || v.label)}</small>${v.piano ? pianoSvg(c) : chordSvg(v.frets)}`
     + (vs.length > 1 ? `<div class="cpnav"><button class="pbtn ghost" data-cp="-1" aria-label="Another way">◀</button><span>${i + 1} of ${vs.length}</span><button class="pbtn ghost" data-cp="1" aria-label="Another way">▶</button></div>` : '');
   pop.classList.add('show'); chordPopAt = { name, el, k: i };
   const r = el.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
@@ -2978,7 +3001,7 @@ function showChordPop(name, el, k = 0) {
   pop.style.top = (r.bottom + 8 + h < innerHeight ? r.bottom + 8 : Math.max(6, r.top - h - 8)) + 'px';
 }
 function hideChordPop() { $('#chordPop').classList.remove('show'); chordPopAt = null; }
-$('#chordPop').addEventListener('click', e => { const b = e.target.closest('[data-cp]'); if (b && chordPopAt) { e.stopPropagation(); showChordPop(chordPopAt.name, chordPopAt.el, chordPopAt.k + +b.dataset.cp); } });
+$('#chordPop').addEventListener('click', e => { const ci = e.target.closest('[data-ci]'); if (ci && chordPopAt) { e.stopPropagation(); chordInst = ci.dataset.ci; store.set('chordInst', chordInst); return showChordPop(chordPopAt.name, chordPopAt.el, 0); } const b = e.target.closest('[data-cp]'); if (b && chordPopAt) { e.stopPropagation(); showChordPop(chordPopAt.name, chordPopAt.el, chordPopAt.k + +b.dataset.cp); } });
 document.addEventListener('click', e => {
   const cc = e.target.closest && e.target.closest('#vPages .cs:not(.nc) .cc');
   if (cc && cc.textContent.trim()) { e.stopPropagation(); if (chordPopAt && chordPopAt.el === cc) return hideChordPop(); return showChordPop(cc.textContent.trim(), cc); }
