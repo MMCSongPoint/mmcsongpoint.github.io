@@ -395,7 +395,7 @@
   .qrcard .qrurl { font-size: 13px; color: #777; word-break: break-all; }
   .qrcard .pbtn { margin-top: 6px; }
   #prBlank.on { background: #fff; color: #000; }
-  .prbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr minmax(300px, .55fr); gap: 12px; padding: 12px; }
+  .prbody { flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: 200px 1fr minmax(300px, .55fr); gap: 12px; padding: 12px; }
   .prleft { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
   .prsongs { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
   .pradd { color: #ddd; border: 1px dashed #4a3a42; background: transparent; }
@@ -405,10 +405,11 @@
   .prsongs button { text-align: left; background: #1b1418; color: #ddd; border: 1px solid #2c2228; border-radius: 8px; padding: 9px 10px; font-size: 14px; }
   .prsongs button span { color: #8c7c84; margin-right: 8px; } .prsongs button small { display: block; color: #e0a040; font-size: 11px; margin-top: 2px; }
   .prsongs button.now { background: var(--accent); border-color: var(--accent); color: #fff; } .prsongs button.now span { color: #f3d0de; }
-  .prmain { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .prmain { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
   .prstage { flex: 1; min-height: 0; background: #000; border-radius: 10px; display: grid; place-items: center; overflow: hidden; position: relative; outline: 3px solid transparent; }
   .prstage.blank { outline-color: #555; } .prstage.blank img { opacity: .25; }
-  .prstage img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .prstage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }   /* fits the space left: a tall slide never pushes the buttons off the bottom */
+  .prstage img:not([src]), .prstage img[src=''] { display: none; }
   .prmsg { color: #a8989f; text-align: center; padding: 20px; font-size: 15px; } .prmsg.sm { font-size: 13px; padding: 10px; }
   .prnav { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .prnav .pbtn { min-width: 150px; font-size: 16px; padding: 12px; }
   .prnav span { color: #a8989f; }
