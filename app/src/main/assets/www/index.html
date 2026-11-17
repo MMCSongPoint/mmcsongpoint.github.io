@@ -6724,7 +6724,8 @@ const rvLabel = () => rvKind === 'midi' ? 'MIDI' : 'MP3';
 let mp3Approved = store.get('mp3Approved', {});
 const SPARKLE = '<svg class="aimark" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-label="AI-generated recording"><title>AI-generated recording (not reviewed yet)</title><path d="M10 2.5l1.8 5.2 5.2 1.8-5.2 1.8L10 16.5l-1.8-5.2L3 9.5l5.2-1.8zM18.5 13l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/></svg>';
 function isAiTrack(part, song) {
-  if (!part || !song || /^(sfp|songs of faith and praise)$/i.test(song.collection)) return false;   // SFP: its MIDIs (and the old MP3s) count as approved
+  if (!part || !song) return false;
+  if (!part.midi && /^(sfp|songs of faith and praise)$/i.test(song.collection)) return false;   // SFP's MP3s are real recordings; its MIDIs need approving like the rest
   return !(part.id in mp3Approved && (!part.modified || !mp3Approved[part.id] || part.modified <= mp3Approved[part.id]));
 }
 function renderNowTitle() {
