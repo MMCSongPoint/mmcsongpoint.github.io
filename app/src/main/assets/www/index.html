@@ -1509,6 +1509,7 @@ function parseMidi(buf) {
   const VOICE = /(soprano|alto|tenor|bass|lead|melody|baritone|descant)/i;
   let voices = [...new Set(notes.map(x => x.tr))].sort((a, c) => a - c).map(tr => ({ tr, name: (names[tr] || '').match(VOICE) ? titleCase((names[tr].match(VOICE) || [])[1].toLowerCase()) : '' })).filter(x => x.name);
   for (const x of notes) { const v = voices.find(y => y.tr === x.tr); x.vo = v ? v.name : ''; }
+  voices = voices.filter((v, i) => voices.findIndex(y => y.name === v.name) === i);   // a split part (Bass 1, Bass 2) is one voice
   if (voices.length < 2) voices = splitVoices(notes);   // all the voices in one track: work out which note is which voice
   // the tempo the song starts at (beats per minute), from the file's tempo marks
   const first = raw.reduce((m, x) => Math.min(m, x.s), Infinity);
