@@ -1506,10 +1506,9 @@ function parseMidi(buf) {
   tempos.sort((a, c) => a.tick - c.tick);
   const sec = tick => { let t = 0, last = 0, us = 500000; for (const x of tempos) { if (x.tick >= tick) break; t += (x.tick - last) / div * us / 1e6; last = x.tick; us = x.us; } return t + (tick - last) / div * us / 1e6; };
   const notes = raw.map(x => { const t = sec(x.s); return { t, d: Math.max(0.05, sec(x.e) - t), n: x.n, v: x.v / 127, tr: x.tr, ch: x.ch }; }).sort((a, c) => a.t - c.t);
-  const VOICE = /(soprano|alto|tenor|bass|lead|melody|baritone|descant)/i;
+  const VOICE = /((?:soprano|alto|tenor|bass|lead|melody|baritone|descant)(?:\s*\d)?)/i;   // a split part keeps its number (Bass 1, Bass 2)
   let voices = [...new Set(notes.map(x => x.tr))].sort((a, c) => a - c).map(tr => ({ tr, name: (names[tr] || '').match(VOICE) ? titleCase((names[tr].match(VOICE) || [])[1].toLowerCase()) : '' })).filter(x => x.name);
   for (const x of notes) { const v = voices.find(y => y.tr === x.tr); x.vo = v ? v.name : ''; }
-  voices = voices.filter((v, i) => voices.findIndex(y => y.name === v.name) === i);   // a split part (Bass 1, Bass 2) is one voice
   if (voices.length < 2) voices = splitVoices(notes);   // all the voices in one track: work out which note is which voice
   // the tempo the song starts at (beats per minute), from the file's tempo marks
   const first = raw.reduce((m, x) => Math.min(m, x.s), Infinity);
@@ -1620,7 +1619,7 @@ if (!MIDI_SOUNDS[midiSound]) midiSound = 'grand';
 // "A different sound for each voice": Lead, Alto, Tenor and Bass each played on their own instrument
 let midiVoiceSounds = store.get('midiVoiceSounds', null);   // null = off; else { Lead: 'flute', … }
 const MIDI_VOICE_DEFAULTS = { Lead: 'flute', Alto: 'choir', Tenor: 'choir', Bass: 'strings' };
-function midiSoundFor(vo) { return (midiVoiceSounds && vo && MIDI_SOUNDS[midiVoiceSounds[vo === 'Soprano' ? 'Lead' : vo]]) ? midiVoiceSounds[vo === 'Soprano' ? 'Lead' : vo] : midiSound; }
+function midiSoundFor(vo) { vo = (vo || '').replace(/\s*\d$/, ''); return (midiVoiceSounds && vo && MIDI_SOUNDS[midiVoiceSounds[vo === 'Soprano' ? 'Lead' : vo]]) ? midiVoiceSounds[vo === 'Soprano' ? 'Lead' : vo] : midiSound; }
 // one note: its own small set of audio nodes, from start to off (seconds on the audio clock)
 function midiNote(ctx, out, key, f, start, off, peak, waves, n) {
   const sm = MIDI_SOUNDS[key].sampled;
