@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 56 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 57 }); }
 
 function doPost(e) {
   var d;
