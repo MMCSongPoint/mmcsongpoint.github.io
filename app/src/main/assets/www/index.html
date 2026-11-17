@@ -6720,8 +6720,8 @@ function setApproved(map) { mp3Approved = map || {}; store.set('mp3Approved', mp
 async function loadApproved() { try { const r = await api('mp3Approved'); if (r.ok) setApproved(r.reviewed); } catch {} }
 // reviewed = played to the end and marked "sounded good" (and the file hasn't been replaced since)
 const rvIsReviewed = t => t.id in rvReviewed && (!t.modified || !rvReviewed[t.id] || t.modified <= rvReviewed[t.id]);
-// every song's files, known or not; SFP is left out (its MIDIs count as approved)
-function rvAll() { const ids = new Set(); for (const s of songs) if (!/^(sfp|songs of faith and praise)$/i.test(s.collection)) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
+// every song's files, known or not, in every book (SFP too)
+function rvAll() { const ids = new Set(); for (const s of songs) for (const p of s.parts) if (!!p.midi === (rvKind === 'midi')) ids.add(p.id); return (library.tracks || []).filter(t => ids.has(t.id)); }
 function rvList() {
   const known = $('#rvKnown').checked, knownIds = known ? new Set(songs.filter(isKnown).flatMap(s => s.parts.map(p => p.id))) : null;
   const q = normalize($('#rvQ').value || ''), show = $('#rvShow').value, showDone = show === 'done', flagged = new Set(rvIssues.map(x => x.fileId));
