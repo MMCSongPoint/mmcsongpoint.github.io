@@ -4178,7 +4178,7 @@ function slideSection(note, text) {
 const simgFor = f => f && f.ext === 'img' ? { f: f.id, m: String(f.modified || '') } : null;
 // admins: pictures added since are made viewable by link (Drive for desktop uploads them private)
 function shareNewPictures() { if (!isAdmin() || Date.now() - store.get('simgShareAt', 0) < 12 * 3600e3) return; store.set('simgShareAt', Date.now()); api('slideImagesShare', { seconds: 240 }).catch(() => {}); }
-const simgLists = new Map();   // song folder -> Promise<{ pngs: [ids], json: id }>
+const simgLists = new Map();   // song folder -> Promise<{ pngs: [ids], names: [file names], json: id }>
 // Slides are kept on this device (browser storage) once loaded: opening or presenting a song again needs nothing from Drive.
 const SIMG_CACHE = 'songpoint-slides-v1', simgKey = k => `https://songpoint.local/slides/${encodeURIComponent(k)}`;
 async function simgCacheGet(k) { try { if (!window.caches) return null; const r = await (await caches.open(SIMG_CACHE)).match(simgKey(k)); return r || null; } catch { return null; } }
@@ -4192,10 +4192,11 @@ function simgList(x) {
       catch (e) { const hit = await simgCacheGet(lk); if (hit) { try { return await hit.json(); } catch {} } throw e; }
       // each picture is kept on the device by its id and its date, so a slide replaced or edited in Drive is fetched again
       const ver = g => g.id + '@' + (g.modifiedTime || '');
-      const pngs = files.filter(g => /^slide-\d+\.png$/i.test(g.name)).sort((a, b) => parseInt(a.name.slice(6)) - parseInt(b.name.slice(6))).map(ver);
+      const sorted = files.filter(g => /^slide-\d+\.png$/i.test(g.name)).sort((a, b) => parseInt(a.name.slice(6)) - parseInt(b.name.slice(6)));
+      const pngs = sorted.map(ver), names = sorted.map(g => g.name);
       const j = files.find(g => g.name === 'slides.json');
       if (!pngs.length) throw new Error('No pictures');
-      const out = { pngs, json: j ? ver(j) : '' };
+      const out = { pngs, names, json: j ? ver(j) : '' };
       simgCachePut(lk, JSON.stringify(out), 'application/json');
       return out;
     })();
@@ -4231,9 +4232,13 @@ async function simgGet(ver) {   // "fileId@modifiedTime"
 async function simgDeck(x) {
   const l = await simgList(x);
   let info = {}; if (l.json) { try { info = JSON.parse(await (await simgGet(l.json)).text()); } catch {} }
-  const imgs = new Array(l.pngs.length); let next = 0;
-  const one = async () => { while (next < l.pngs.length) { const i = next++; imgs[i] = URL.createObjectURL(await simgGet(l.pngs[i])); } };
+  // slides.json's "order": a repeated slide (the chorus again) is saved once, and named again in the order
+  let seq = l.pngs;
+  if (Array.isArray(info.order) && l.names) { const byName = new Map(l.names.map((n, i) => [n, l.pngs[i]])); const o = info.order.map(n => byName.get(n)).filter(Boolean); if (o.length) seq = o; }
+  const uniq = [...new Set(seq)], urls = new Map(); let next = 0;
+  const one = async () => { while (next < uniq.length) { const v = uniq[next++]; urls.set(v, URL.createObjectURL(await simgGet(v))); } };
   await Promise.all(Array.from({ length: driveBlocked() ? 8 : 4 }, one));   // through the server: more at once
+  const imgs = seq.map(v => urls.get(v));
   const texts = info.texts || [], notes = info.notes || [];
   return { imgs, texts, sections: imgs.map((_, i) => slideSection(notes[i], texts[i])), src: 'png' };
 }

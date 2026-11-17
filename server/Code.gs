@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 54 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 55 }); }
 
 function doPost(e) {
   var d;
@@ -232,6 +232,7 @@ function handle_(d) {
   if (a === 'slideImagesIndexBuild') return slideImagesIndexBuild_();
   if (a === 'slideImagesShare') return slideImagesShare_(Number(d.seconds) || 240, Number(d.part) || 0, Number(d.of) || 1);
   if (a === 'slideImagesStatus') return slideImagesStatus_();
+  if (a === 'slideImagesDedupe') return slideImagesDedupe_(Number(d.seconds) || 240, !!d.dry, Number(d.part) || 0, Number(d.of) || 1);
   if (a === 'mp3Issues') return { ok: true, issues: mp3Issues_(), reviewed: mp3Reviewed_() };
   if (a === 'mp3Review') return mp3Review_(me, d);
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);
@@ -1183,14 +1184,17 @@ function slideImagesRun_(seconds, part, of) {
         if (d && d.folder) { try { folder = DriveApp.getFolderById(d.folder); } catch (e) {} }
         if (!folder) folder = it.hasNext() ? it.next() : bookFolder.createFolder(name);
         var old = folder.getFiles(); while (old.hasNext()) old.next().setTrashed(true);
+        var order = [], seen = {};   // a repeated slide (the chorus again) is saved once; "order" names the picture for each slide
         for (var n = 0, tries = 0; n < info.ids.length; n++) {
           var th;   // Slides API (Services › Slides): a 1600-wide picture of the slide
           try { th = Slides.Presentations.Pages.getThumbnail(conv, info.ids[n], { 'thumbnailProperties.thumbnailSize': 'LARGE', 'thumbnailProperties.mimeType': 'PNG' }); }
           catch (e) { if (/quota|rate|429/i.test(String(e)) && (tries = (tries || 0) + 1) < 6) { Utilities.sleep(15000); n--; continue; } throw new Error('picture ' + (n + 1) + ': ' + String(e).slice(0, 150)); }
           var png = UrlFetchApp.fetch(th.contentUrl).getBlob().setName('slide-' + ('0' + (n + 1)).slice(-2) + '.png');
-          folder.createFile(png);
+          var h = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, png.getBytes()));
+          if (seen[h]) { order.push(seen[h]); continue; }
+          seen[h] = png.getName(); order.push(png.getName()); folder.createFile(png);
         }
-        folder.createFile('slides.json', JSON.stringify({ source: f.id, name: title, book: f.book, updated: f.updated, count: info.ids.length, texts: info.texts, notes: info.notes }), 'application/json');
+        folder.createFile('slides.json', JSON.stringify({ source: f.id, name: title, book: f.book, updated: f.updated, count: info.ids.length, order: order, texts: info.texts, notes: info.notes }), 'application/json');
         row[2] = folder.getId(); row[4] = info.ids.length; made++;
       } catch (e) { row[6] = String(e.message || e).slice(0, 300); failed++; }
       lock.waitLock(30000);
@@ -1202,6 +1206,41 @@ function slideImagesRun_(seconds, part, of) {
     }
     return { ok: true, made: made, failed: failed, left: left, total: list.length };
   }
+}
+// Tidy-up: in each song's Slide Images folder, a picture that's the same as an earlier one (the chorus again) goes to the
+// trash, and slides.json gets "order" (the picture for each slide), which the app and the exporters follow. dry: only count.
+// Runs a few minutes at a time; several at once each take every of-th folder.
+function slideImagesDedupe_(seconds, dry, part, of) {
+  var t0 = Date.now(), limit = Math.min(seconds, 330) * 1000, byFolder = {}, jsons = {};
+  driveAll_("name contains 'slide-' and mimeType = 'image/png' and trashed = false", 'id,name,parents,md5Checksum,size').forEach(function (f) {
+    if (!/^slide-\d+\.png$/.test(f.name) || !f.parents) return;
+    (byFolder[f.parents[0]] = byFolder[f.parents[0]] || []).push(f);
+  });
+  driveAll_("name = 'slides.json' and trashed = false", 'id,parents').forEach(function (f) { if (f.parents) jsons[f.parents[0]] = f.id; });
+  var out = { ok: true, dry: dry, folders: 0, withRepeats: 0, repeats: 0, repeatBytes: 0, totalBytes: 0, done: 0, left: 0, errors: [] };
+  var hash = function (id) { var h = 0; for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100003; return h; };
+  Object.keys(byFolder).forEach(function (fid) {
+    if (!jsons[fid]) return;   // only song folders made by the exporters
+    var files = byFolder[fid].sort(function (a, b) { return parseInt(a.name.slice(6), 10) - parseInt(b.name.slice(6), 10); });
+    out.folders++; files.forEach(function (f) { out.totalBytes += Number(f.size) || 0; });
+    var seen = {}, order = [], dups = [];
+    files.forEach(function (f) { var k = f.md5Checksum; if (k && seen[k]) { order.push(seen[k]); dups.push(f); } else { if (k) seen[k] = f.name; order.push(f.name); } });
+    if (!dups.length) return;
+    out.withRepeats++; out.repeats += dups.length; dups.forEach(function (f) { out.repeatBytes += Number(f.size) || 0; });
+    if (dry || hash(fid) % of !== part) return;
+    if (Date.now() - t0 > limit) { out.left++; return; }
+    try {
+      var jf = DriveApp.getFileById(jsons[fid]), info = JSON.parse(jf.getBlob().getDataAsString());
+      if (!info.order) {
+        if (info.count && Number(info.count) !== files.length) throw new Error('slides.json says ' + info.count + ' slides, folder has ' + files.length);
+        info.order = order; jf.setContent(JSON.stringify(info));
+      }
+      dups.forEach(function (f) { Drive.Files.update({ trashed: true }, f.id); });
+      out.done++;
+    } catch (e) { out.errors.push(fid + ': ' + String(e.message || e).slice(0, 150)); }
+  });
+  out.errors = out.errors.slice(0, 20);
+  return out;
 }
 function slideImagesStatus_() {
   var v = tab_(SIMG, SIHEAD).getDataRange().getValues().slice(1);

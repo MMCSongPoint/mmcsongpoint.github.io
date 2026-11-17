@@ -65,7 +65,9 @@ function Up-To-Date($outDir, $updated) {
   if (-not (Test-Path $j)) { return $false }
   try { $info = Get-Content $j -Raw -Encoding UTF8 | ConvertFrom-Json } catch { return $false }
   $pngs = @(Get-ChildItem -Path $outDir -Filter 'slide-*.png' -File -ErrorAction SilentlyContinue).Count
-  return ([int64]$info.updated -ge ($updated - 5000)) -and ($pngs -eq [int]$info.count) -and ($pngs -gt 0)
+  # a repeated slide (the chorus again) is saved once and named again in "order"
+  $want = [int]$info.count; if ($info.order) { $want = @($info.order | Select-Object -Unique).Count }
+  return ([int64]$info.updated -ge ($updated - 5000)) -and ($pngs -eq $want) -and ($pngs -gt 0)
 }
 
 $pp = $null
@@ -113,14 +115,22 @@ foreach ($d in $decks) {
       $notes.Add(($note -replace "`r", "`n"))
     }
     $pres.Close(); $pres = $null
-    $json = [ordered]@{ name = $title; book = $d.Book; file = $f.Name; updated = $updated; count = $i; width = $Width; height = $h; texts = $texts.ToArray(); notes = $notes.ToArray(); madeBy = 'PowerPoint'; made = (Get-Date).ToUniversalTime().ToString('o') }
+    # a slide that's the same picture as an earlier one (the chorus again) is kept once: "order" names the picture for each slide
+    $order = New-Object System.Collections.Generic.List[string]; $seen = @{}
+    for ($k = 1; $k -le $i; $k++) {
+      $pf = Join-Path $tmp ('slide-{0:D2}.png' -f $k)
+      $hash = (Get-FileHash -Path $pf -Algorithm SHA256).Hash
+      if ($seen.ContainsKey($hash)) { $order.Add($seen[$hash]); Remove-Item -Path $pf -Force }
+      else { $seen[$hash] = [IO.Path]::GetFileName($pf); $order.Add($seen[$hash]) }
+    }
+    $json = [ordered]@{ name = $title; book = $d.Book; file = $f.Name; updated = $updated; count = $i; order = $order.ToArray(); width = $Width; height = $h; texts = $texts.ToArray(); notes = $notes.ToArray(); madeBy = 'PowerPoint'; made = (Get-Date).ToUniversalTime().ToString('o') }
     [IO.File]::WriteAllText((Join-Path $tmp 'slides.json'), ($json | ConvertTo-Json -Depth 4 -Compress), $utf8)
     # swap the new pictures in (old ones go to Drive's trash)
     New-Item -ItemType Directory -Force -Path $outDir | Out-Null
     Get-ChildItem -Path $outDir -File | Where-Object { $_.Name -like 'slide-*.png' -or $_.Name -eq 'slides.json' } | Remove-Item -Force
     Get-ChildItem -Path $tmp -File | Move-Item -Destination $outDir -Force
     $made++
-    Log ("[{0}/{1}] {2} › {3}: {4} slides" -f $n, $decks.Count, $d.Book, $title, $i) 'Green'
+    Log ("[{0}/{1}] {2} › {3}: {4} slides ({5} pictures)" -f $n, $decks.Count, $d.Book, $title, $i, $seen.Count) 'Green'
   } catch {
     $failed++
     Log ("[{0}/{1}] {2} › {3}: FAILED: {4}" -f $n, $decks.Count, $d.Book, $title, $_.Exception.Message) 'Red'
