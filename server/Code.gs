@@ -202,7 +202,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 63 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 64 }); }
 
 function doPost(e) {
   var d;
@@ -251,7 +251,8 @@ function handle_(d) {
   if (a === 'slideUpload') return slideUpload_(me, d);
   if (a === 'slideLive') return slideLive_(d);
   if (a === 'deckFile') return deckFile_(d);
-  if (a === 'chordUpload') return chordUpload_(me, d);
+  // chord sheets are shared by every church: only Martindale's admins and the Super Admin replace them
+  if (a === 'chordUpload') return me.super || (me.admin && me.church === HOME_CHURCH) ? chordUpload_(me, d) : { ok: false, error: 'Chord sheets are shared by every church, so they\'re looked after by Martindale\'s admins.' };
   if (a === 'listsGet') return listsGet_(me);
   if (a === 'listSave') return listSave_(me, d);
   if (a === 'listDelete') return listDelete_(me, d);

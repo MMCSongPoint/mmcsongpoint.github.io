@@ -7732,7 +7732,7 @@ function openRowMenu(s, btn) {
     `<button data-m="fav"><span class="ic star">${isFav(s) ? '★' : '☆'}</span>${isFav(s) ? 'Remove from Favorites' : 'Add to Favorites'}</button>`
     + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (Tap to Cancel)' : saved ? 'Remove Offline Copy' : 'Save for Offline'}</button>` : '')
     + (isLibAdmin() ? `<button data-m="editchords"><span class="ic">✎</span>${s.chords.length ? 'Edit Chord Sheet' : 'Write a Chord Sheet'}</button>` : '')
-    + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Replace Chord Sheet (Upload a File)' : 'Upload a Chord Sheet'}</button>`
+    + (isLibAdmin() ? `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Replace Chord Sheet (Upload a File)' : 'Upload a Chord Sheet'}</button>` : '')
     + (isAdmin() ? `<button data-m="savedkey"><span class="ic">♯</span>Change Saved Key${s.musicKey ? ` (${esc(s.musicKey.replace('b', '♭').replace('#', '♯'))})` : ''}</button>` : '')
     + (isAdmin() ? `<button data-m="known"><span class="ic known">▍</span>${isKnown(s) ? 'Not a Song We Know' : 'Mark as a Song We Know'}</button>` : '')
     + (tuneMates(s) ? `<button data-m="tune"><span class="ic">♫</span>Same Tune As… (${tuneMates(s).length - 1})</button>` : '')
