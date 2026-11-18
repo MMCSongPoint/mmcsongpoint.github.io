@@ -399,7 +399,7 @@
   .qrcard .qrc { font-size: 17px; } .qrcard .qrc b { font-size: 26px; letter-spacing: .1em; }
   .qrcard .qrurl { font-size: 13px; color: #777; word-break: break-all; }
   .qrcard .pbtn { margin-top: 6px; }
-  #prBlank.on { background: #fff; color: #000; }
+  #prBlank.on { background: #fff; color: #000; } #prChords.on, #rmChords.on { background: var(--accent); color: #fff; border-color: var(--accent); }
   .prbody { flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: 200px 1fr minmax(300px, .55fr); gap: 12px; padding: 12px; }
   .prleft { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
   .prsongs { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
@@ -1173,6 +1173,7 @@
     <span class="prup" id="prUp"><i></i><span></span></span><span class="prcode" id="prCode"></span>
     <button class="pbtn ghost" id="prOrder" title="Play the slides in the chords' order (the arrangement if the song has one), or as they are in the PowerPoint">Order: Chords</button>
     <button class="pbtn ghost" id="prRefresh" title="Get the latest chord sheets, arrangements and slides (after changing them)">Refresh</button>
+    <button class="pbtn ghost" id="prChords" title="This song: the wall stays black and singers and musicians see the chord sheet (for a song without slides)">Chords Only</button>
     <button class="pbtn ghost" id="prBlank" title="Black screen (B)">Blank</button>
     <button class="pbtn" id="prProj">Start Slideshow</button>
   </div>
@@ -3893,6 +3894,7 @@ function remoteCmd(c) {
   else if (c.t === 'prev') prStep(-1);
   else if (c.t === 'blank') setBlank(true);
   else if (c.t === 'unblank') setBlank(false);
+  else if (c.t === 'chordsOn' || c.t === 'chordsOff') prSetCO(c.t === 'chordsOn');
   else if (c.t === 'goto') {   // jump to another song: the screen goes (and stays) black until "Show"
     const si = Math.max(0, Math.min(pr.songs.length - 1, +c.si || 0));
     pr.blank = true; pr.endBlank = false; prShowSong(si, 0);
@@ -3936,8 +3938,12 @@ function perfState() {
   const st = { t: 'state', seq: ++perf.seq, host: userName(), beat: Date.now() };
   if (perf.listen) return Object.assign(st, { listen: 1, song: now ? now.song.key : '', list: queue.map(x => x.key).slice(0, 60) }, perf.ls || {});
   if (pr) {   // presenting: musicians follow the song (and the words on the projector); their key and scrolling stay their own
-    const s = pr.songs[pr.si];
-    return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
+    const s = pr.songs[pr.si], co = prCO(s);
+    if (co) return Object.assign(st, { presenter: 1, song: s.key, list: pr.songs.map(x => x.key), group: 'Chords', mode: 'chords', chordsOnly: 1, canChords: 1,
+      keyP: keyOverrides.has(s.key) ? keyOverrides.get(s.key) : null, si: pr.si, titles: pr.songs.map(x => (x.number ? x.number + '. ' : '') + x.title), count: 0, nextIdx: -1,
+      deckId: '', fresh: 0, rev: pr.rev || 0, deckTitle: '', liveDeck: 0, media: '', view: pr.larrs && pr.larrs[s.key] ? 'list' : 'arranged', larr: pr.larrs && pr.larrs[s.key] ? pr.larrs[s.key] : null,
+      slideNo: 0, slideIdx: -1, blank: pr.blank ? 1 : 0, slideText: '', slideSection: '' });
+    return Object.assign(st, { presenter: 1, canChords: prCanCO(s) ? 1 : 0, song: s.key, list: pr.songs.map(x => x.key), group: s.chords.length ? 'Chords' : null, mode: 'chords',
       keyP: !s.deck && keyOverrides.has(s.key) ? keyOverrides.get(s.key) : null,
       si: pr.si, titles: pr.songs.map(x => (x.number ? x.number + '. ' : '') + x.title), count: pr.deck ? pr.deck.imgs.length : 0,
       nextIdx: pr.deck && pr.slide + 1 < pr.deck.imgs.length ? (pr.deck.order ? pr.deck.order[pr.slide + 1] : pr.slide + 1) : -1,
@@ -4723,7 +4729,7 @@ async function prShowSong(si, slide) {
     if (pr.slide < 0) pr.slide = Math.max(0, pr.deck.imgs.length - 1);   // came back from the next song: its last slide
     pr.slide = Math.min(pr.slide, Math.max(0, pr.deck.imgs.length - 1));
   } catch (e) { if (pr && pr.si === want) { pr.deck = { imgs: [], texts: [], error: e.message }; } }
-  if (pr && pr.si === want && prIsPpt(s)) { const atEnd = slide < 0; pr.slide = 0; prRender(); await pptStart(s, atEnd); }
+  if (pr && pr.si === want && prIsPpt(s) && !prCO(s)) { const atEnd = slide < 0; pr.slide = 0; prRender(); await pptStart(s, atEnd); }
   prRender();
 }
 function prStep(d) {
@@ -4734,6 +4740,11 @@ function prStep(d) {
     pr.blank = false; pr.endBlank = false; return prRender();
   }
   const cm = pr.songs[pr.si];
+  if (prCO(cm)) {   // chords only: no slides to step through, so Next and Prev go from song to song
+    if (d > 0) { if (pr.si < pr.songs.length - 1) return prShowSong(pr.si + 1, 0); pr.blank = true; pr.endBlank = true; return prRender(); }
+    if (pr.si > 0) return prShowSong(pr.si - 1, prIsLive(pr.songs[pr.si - 1]) ? 0 : -1);
+    return;
+  }
   if (d > 0 && cm && (cm.media === 'video' || cm.media === 'audio') && !cm.mPlayed) { mediaPlay(cm, true); return; }   // first Next plays it
   const live = prIsLive(pr.songs[pr.si]), pp = prIsPpt(pr.songs[pr.si]) && pr.pptOpen && pr.ppt;
   if (pp && pr.ppt.running && !(d > 0 && pr.ppt.done) && !(d < 0 && pr.ppt.slide <= 1)) {   // PowerPoint steps itself (animations too)
@@ -4747,9 +4758,21 @@ function prStep(d) {
   if (!live && !pp && pr.deck && pr.slide > 0) { pr.slide--; return prRender(); }
   if (pr.si > 0) return prShowSong(pr.si - 1, prIsLive(pr.songs[pr.si - 1]) ? 0 : -1);
 }
+// ---- "Chords Only" (per song, in the presenter or from the phone remote): the wall stays black, and people following see
+// the chord sheet even with "View Slides" on. For a song with chords whose slides aren't made or approved yet.
+const prCanCO = s => !!(s && !s.deck && !s.media && s.chords && s.chords.length);
+const prCO = s => !!(pr && prCanCO(s) && pr.cOnly && pr.cOnly.has(s.key));
+function prSetCO(on) {
+  if (!pr) return; const s = pr.songs[pr.si]; if (!prCanCO(s)) return toast('Only songs with a chord sheet can be shown as chords only');
+  pr.cOnly = pr.cOnly || new Set();
+  if (on) { pr.cOnly.add(s.key); if (pr.pptOpen) pptEnd(); mediaStop(s); } else pr.cOnly.delete(s.key);
+  prShowSong(pr.si, 0);
+}
+$('#prChords').onclick = () => { if (pr) prSetCO(!prCO(pr.songs[pr.si])); };
 function prSend() {
   if (!prChannel || !pr) return;
   const s = pr.songs[pr.si], img = pr.deck && pr.deck.imgs[pr.slide];
+  if (prCO(s)) return prChannel.postMessage({ t: 'blank' });
   if (!pr.blank && prIsLive(s)) return prChannel.postMessage({ t: 'live', url: liveUrl(s.liveId), focus: !!pr.liveFocus });
   if (s.media === 'video' && !pr.blank) return prChannel.postMessage({ t: 'video', url: s.url, play: !!s.mPlaying, loop: !!s.mLoop, sn: s.mSeekN || 0, st: s.mSeekT || 0 });
   if (s.media === 'audio' || s.upP) return prChannel.postMessage({ t: 'blank' });
@@ -4800,7 +4823,7 @@ function prRender() {
   const picSet = pr.songs[pr.si] && pr.songs[pr.si].media === 'pics';   // pictures: a number on each (tap it to move that picture)
   $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<div class="prth${i === pr.slide ? ' now' : ''}" data-i="${i}"><img src="${u}" alt="Slide ${i + 1}" draggable="false">${picSet ? `<button class="prnum" data-pos="${i}" title="Shows ${i + 1}${['st', 'nd', 'rd'][i] || 'th'}. Tap to move it.">${i + 1}</button>` : ''}</div>`).join('') : '';
   const nowThumb = $('#prThumbs .now'); if (nowThumb) nowThumb.scrollIntoView({ block: 'nearest' });
-  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.upP ? '<small>uploading…</small>' : x.media ? `<small>${x.media === 'video' ? 'video' : x.media === 'audio' ? 'music' : x.count === 1 ? 'picture' : x.count + ' pictures'}</small>` : x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'live' ? 'Google Slides' : 'still pictures'}</u>`}</small>` : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
+  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.upP ? '<small>uploading…</small>' : x.media ? `<small>${x.media === 'video' ? 'video' : x.media === 'audio' ? 'music' : x.count === 1 ? 'picture' : x.count + ' pictures'}</small>` : x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'live' ? 'Google Slides' : 'still pictures'}</u>`}</small>` : prCO(x) ? '<small style="color:inherit;opacity:.8">chords only</small>' : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
   $('#prPos').dataset.ppt = '';
   if (prIsPpt(s)) {
     const st = pr.ppt;
@@ -4813,6 +4836,13 @@ function prRender() {
     $('#prCur').style.display = 'none'; $('#prMsg').style.display = '';
     $('#prMsg').innerHTML = `<b style="font-size:20px;color:#fff">${esc(s.title)}</b><br>Playing live on the projector, with animations.<br>The clicker and arrow keys now go to the projector window${prWin && !prWin.closed ? '' : ' (click the projector screen once if they don\'t)'}.<br><br>When the speaker is done, press <b>Next</b> here.<br><br><button class="pbtn ghost" id="prLiveFocus">Give the Clicker to the Projector</button>`;
     $('#prPos').textContent = 'Live Slides (Animations On)';
+  }
+  $('#prChords').style.display = prCanCO(s) ? '' : 'none'; $('#prChords').classList.toggle('on', prCO(s));
+  $('#prChords').textContent = prCO(s) ? 'Chords Only ✓' : 'Chords Only';
+  if (prCO(s)) {
+    $('#prCur').style.display = 'none'; $('#prMsg').style.display = '';
+    $('#prMsg').innerHTML = `<b style="font-size:20px;color:#fff">${esc(s.title)}</b><br>Chords only: the wall is black.<br>Singers and musicians following see the chord sheet.`;
+    $('#prPos').textContent = 'Chords Only'; $('#prThumbs').innerHTML = ''; $('#prCcli').textContent = '';
   }
   prSend(); perfSync();
 }
@@ -5309,7 +5339,7 @@ let followSlides = store.get('followSlides', true);
 let viewSlides = store.get('viewSlides', false), pipKey = '';
 function perfSlideView(st) {
   const box = $('#slidePip');
-  const on = viewSlides && perf && perf.role === 'guest' && st && st.presenter && $('#viewer').classList.contains('show');
+  const on = viewSlides && perf && perf.role === 'guest' && st && st.presenter && !st.chordsOnly && $('#viewer').classList.contains('show');
   box.classList.toggle('show', !!on);
   if (!on) { pipKey = ''; return; }
   placeSlidePip();
@@ -7338,6 +7368,7 @@ function rmRender() {
     <div class="rminfo"><div><b id="rmTitle"></b><br><small id="rmPos"></small></div></div>
     <div class="rmnext"><div class="th" id="rmNextImg"></div><div id="rmNextTxt"></div></div>
     <div class="rmctl"><button class="pbtn" id="rmPrev">◀ Prev</button><button class="pbtn ghost" id="rmBlank">Black</button><button class="pbtn" id="rmNext">Next ▶</button></div>
+    <button class="pbtn ghost" id="rmChords" style="width:100%;margin-bottom:8px" title="This song: the wall stays black and everyone following sees the chord sheet">Chords Only</button>
     <div class="rmsongs" id="rmSongs"></div>
     <button class="pbtn ghost" id="rmAdd" style="width:100%;margin-top:4px">＋ Add a Song</button>
     <p class="m" style="font-size:12.5px;color:var(--muted)">Tapping a song jumps there with the screen black, until you tap <b>Show</b>.</p>`;
@@ -7345,11 +7376,14 @@ function rmRender() {
   $('#rmTitle').textContent = titles[si] || (rmItem(st.song) || {}).title || '';
   $('#rmPos').textContent = st.media === 'video' ? 'Video on the projector (Next plays it, then goes on)' : st.media === 'audio' ? 'Music (Next plays it, then goes on)' : st.media ? 'Pictures (shown on the computer)' : st.liveDeck ? 'Speaker slides playing in Google Slides' : st.count ? `Slide ${(st.slideNo || 0) + 1} of ${st.count}` : 'No slides';
   $('#rmNow').classList.toggle('blank', !!st.blank);
-  $('#rmNow').querySelector('.rmbadge')?.remove();
+  $('#rmNow').querySelectorAll('.rmbadge').forEach(x => x.remove());
   if (st.blank) $('#rmNow').insertAdjacentHTML('beforeend', '<span class="rmbadge">SCREEN BLACK</span>');
   rmImg(st.deckId ? rmDeckKey(st) : st.song, st.liveDeck ? -1 : (st.slideIdx ?? st.slideNo ?? 0), $('#rmNowImg'), true);
   if (st.nextIdx >= 0) { $('#rmNextTxt').textContent = 'Next Slide'; rmImg(st.deckId ? rmDeckKey(st) : st.song, st.nextIdx, $('#rmNextImg')); }
   else { const nk = (st.list || [])[si + 1]; $('#rmNextTxt').textContent = nk ? `Next: ${titles[si + 1] || (rmItem(nk) || {}).title || ''}` : 'Next: black screen (end)'; rmImg(nk, nk ? 0 : -1, $('#rmNextImg')); }
+  $('#rmChords').style.display = st.canChords || st.chordsOnly ? '' : 'none'; $('#rmChords').classList.toggle('on', !!st.chordsOnly);
+  $('#rmChords').textContent = st.chordsOnly ? 'Chords Only ✓ (wall is black)' : 'Chords Only';
+  if (st.chordsOnly) { $('#rmPos').textContent = 'Chords only: the wall is black'; $('#rmNow').insertAdjacentHTML('beforeend', '<span class="rmbadge" style="background:var(--accent)">CHORDS ONLY</span>'); }
   $('#rmBlank').textContent = st.blank ? 'Show' : 'Black'; $('#rmBlank').classList.toggle('on', !!st.blank);
   $('#rmSongs').innerHTML = (st.list || []).map((k, i) => `<button class="${i === si ? 'now' : ''}" data-si="${i}"><span>${i + 1}</span>${esc(titles[i] || (rmItem(k) || {}).title || 'Slides')}</button>`).join('');
 }
@@ -7366,6 +7400,7 @@ $('#rmBody').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || !rm || !rm.st) return;
   if (b.id === 'rmNext') rmSend({ t: 'next' });
   else if (b.id === 'rmPrev') rmSend({ t: 'prev' });
+  else if (b.id === 'rmChords') rmSend({ t: rm.st.chordsOnly ? 'chordsOff' : 'chordsOn' });
   else if (b.id === 'rmBlank') rmSend({ t: rm.st.blank ? 'unblank' : 'blank' });
   else if (b.id === 'rmAdd') { $('#rmAddQ').value = ''; rmAddList(); $('#rmAddBox').classList.add('show'); setTimeout(() => $('#rmAddQ').focus(), 50); }
   else if (b.dataset.si != null) rmSend({ t: 'goto', si: +b.dataset.si });

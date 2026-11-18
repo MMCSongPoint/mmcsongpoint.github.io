@@ -202,7 +202,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 64 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 65 }); }
 
 function doPost(e) {
   var d;
@@ -1128,7 +1128,7 @@ function perfRemote_(me, d) {
   var cmd = d.cmd || {};
   if (cmd.t === 'add' && cmd.song) return perfSend_({ code: code, to: s.hostPeer, msg: { type: 'remote', cmd: { t: 'add', song: String(cmd.song), where: cmd.where === 'end' ? 'end' : 'next', order: Array.isArray(cmd.order) ? cmd.order.slice(0, 40).map(function (o) { return { i: Number(o && o.i) || 0, label: String(o && o.label || '').slice(0, 60) }; }) : null }, by: me.name || me.username } });
   // remote control of a presentation from a phone: next / prev / blank / unblank / goto
-  if (['next', 'prev', 'blank', 'unblank', 'goto'].indexOf(cmd.t) >= 0)
+  if (['next', 'prev', 'blank', 'unblank', 'goto', 'chordsOn', 'chordsOff'].indexOf(cmd.t) >= 0)
     return perfSend_({ code: code, to: s.hostPeer, msg: { type: 'remote', cmd: { t: cmd.t, si: Number(cmd.si) || 0, n: String(cmd.n || '') }, by: me.name || me.username } });
   return { ok: false, error: 'Unknown request.' };
 }
