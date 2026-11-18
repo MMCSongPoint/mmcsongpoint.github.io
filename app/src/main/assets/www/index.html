@@ -1418,14 +1418,12 @@
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet">
   <h3>Settings</h3>
-  <h4 style="margin-top:12px">Account</h4>
   <p id="acctLine" style="margin:0 0 4px"></p>
   <button class="act" id="usersBtn">Manage Users</button>
   <button class="act" id="churchesBtn" style="display:none">Churches (Super Admin)</button>
   <button class="act" id="recordsBtn">Usage Records (Delete Entries)</button>
   <button class="act" id="checkBtn">Library Check (Missing Files)</button>
   <button class="act" id="midiBtn">MIDI Review (Flag Problems)</button>
-  <button class="act" id="installBtn">Installers</button>
   <div class="act" id="ccliRow" style="display:none;align-items:center;gap:10px;justify-content:space-between"><span>CCLI Licence Number</span><span id="ccliIn" class="ccliin" contenteditable="true" role="textbox" aria-label="CCLI Licence Number" inputmode="numeric" spellcheck="false"></span></div>
   <label class="act" id="projScreenRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Projector Screen <select id="projScreen" style="font:inherit;max-width:60%"></select></label>
   <label class="act" id="lidRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Keep Presenting With the Lid Closed <input type="checkbox" id="lidAwake" style="width:20px;height:20px"></label>
@@ -1433,12 +1431,10 @@
   <button class="act" id="switchUserBtn" style="display:none">Switch User</button>
   <button class="act" id="signOutBtn" style="display:none">Sign Out</button>
   <div hidden><button class="act" id="syncBtn"></button><p id="aboutLine"></p><p id="storageInfo"></p><button class="act" id="dlPartBtn"></button><button class="act danger" id="clearDlBtn"></button></div>
-  <h4>Appearance</h4>
-  <div class="seg" id="themeSeg">
+  <div class="seg" id="themeSeg" style="margin-top:8px">
     <button data-t="system">Match Device</button><button data-t="light">Light</button><button data-t="dark">Dark</button>
   </div>
-  <h4>Foot Pedal</h4>
-  <div class="seg" id="pedalSeg">
+  <div class="seg" id="pedalSeg" style="margin-top:8px">
     <button data-m="smart">Scroll, Then Next Song</button><button data-m="split">Separate Song Buttons</button>
   </div>
   <p class="m pedalhelp" id="pedalHelp"></p>
@@ -1451,6 +1447,7 @@
   <h4>About</h4>
   <p id="versionLine" style="margin:0"></p>
   <button class="act" id="buildLogBtn">Build Log</button>
+  <button class="act" id="installBtn">Installers</button>
   <button class="act" id="checkUpdBtn" style="display:none">Check for Updates</button>
   <button class="act" id="bugBtn">Report a Problem</button>
 </div>
