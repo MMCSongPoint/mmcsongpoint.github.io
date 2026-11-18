@@ -19,11 +19,15 @@
   #live.on { display: block; z-index: 1000000; }
   #vid { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; visibility: hidden; opacity: 0; transition: opacity .5s ease, visibility 0s .5s; }
   #vid.on { visibility: visible; opacity: 1; transition: opacity .5s ease, visibility 0s; }
+  /* the CCLI licence notice, bottom left, on each song's first slide */
+  #ccli { position: fixed; left: 1.6vw; bottom: 1.3vw; z-index: 999999; color: #fff; font: 600 1.5vw/1.2 system-ui, sans-serif; text-shadow: 0 0 .25vw #000, 0 .08vw .2vw #000; opacity: 0; transition: opacity .5s ease; pointer-events: none; }
+  #ccli.on { opacity: .9; }
 </style>
 </head>
 <body class="ui">
 <img class="slide" alt=""><img class="slide" alt="">
 <div id="title"></div>
+<div id="ccli"></div>
 <video id="vid" playsinline preload="auto"></video>
 <iframe id="live" allow="autoplay; fullscreen" allowfullscreen title="Speaker slides"></iframe>
 <script>
@@ -57,6 +61,20 @@ async function showSlide(src) {
   if (want !== src) return;   // another slide came meanwhile
   front = 1 - front; swapTo(next);
 }
+// the CCLI notice sits in the slide's own bottom-left corner (inside the picture, not on the black bars beside it)
+let ccliFor = '';
+function placeCcli(src) {
+  ccliFor = src; const cc = document.getElementById('ccli'), W = innerWidth, H = innerHeight;
+  let x = 0, y = 0, w = W, h = H;
+  if (src) {
+    const probe = new Image(); probe.src = src;
+    const set = () => { if (ccliFor !== src || !probe.naturalWidth) return; const r = Math.min(W / probe.naturalWidth, H / probe.naturalHeight); w = probe.naturalWidth * r; h = probe.naturalHeight * r; x = (W - w) / 2; y = (H - h) / 2; put(); };
+    if (probe.complete) set(); else probe.onload = set;
+  }
+  function put() { cc.style.left = (x + w * 0.016) + 'px'; cc.style.bottom = (y + h * 0.018) + 'px'; cc.style.fontSize = Math.max(12, w * 0.015) + 'px'; }
+  put();
+}
+addEventListener('resize', () => { if (document.getElementById('ccli').classList.contains('on')) placeCcli(ccliFor); });
 // a speaker's deck playing in Google Slides' own player: the clicker / arrow keys go straight to it
 function showLive(m) {
   img.classList.remove('on'); title.classList.remove('on');
@@ -90,6 +108,9 @@ ch.onmessage = e => {
   const m = e.data || {};
   if (m.t !== 'live' && m.t !== 'close') live.classList.remove('on');
   if (m.t !== 'video' && m.t !== 'slide' && m.t !== 'title') hideVideo();   // a slide or title covers a video instead
+  const cc = document.getElementById('ccli');
+  if (m.t === 'slide' || m.t === 'title') { if (m.ccli) { cc.textContent = m.ccli; placeCcli(m.t === 'slide' ? m.img : ''); } cc.classList.toggle('on', !!m.ccli); }
+  else if (m.t !== 'close') cc.classList.remove('on');
   if (m.t === 'video') showVideo(m);
   else if (m.t === 'live') showLive(m);
   else if (m.t === 'slide') showSlide(m.img);

@@ -141,7 +141,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 59 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 60 }); }
 
 function doPost(e) {
   var d;
@@ -215,6 +215,7 @@ function handle_(d) {
   if (a === 'topicsFile') return topicsFile_(d);   // the Topical Index spreadsheet in the SongPoint folder
   if (a === 'tuneFile') return homeXlsx_('Hymn tune index.xlsx', d);   // songs that share a melody (tune groups)
   if (a === 'firstLinesFile') return homeXlsx_('First Lines.xlsx', d);   // the first words of each song (search by words)
+  if (a === 'getSettings') return { ok: true, settings: settings_() };   // church-wide settings (the CCLI licence number)
   if (a === 'getTuneMains') return { ok: true, mains: tuneMains_() };
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);   // anyone signed in can flag a problem with a track (their name is saved with it)
   if (!me.admin) return { ok: false, error: 'Only admins can do that.' };
@@ -229,6 +230,7 @@ function handle_(d) {
   if (a === 'setTextDoc') return setTextDoc_(me, d);
   if (a === 'setKnown') return setKnown_(me, d);
   if (a === 'setTuneMain') return setTuneMain_(me, d);
+  if (a === 'setSetting') return setSetting_(d);
   if (a === 'setKeyCheck') return setKeyCheck_(me, d);
   if (a === 'setSlidesApproved') return setSlidesApproved_(me, d);
   if (a === 'setSlideSections') return setSlideSections_(me, d);
@@ -741,6 +743,20 @@ function favsSync_(me, d) {
     }
     return { ok: true, favs: rows.filter(function (r) { return String(r[0]) === user; }).map(function (r) { return String(r[1]); }) };
   } finally { lock.releaseLock(); }
+}
+
+/** Church-wide settings, set by an admin in the app: ccli = the CCLI licence number (shown on each song's first slide). */
+var SETTING_KEYS = ['ccli'];
+function settings_() {
+  var p = PropertiesService.getScriptProperties(), out = {};
+  SETTING_KEYS.forEach(function (k) { out[k] = p.getProperty('set_' + k) || ''; });
+  return out;
+}
+function setSetting_(d) {
+  var k = String(d.key || ''); if (SETTING_KEYS.indexOf(k) < 0) return { ok: false, error: 'Unknown setting.' };
+  var v = String(d.value == null ? '' : d.value).trim().slice(0, 40), p = PropertiesService.getScriptProperties();
+  if (v) p.setProperty('set_' + k, v); else p.deleteProperty('set_' + k);
+  return { ok: true, settings: settings_() };
 }
 
 /** The main tune of each tune group (the hymn people know that melody by), chosen by admins: song key -> main yes/no.

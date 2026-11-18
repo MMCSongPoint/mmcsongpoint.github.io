@@ -408,6 +408,8 @@
   .prmain { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
   .prstage { flex: 1; min-height: 0; background: #000; border-radius: 10px; display: grid; place-items: center; overflow: hidden; position: relative; outline: 3px solid transparent; }
   .prstage.blank { outline-color: #555; } .prstage.blank img { opacity: .25; }
+  .prccli { position: absolute; left: 10px; bottom: 8px; z-index: 3; color: #fff; font-size: 12px; font-weight: 600; text-shadow: 0 0 3px #000, 0 1px 2px #000; pointer-events: none; }
+  .prccli:empty { display: none; }
   .prstage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }   /* fits the space left: a tall slide never pushes the buttons off the bottom */
   .prstage img:not([src]), .prstage img[src=''] { display: none; }
   .prmsg { color: #a8989f; text-align: center; padding: 20px; font-size: 15px; } .prmsg.sm { font-size: 13px; padding: 10px; }
@@ -1147,7 +1149,7 @@
     <div class="prleft"><div class="prsongs" id="prSongs"></div><button class="pbtn ghost pradd" id="prAdd">＋ Add Slides or Media</button>
       <input type="file" id="prFile" multiple accept=".pptx,.ppt,.pdf,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*,.heic,.heif,video/*,audio/*,.mp4,.m4v,.mov,.webm,.mkv,.mp3,.m4a,.wav,.aac,.ogg,.flac" hidden></div>
     <div class="prmain">
-      <div class="prstage"><img id="prCur" alt=""><video id="prVid" playsinline preload="auto"></video><div class="prmsg" id="prMsg"></div></div>
+      <div class="prstage"><img id="prCur" alt=""><div class="prccli" id="prCcli"></div><video id="prVid" playsinline preload="auto"></video><div class="prmsg" id="prMsg"></div></div>
       <div class="prnav"><button class="pbtn" id="prPrev">◀ Previous</button><span class="prmid"><span id="prPos"></span><span id="prAuto"></span></span><button class="pbtn" id="prNext">Next ▶</button></div>
     </div>
     <div class="prside"><div class="prlbl">Next</div><div class="prnext"><img id="prNextImg" alt=""><div class="prmsg sm" id="prNextMsg"></div></div><div class="prlbl">This Song</div><div class="prthumbs" id="prThumbs"></div></div>
@@ -1398,6 +1400,7 @@
   <button class="act" id="checkBtn">Library Check (Missing Files)</button>
   <button class="act" id="midiBtn">MIDI Review (Flag Problems)</button>
   <button class="act" id="installBtn">Installers</button>
+  <label class="act" id="ccliRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">CCLI Licence Number <input id="ccliIn" inputmode="numeric" autocomplete="off" placeholder="None" style="font:inherit;width:9em;text-align:right;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)"></label>
   <label class="act" id="projScreenRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Projector Screen <select id="projScreen" style="font:inherit;max-width:60%"></select></label>
   <label class="act" id="lidRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Keep Presenting With the Lid Closed <input type="checkbox" id="lidAwake" style="width:20px;height:20px"></label>
   <button class="act" id="changePwBtn">Change Password</button>
@@ -4674,13 +4677,17 @@ function prSend() {
   if (s.media === 'audio' || s.upP) return prChannel.postMessage({ t: 'blank' });
   // PowerPoint's own show covers the projector; until it's up, the projector stays black (pictures only if it failed)
   if (prIsPpt(s) && !pr.pptError) return prChannel.postMessage({ t: 'blank' });
+  const ccli = prCcli();
   if (pr.blank) prChannel.postMessage({ t: 'blank' });
-  else if (img) prChannel.postMessage({ t: 'slide', img });
-  else if (pr.deck) prChannel.postMessage({ t: 'title', text: s.title });
+  else if (img) prChannel.postMessage({ t: 'slide', img, ccli });
+  else if (pr.deck) prChannel.postMessage({ t: 'title', text: s.title, ccli });
   else prChannel.postMessage({ t: 'blank' });
 }
+// the CCLI licence notice: on a song's first slide only (not on speaker slides, pictures or videos)
+function prCcli() { const s = pr && pr.songs[pr.si]; return s && !s.deck && !s.media && !pr.blank && pr.slide === 0 ? ccliText() : ''; }
 function prRender() {
   if (!pr) return;
+  $('#prCcli').textContent = prCcli();
   const s = pr.songs[pr.si], deck = pr.deck, n = deck ? deck.imgs.length : 0;
   $('#prTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
   $('#prSub').textContent = ` · song ${pr.si + 1} of ${pr.songs.length}`;
@@ -6332,6 +6339,7 @@ function renderWelcome() {
   document.body.classList.toggle('guest', isGuest());
   document.body.classList.toggle('visitor', isVisitor() || visitorEnded);
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
+  $('#ccliRow').style.display = isAdmin() ? 'flex' : 'none'; if (document.activeElement !== $('#ccliIn')) $('#ccliIn').value = appSettings.ccli || '';
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
   $('#midiBtn').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
@@ -8495,6 +8503,18 @@ $('#noteSlides').onclick = async () => {
 
 // ------------------------------------------------------------------ start
 let started = false;
+// Church-wide settings from the server (an admin sets them in Settings): the CCLI licence number, shown at the bottom left
+// of the first slide of every song when presenting. A copy is kept on the device for presenting offline.
+let appSettings = (() => { try { return JSON.parse(localStorage.getItem('appSettings') || '{}'); } catch { return {}; } })();
+function applySettings(x) { appSettings = x || {}; try { localStorage.setItem('appSettings', JSON.stringify(appSettings)); } catch {} if (!$('#ccliIn').matches(':focus')) $('#ccliIn').value = appSettings.ccli || ''; if (typeof pr !== 'undefined' && pr) { prRender(); } }
+async function loadSettings() { try { const r = await api('getSettings'); if (r.ok) applySettings(r.settings); } catch {} }
+const ccliText = () => appSettings.ccli ? `CCLI Licence # ${appSettings.ccli}` : '';
+$('#ccliIn').addEventListener('change', async e => {
+  const v = e.target.value.trim();
+  try { const r = await api('setSetting', { key: 'ccli', value: v }); if (!r.ok) return toast(r.error || 'Couldn\'t save that'); applySettings(r.settings); toast(v ? 'CCLI licence number saved' : 'CCLI licence number removed'); }
+  catch { toast('Couldn\'t reach the server. Check your internet connection.'); }
+});
+$('#ccliIn').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 function startApp(fresh = false) {
   if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000 || !library.sheets || (CFG.slideImagesFolder && (!library.slides || library.slidesV !== 2)) || (CFG.chordsFolder && !library.chords)) sync();
   if (!started || fresh) {
@@ -8503,7 +8523,7 @@ function startApp(fresh = false) {
     flushLog();
     if (fresh || !usage || Date.now() - (usage.fetched || 0) > 3600000) loadUsage();
     if (navigator.onLine && auth.token) loadTextDocs();
-    if (navigator.onLine && auth.token) { loadKnown(); loadVerseCounts(); syncFavs(); loadTunes(); loadFirstLines(); }
+    if (navigator.onLine && auth.token) { loadKnown(); loadVerseCounts(); syncFavs(); loadTunes(); loadFirstLines(); loadSettings(); }
     if (navigator.onLine && auth.token) { loadKeyChecks(); loadSlideSecs(); shareNewPictures(); }
     if (navigator.onLine && auth.token) { loadApproved(); loadSlidesApproved(); }
     if (navigator.onLine && auth.token) loadArrangements(true);
