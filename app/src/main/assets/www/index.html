@@ -401,6 +401,10 @@
   .prbody { flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: 200px 1fr minmax(300px, .55fr); gap: 12px; padding: 12px; }
   .prleft { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
   .prsongs { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+  .prdesk { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid #3a2e34; border-radius: 10px; color: #ccc; font-size: 13px; }
+  .prdesk label { display: flex; flex-direction: column; gap: 4px; } .prdesk label.prlid { flex-direction: row; align-items: center; gap: 8px; }
+  .prdesk select { font: inherit; padding: 5px; border-radius: 6px; background: #1d1719; color: #eee; border: 1px solid #3a2e34; }
+  .prdesk input[type=checkbox] { width: 16px; height: 16px; }
   .pradd { color: #ddd; border: 1px dashed #4a3a42; background: transparent; }
   .prsongs button.deck { border-left: 3px solid #4f8fd8; } .prsongs button.deck small { color: #7fb0e8; }
   .prsongs button.dragging { opacity: .4; } .prsongs button.dropbefore { box-shadow: 0 -3px 0 #e48aae; } .prsongs button.dropafter { box-shadow: 0 3px 0 #e48aae; }
@@ -1171,6 +1175,10 @@
   </div>
   <div class="prbody">
     <div class="prleft"><div class="prsongs" id="prSongs"></div><button class="pbtn ghost pradd" id="prAdd">＋ Add Slides or Media</button>
+      <div class="prdesk" id="prDesk" hidden>
+        <label>Projector Screen<select id="projScreen"></select></label>
+        <label class="prlid"><input type="checkbox" id="lidAwake"> Keep presenting with the lid closed</label>
+      </div>
       <input type="file" id="prFile" multiple accept=".pptx,.ppt,.pdf,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*,.heic,.heif,video/*,audio/*,.mp4,.m4v,.mov,.webm,.mkv,.mp3,.m4a,.wav,.aac,.ogg,.flac" hidden></div>
     <div class="prmain">
       <div class="prstage"><img id="prCur" alt=""><div class="prccli" id="prCcli"></div><video id="prVid" playsinline preload="auto"></video><div class="prmsg" id="prMsg"></div></div>
@@ -1425,8 +1433,6 @@
   <button class="act" id="checkBtn">Library Check (Missing Files)</button>
   <button class="act" id="midiBtn">MIDI Review (Flag Problems)</button>
   <div class="act" id="ccliRow" style="display:none;align-items:center;gap:10px;justify-content:space-between"><span>CCLI Licence Number</span><span id="ccliIn" class="ccliin" contenteditable="true" role="textbox" aria-label="CCLI Licence Number" inputmode="numeric" spellcheck="false"></span></div>
-  <label class="act" id="projScreenRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Projector Screen <select id="projScreen" style="font:inherit;max-width:60%"></select></label>
-  <label class="act" id="lidRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Keep Presenting With the Lid Closed <input type="checkbox" id="lidAwake" style="width:20px;height:20px"></label>
   <button class="act" id="changePwBtn">Change Password</button>
   <button class="act" id="switchUserBtn" style="display:none">Switch User</button>
   <button class="act" id="signOutBtn" style="display:none">Sign Out</button>
@@ -4613,7 +4619,7 @@ function prDeck(s) {
 }
 async function prLaunch() {
   pptPing().then(() => prRender && pr && prRender());
-  $('#presenter').classList.add('show');
+  $('#presenter').classList.add('show'); deskPresenter();
   if (N && N.keepScreenOn) N.keepScreenOn(true);
   prShowSong(0, 0);
   if (!perf) await perfHostStart(true);
@@ -4625,7 +4631,7 @@ const prBegin = () => { pr = { songs: [], si: 0, slide: 0, blank: false, deck: n
 async function presentFresh() {
   if (window.Native && window.Native.isAndroid) return toast('Presenter mode runs in the web app on a computer');
   if (!navigator.onLine) return toast('Connect to the internet to present');
-  if (pr) return $('#presenter').classList.add('show');
+  if (pr) { deskPresenter(); return $('#presenter').classList.add('show'); }
   closeDrawer && closeDrawer();
   prFresh = true; await prAddPick(true);
 }
@@ -5677,12 +5683,17 @@ function viewerStep(d) {
 async function deskSheet() {
   if (!DESK) return;
   $('#pptHelperBtn').style.display = 'none';   // built into the app
+}
+// Windows app: the projector screen and the laptop-lid setting, on the presenter screen
+async function deskPresenter() {
+  if (!DESK) return;
   let info = null; try { info = await DESK.screens(); } catch {}
   if (!info) return;
-  $('#projScreenRow').style.display = 'flex';
+  $('#prDesk').hidden = false;
   $('#projScreen').innerHTML = `<option value="">Automatic${info.auto ? '' : ' (no second screen now)'}</option>` + info.screens.map((x, i) => `<option value="${esc(x.id)}">${esc(x.label || 'Screen ' + (i + 1))} · ${x.width}×${x.height}${x.primary ? ' (main)' : ''}</option>`).join('');
   $('#projScreen').value = info.picked || '';
-  if (DESK.lid) { $('#lidRow').style.display = 'flex'; try { $('#lidAwake').checked = await DESK.lid(); } catch {} }
+  $('#lidAwake').closest('label').hidden = !DESK.lid;
+  if (DESK.lid) { try { $('#lidAwake').checked = await DESK.lid(); } catch {} }
 }
 $('#lidAwake').onchange = e => { if (DESK && DESK.lid) DESK.lid(e.target.checked); toast(e.target.checked ? 'During a slideshow, closing the laptop lid won\'t put it to sleep' : 'Closing the lid works as usual again', 3500); };
 $('#projScreen').onchange = e => { if (DESK) DESK.setProjector(e.target.value); toast(e.target.value ? 'The slideshow opens on that screen' : 'The slideshow opens on the other screen', 2500); };
