@@ -6,7 +6,7 @@
 <meta name="googlebot" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#72173b">
-<title>MMC SongPoint</title>
+<title>SongPoint</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -839,7 +839,7 @@
 <div class="ptr" id="ptr"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></div>
 <div class="wrap">
   <header>
-    <div class="brand"><i id="brandIcon" role="button" aria-label="MMC SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">MMC SongPoint</span><svg id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-label="Syncing"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg></div>
+    <div class="brand"><i id="brandIcon" role="button" aria-label="MMC SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">SongPoint</span><svg id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-label="Syncing"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg></div>
     <button class="hbtn" id="joinBtn" title="Join a Performance" aria-label="Join a Performance"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button>
     <button class="hbtn" id="pipeBtn" title="Pitch Pipe" aria-label="Pitch Pipe"><span id="pipeBtnIcon"></span></button>
     <button class="hbtn" id="menuBtn" title="Menu" aria-label="Menu"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -920,7 +920,7 @@
 <div class="lock" id="lock">
   <form id="lockForm" autocomplete="off">
     <div class="logo">♪</div>
-    <h2 id="lockTitle">MMC SongPoint</h2>
+    <h2 id="lockTitle">SongPoint</h2>
     <p id="lockMsg">Sign in to continue.</p>
     <input id="lockName" type="text" placeholder="Your name (shown on song lists)" autocomplete="name" autocapitalize="words" maxlength="40">
     <input id="lockUser" type="text" placeholder="Username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="30">
@@ -1516,13 +1516,16 @@ function churchIcon(color) {
   l.type = 'image/svg+xml'; l.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
   const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = color;
 }
-const churchAppName = () => (church && church.appName) || CFG.appName;
+// nobody signed in: a plain grey "SongPoint" (someone signed in from before the churches came: Martindale's look)
+const NEUTRAL = '#555555', signedOut = () => !church && !curUser();
+const churchAppName = () => signedOut() ? 'SongPoint' : (church && church.appName) || CFG.appName;
 const churchBooks = () => (church && church.books && church.books.length ? church.books : null);
 function setChurch(c, rebuild = true) {
   const was = JSON.stringify(church); church = c || null; store.set('church', church);
-  churchTheme(church && church.accent);
+  churchTheme(signedOut() ? NEUTRAL : church && church.accent);
   $('#appName').textContent = churchAppName(); document.title = churchAppName();
-  churchIcon(church ? church.accent || '#72173b' : '#4a4a4a');
+  if ($('#lockTitle')) $('#lockTitle').textContent = churchAppName();
+  churchIcon(signedOut() ? NEUTRAL : (church && church.accent) || '#72173b');
   if (rebuild && was !== JSON.stringify(church) && typeof buildIndex === 'function' && library && library.tracks) { buildIndex(); renderTabs(); search(); }
 }
 if (!LISTEN) setChurch(church, false);
@@ -6413,7 +6416,7 @@ function signOut(expired = false) {
     auth = { token: accounts[0].token, user: accounts[0].user }; saveAuth(); store.set('lastUser', auth.user.username);
     return location.reload();
   }
-  auth = {}; saveAuth(); renderWelcome(); closeSheet();
+  auth = {}; saveAuth(); setChurch(null, false); renderWelcome(); closeSheet();
   if (visitor) $('#lockUser').value = '';
   showLock('signin', visitor ? 'The session you were following has ended. Scan the leader\'s new QR code, or sign in.' : expired ? 'Please sign in again.' : '');
 }
