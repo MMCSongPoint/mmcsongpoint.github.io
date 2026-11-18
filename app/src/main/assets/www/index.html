@@ -839,7 +839,7 @@
 <div class="ptr" id="ptr"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></div>
 <div class="wrap">
   <header>
-    <div class="brand"><i id="brandIcon" role="button" aria-label="MMC SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">SongPoint</span><svg id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-label="Syncing"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg></div>
+    <div class="brand"><i id="brandIcon" role="button" aria-label="SongPoint">♪<b class="updbadge" aria-hidden="true"></b></i><span id="appName">SongPoint</span><svg id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-label="Syncing"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg></div>
     <button class="hbtn" id="joinBtn" title="Join a Performance" aria-label="Join a Performance"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button>
     <button class="hbtn" id="pipeBtn" title="Pitch Pipe" aria-label="Pitch Pipe"><span id="pipeBtnIcon"></span></button>
     <button class="hbtn" id="menuBtn" title="Menu" aria-label="Menu"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -6719,7 +6719,7 @@ async function checkUpdate(manual = false) {
       if (manual) {   // automatic checks only show the red dot; asking happens when it's tapped
         closeSheet();
         setTimeout(() => {
-          if (confirm(`MMC SongPoint ${updateInfo.version} is available (you have ${v.name || 'an older version'}).\n\nDownload it now?`)) downloadUpdate();
+          if (confirm(`SongPoint ${updateInfo.version} is available (you have ${v.name || 'an older version'}).\n\nDownload it now?`)) downloadUpdate();
         }, 50);
       }
     } else if (manual) toast('You have the latest version');
@@ -6743,9 +6743,9 @@ $('#brandIcon').onclick = () => {
     return;
   }
   if (updateInfo) {
-    if (confirm(`MMC SongPoint ${updateInfo.version} is available.\n\nDownload it now?`)) downloadUpdate();
+    if (confirm(`SongPoint ${updateInfo.version} is available.\n\nDownload it now?`)) downloadUpdate();
   } else if (webUpdate) {
-    if (confirm(`A new version of MMC SongPoint (${webUpdate}) is available.\n\nReload now to get it?`)) location.reload();
+    if (confirm(`A new version of SongPoint (${webUpdate}) is available.\n\nReload now to get it?`)) location.reload();
   }
 };
 // Web app: notice when a newer version has been published while the page is open

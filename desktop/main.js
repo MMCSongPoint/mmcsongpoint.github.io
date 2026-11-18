@@ -1,4 +1,4 @@
-// MMC SongPoint for Windows. It opens the web app (https://mmcsongpoint.github.io) in its own window, so every change
+// SongPoint for Windows (it was called MMC SongPoint before the other churches joined). It opens the web app (https://mmcsongpoint.github.io) in its own window, so every change
 // to the web app arrives without reinstalling, and adds what a browser can't do on its own:
 //  - the slideshow opens full screen on the projector straight away (no "manage windows" prompt, no extra click),
 //    and moves there if the projector is plugged in later
@@ -15,6 +15,8 @@ const SITE = 'https://mmcsongpoint.github.io/';
 const ORIGIN = new URL(SITE).origin;
 const HELPER_PORT = 47321;
 
+// the app's data (who's signed in, saved songs, settings) stays in the folder it had as "MMC SongPoint"
+app.setPath('userData', path.join(app.getPath('appData'), 'MMC SongPoint'));
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');   // video sound on the projector
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
@@ -71,7 +73,7 @@ function keepAwake(on) {
 
 function createMain() {
   main = new BrowserWindow({
-    width: 1280, height: 860, minWidth: 380, minHeight: 500, show: false, backgroundColor: '#181316', title: 'MMC SongPoint',
+    width: 1280, height: 860, minWidth: 380, minHeight: 500, show: false, backgroundColor: '#181316', title: 'SongPoint',
     icon: path.join(__dirname, 'offline', 'icons', 'icon-512.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });
@@ -172,6 +174,18 @@ async function setChurchIcon(id) {
   return true;
 }
 ipcMain.handle('church', (e, id) => setChurchIcon(String(id || '')));
+// the old "MMC SongPoint" shortcuts become "SongPoint" (or go, when the new installer already made a "SongPoint" one)
+function renameOldShortcuts() {
+  if (process.platform !== 'win32') return;
+  for (const d of [app.getPath('desktop'), path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs')]) {
+    const old = path.join(d, 'MMC SongPoint.lnk'), now = path.join(d, 'SongPoint.lnk');
+    try {
+      if (!fs.existsSync(old)) continue;
+      const l = shell.readShortcutLink(old); if (path.resolve(l.target).toLowerCase() !== path.resolve(process.execPath).toLowerCase()) continue;
+      if (fs.existsSync(now)) fs.unlinkSync(old); else fs.renameSync(old, now);
+    } catch {}
+  }
+}
 ipcMain.handle('version', () => app.getVersion());
 ipcMain.handle('screens', () => {
   const p = prefs(), primary = screen.getPrimaryDisplay().id, auto = projectorDisplay();
@@ -190,6 +204,7 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((wc, perm, origin) => ours(origin) || origin === 'null');
   lidHold(false);   // the app closed during a show last time: put the lid setting back
   createMain();
+  renameOldShortcuts();
   startHelper();
   checkUpdates();
   // a projector plugged in (or unplugged) while the slideshow is open: move it there
