@@ -1523,6 +1523,7 @@ function churchIcon(color) {
 const NEUTRAL = '#555555', signedOut = () => !church && !curUser();
 const churchAppName = () => signedOut() ? 'SongPoint' : (church && church.appName) || CFG.appName;
 const churchBooks = () => (church && Array.isArray(church.books) ? church.books : null);   // null = every book; [] = none
+const bookOk = col => !churchBooks() || churchBooks().includes(col);   // a book this church uses
 function setChurch(c, rebuild = true) {
   const was = JSON.stringify(church); church = c || null; store.set('church', church);
   churchTheme(signedOut() ? NEUTRAL : church && church.accent);
@@ -2100,7 +2101,7 @@ function tuneIndex() {   // song key -> the songs in its group (only groups with
   if (tuneIdx && tuneIdx.songs === songs) return tuneIdx.map;
   const map = new Map();
   for (const g of tuneGroups) {
-    const mem = [...new Set(g.map(([b, n]) => songIndex.get((TUNE_BOOKS[b] || b) + '|#' + n)).filter(Boolean))];
+    const mem = [...new Set(g.map(([b, n]) => songIndex.get((TUNE_BOOKS[b] || b) + '|#' + n)).filter(x => x && bookOk(x.collection)))];
     if (mem.length > 1) for (const x of mem) map.set(x.key, mem);
   }
   tuneIdx = { songs, map }; return map;
@@ -7369,11 +7370,13 @@ $('#dPresent').onclick = presentFresh;
 $('#dSwitch').onclick = () => { closeDrawer(); accountMenu(); };
 // ---- Topical Index (Menu): topics from the three hymnals, each with its songs and their numbers in each book.
 // Tap a book's number to open that song. topics.js is loaded the first time it's opened.
-const TP_BOOKS = [['SFP', 'SFP', 3], ["Zion's Praises", 'ZP', 2], ['Christian Hymnal', 'CH', 1]];   // [collection, short name, column]
+const TP_BOOKS_ALL = [['SFP', 'SFP', 3], ["Zion's Praises", 'ZP', 2], ['Christian Hymnal', 'CH', 1]];   // [collection, short name, column]
+let TP_BOOKS = TP_BOOKS_ALL;   // the books this church uses (set when the Topical Index opens)
 let tpTopic = null, tpKnown = store.get('topicsKnown', false);
 // "Songs We Know": a song counts when it's known in any of its books
 const tpIsKnown = r => TP_BOOKS.some(([col, , i]) => (r[i] ? r[i].split(' ') : []).some(n => { const s = songIndex.get(col + '|#' + n); return s && isKnown(s); }));
-const tpSongs = list => tpKnown ? list.filter(tpIsKnown) : list;
+// a song shows when it's in one of this church's books (and, with "Songs We Know", known in one of them)
+const tpSongs = list => list.filter(r => TP_BOOKS.some(([, , i]) => r[i]) && (!tpKnown || tpIsKnown(r)));
 // The index comes from "Topical Index.xlsx" in the SongPoint folder on Google Drive (through the server), so editing that
 // spreadsheet changes the app. A copy is kept on the device; topics.js (built into the app) is the fallback.
 let tpChecked = false;
@@ -7449,6 +7452,7 @@ function tpSongHtml(r, topic) {
   return `<div class="tpsong"><div class="tt">${esc(r[0])}${topic ? `<small>${esc(topic)}</small>` : ''}</div><div class="tpbooks">${books.join('')}</div></div>`;
 }
 function renderTopics() {
+  TP_BOOKS = TP_BOOKS_ALL.filter(([col]) => bookOk(col));
   const q = normalize($('#topicsQ').value || ''), box = $('#topicsList');
   $('#topicsTitle').textContent = tpTopic ? tpTopic[0] : 'Topical Index';
   $('#topicsQ').placeholder = tpTopic ? 'Find a Song' : 'Find a Topic';
