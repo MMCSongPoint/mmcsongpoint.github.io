@@ -1509,12 +1509,20 @@ function churchTheme(accent) {
   const light = `--accent:${accent};--accent-text:${accent};--mark:rgba(${rgbOf(accent)},.16);--bg:${mixHex('#f6f6f6', accent, 0.05)};--row:${mixHex('#f1f1f1', accent, 0.07)};--line:${mixHex('#e1e1e1', accent, 0.1)};`;
   st.textContent = `:root, :root[data-theme="dark"]{${dark}} @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){${light}}} :root[data-theme="light"]{${light}}`;
 }
+// the browser tab's icon and bar colour follow the church (a plain grey before anyone signs in)
+function churchIcon(color) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${color}"/><path d="M26 14v26.5a8 8 0 1 0 5 7.4V24l16-4v14.5a8 8 0 1 0 5 7.4V9z" fill="#fff"/></svg>`;
+  let l = document.querySelector('link[rel="icon"]'); if (!l) { l = document.createElement('link'); l.rel = 'icon'; document.head.appendChild(l); }
+  l.type = 'image/svg+xml'; l.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = color;
+}
 const churchAppName = () => (church && church.appName) || CFG.appName;
 const churchBooks = () => (church && church.books && church.books.length ? church.books : null);
 function setChurch(c, rebuild = true) {
   const was = JSON.stringify(church); church = c || null; store.set('church', church);
   churchTheme(church && church.accent);
   $('#appName').textContent = churchAppName(); document.title = churchAppName();
+  churchIcon(church ? church.accent || '#72173b' : '#4a4a4a');
   if (rebuild && was !== JSON.stringify(church) && typeof buildIndex === 'function' && library && library.tracks) { buildIndex(); renderTabs(); search(); }
 }
 if (!LISTEN) setChurch(church, false);
