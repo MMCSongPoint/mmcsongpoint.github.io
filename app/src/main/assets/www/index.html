@@ -1077,7 +1077,7 @@
     <h2>Churches</h2>
   </div>
   <div class="pbody">
-    <p class="m" style="margin:0 0 10px">Each church sees the books ticked for it (none ticked = every book), in its own colour and app name. Song lists, Songs We Know, saved keys, arrangements, admins and the CCLI number are kept per church. People are moved between churches in Manage Users.</p>
+    <p class="m" style="margin:0 0 10px">Each church sees only the books ticked for it, in its own colour and app name. Song lists, Songs We Know, saved keys, arrangements, admins and the CCLI number are kept per church. People are moved between churches in Manage Users.</p>
     <div id="churchesList"><div class="vmsg">Loading…</div></div>
   </div>
 </div>
@@ -1519,7 +1519,7 @@ function churchIcon(color) {
 // nobody signed in: a plain grey "SongPoint" (someone signed in from before the churches came: Martindale's look)
 const NEUTRAL = '#555555', signedOut = () => !church && !curUser();
 const churchAppName = () => signedOut() ? 'SongPoint' : (church && church.appName) || CFG.appName;
-const churchBooks = () => (church && church.books && church.books.length ? church.books : null);
+const churchBooks = () => (church && Array.isArray(church.books) ? church.books : null);   // null = every book; [] = none
 function setChurch(c, rebuild = true) {
   const was = JSON.stringify(church); church = c || null; store.set('church', church);
   churchTheme(signedOut() ? NEUTRAL : church && church.accent);
@@ -2650,7 +2650,9 @@ function songRow(s, i, words = [], fuzzy = false, inPanel = false, tuneOf = null
 function render() {
   const list = $('#list'), words = qWords(lastQ);
   if (!songs.length) {
-    list.innerHTML = syncing || !library.synced
+    list.innerHTML = churchBooks() && !churchBooks().length && library.synced
+      ? `<div class="empty"><b>No books yet</b>No song books have been turned on for ${esc((church && church.name) || 'your church')} yet.</div>`
+      : syncing || !library.synced
       ? `<div class="empty"><b>Loading your songs…</b></div>`
       : `<div class="empty"><b>No songs found</b>Check that the Drive folder has MP3 files and is shared as “Anyone with the link”.</div>`;
   } else if (!results.length) {
@@ -6466,7 +6468,7 @@ async function openChurches() {
     <label class="field"><span>App Name</span><input type="text" data-k="appName" value="${esc(c.appName)}" maxlength="40" ${noFill}></label>
     <div class="chcolor"><input type="color" data-k="accent" value="${esc(c.accent || '#72173b')}" aria-label="Colour"><span class="m">${c.accent ? esc(c.accent.toUpperCase()) : 'The standard SongPoint maroon'}</span>${c.accent ? '<button class="pbtn ghost" data-reset="1" style="font-size:13px;padding:4px 10px">Standard Colour</button>' : ''}</div>
     <div class="m">Books</div>
-    <div class="chbooks">${books.map(b => `<label><input type="checkbox" value="${esc(b)}"${(c.books || []).includes(b) ? ' checked' : ''}>${esc(b)}</label>`).join('')}</div>
+    <div class="chbooks">${books.map(b => `<label><input type="checkbox" value="${esc(b)}"${!Array.isArray(c.books) || c.books.includes(b) ? ' checked' : ''}>${esc(b)}</label>`).join('')}</div>
     <button class="pbtn" data-save="1">Save</button>
   </div>`).join('');
 }

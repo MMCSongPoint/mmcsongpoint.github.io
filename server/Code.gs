@@ -14,14 +14,14 @@ var UHEAD = ['Username', 'Name', 'Admin', 'Salt', 'Hash', 'Must change password'
 // ------------------------------------------------------------------ churches
 // The app serves several churches in the district. Each user belongs to one; each church has its own song lists and usage,
 // Songs We Know, saved keys, arrangements, admins and CCLI number, and sees the books the Super Admin picks for it, in its
-// own colour and app name. The song library itself is shared. Martindale (the home church) looks after the library.
+// own colour and app name (no books picked = no books). The song library itself is shared. Martindale (the home church) looks after the library.
 var SUPER = ['jadon1676'], HOME_CHURCH = 'martindale';
 var DEFAULT_CHURCHES = [
-  { id: 'martindale', name: 'Martindale Mennonite', appName: 'MMC SongPoint', accent: '', books: [] },
-  { id: 'cambridge', name: 'Cambridge Mennonite', appName: 'Cambridge SongPoint', accent: '#0071bb', books: [] },
-  { id: 'ephrata', name: 'Ephrata Bible Chapel', appName: 'EBC SongPoint', accent: '#2e7683', books: [] },
-  { id: 'parkview', name: 'Parkview Mennonite', appName: 'Parkview SongPoint', accent: '#7e2c18', books: [] },
-  { id: 'shiloh', name: 'Shiloh Mennonite', appName: 'Shiloh SongPoint', accent: '#0071bb', books: [] }];
+  { id: 'martindale', name: 'Martindale Mennonite', appName: 'MMC SongPoint', accent: '', books: null },
+  { id: 'cambridge', name: 'Cambridge Mennonite', appName: 'Cambridge SongPoint', accent: '#0071bb', books: null },
+  { id: 'ephrata', name: 'Ephrata Bible Chapel', appName: 'EBC SongPoint', accent: '#2e7683', books: null },
+  { id: 'parkview', name: 'Parkview Mennonite', appName: 'Parkview SongPoint', accent: '#7e2c18', books: null },
+  { id: 'shiloh', name: 'Shiloh Mennonite', appName: 'Shiloh SongPoint', accent: '#0071bb', books: null }];
 function churches_() {
   var p = PropertiesService.getScriptProperties(), v = p.getProperty('churches'), list;
   try { list = v ? JSON.parse(v) : null; } catch (e) { list = null; }
@@ -29,11 +29,17 @@ function churches_() {
     list = JSON.parse(JSON.stringify(DEFAULT_CHURCHES));
     list[0].ccli = p.getProperty('set_ccli') || '';
   }
+  // books: null = every book; a list = just those (an empty list = none). Before, an empty list meant every book.
+  if (!p.getProperty('booksV2')) {
+    list.forEach(function (c) { if (!c.books || !c.books.length) c.books = null; });
+    if (v) saveChurches_(list);
+    p.setProperty('booksV2', '1');
+  }
   return list;
 }
 function saveChurches_(list) { PropertiesService.getScriptProperties().setProperty('churches', JSON.stringify(list)); }
 function church_(id) { var l = churches_(); return l.filter(function (c) { return c.id === id; })[0] || l[0]; }
-function churchPublic_(c) { return { id: c.id, name: c.name, appName: c.appName || 'SongPoint', accent: c.accent || '', books: c.books || [], ccli: c.ccli || '' }; }
+function churchPublic_(c) { return { id: c.id, name: c.name, appName: c.appName || 'SongPoint', accent: c.accent || '', books: Array.isArray(c.books) ? c.books : null, ccli: c.ccli || '' }; }
 function rowChurch_(v) { return String(v || '').trim() || HOME_CHURCH; }
 function churchMap_() { var m = {}; users_().forEach(function (u) { m[u.username] = u.church; }); return m; }
 function sameChurch_(me, u) { return !!me.super || (u && u.church === me.church); }
@@ -195,7 +201,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 61 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 62 }); }
 
 function doPost(e) {
   var d;
