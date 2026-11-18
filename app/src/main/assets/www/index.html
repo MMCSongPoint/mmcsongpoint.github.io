@@ -1526,6 +1526,11 @@ function setChurch(c, rebuild = true) {
   $('#appName').textContent = churchAppName(); document.title = churchAppName();
   if ($('#lockTitle')) $('#lockTitle').textContent = churchAppName();
   churchIcon(signedOut() ? NEUTRAL : (church && church.accent) || '#72173b');
+  // the installed app (desktop / home-screen icon and name) follows the church too: each has its own install file,
+  // made by .github/scripts/church_icons.py. Chrome asks once before it changes an installed app's icon.
+  const known = ['martindale', 'cambridge', 'ephrata', 'parkview', 'shiloh'], cid = !signedOut() && known.includes((church && church.id) || HOME_CHURCH) ? (church && church.id) || HOME_CHURCH : '';
+  const ml = document.querySelector('link[rel="manifest"]'); if (ml) ml.setAttribute('href', cid ? `manifest-${cid}.webmanifest` : 'manifest.webmanifest');
+  const at = document.querySelector('link[rel="apple-touch-icon"]'); if (at) at.setAttribute('href', cid ? `icons/${cid}/apple-touch-icon.png` : 'icons/apple-touch-icon.png');
   if (rebuild && was !== JSON.stringify(church) && typeof buildIndex === 'function' && library && library.tracks) { buildIndex(); renderTabs(); search(); }
 }
 if (!LISTEN) setChurch(church, false);
