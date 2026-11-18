@@ -7,7 +7,8 @@
 //  - the computer and projector stay awake while the slideshow is open, and (if turned on in Settings) a laptop keeps
 //    going with its lid closed: Windows' "when I close the lid" is set to "do nothing" during the slideshow, then put back
 //  - the app updates itself: a new version downloads in the background and installs when the app closes
-const { app, BrowserWindow, screen, shell, session, ipcMain, powerSaveBlocker, Menu } = require('electron');
+//  - the icon (window, taskbar, desktop and Start menu shortcuts) is the signed-in person's church's
+const { app, BrowserWindow, screen, shell, session, ipcMain, powerSaveBlocker, Menu, nativeImage, net: enet } = require('electron');
 const path = require('path'), fs = require('fs'), net = require('net'), { spawn } = require('child_process');
 
 const SITE = 'https://mmcsongpoint.github.io/';
@@ -136,6 +137,41 @@ function checkUpdates() {
   go(); setInterval(go, 4 * 3600 * 1000);
 }
 
+// ---- the church's icon: from the copy that came with the app (offline/icons/<church>/), else from the website.
+// The shortcuts point at a .ico kept in the app's data folder, rewritten when the church changes.
+async function churchIconImage(id) {
+  const rel = id ? `icons/${id}/icon-512.png` : 'icons/icon-512.png', local = path.join(__dirname, 'offline', ...rel.split('/'));
+  if (fs.existsSync(local)) return nativeImage.createFromPath(local);
+  try { const r = await enet.fetch(SITE + rel); if (r.ok) return nativeImage.createFromBuffer(Buffer.from(await r.arrayBuffer())); } catch {}
+  return null;
+}
+function icoFrom(img) {   // a .ico holding one 256-pixel PNG (Windows Vista and later read these)
+  const png = img.resize({ width: 256, height: 256, quality: 'best' }).toPNG(), h = Buffer.alloc(22);
+  h.writeUInt16LE(0, 0); h.writeUInt16LE(1, 2); h.writeUInt16LE(1, 4);
+  h.writeUInt8(0, 6); h.writeUInt8(0, 7); h.writeUInt8(0, 8); h.writeUInt8(0, 9);
+  h.writeUInt16LE(1, 10); h.writeUInt16LE(32, 12); h.writeUInt32LE(png.length, 14); h.writeUInt32LE(22, 18);
+  return Buffer.concat([h, png]);
+}
+function ourShortcuts() {
+  const names = ['MMC SongPoint.lnk', 'SongPoint.lnk'], dirs = [app.getPath('desktop'), path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs')];
+  const out = []; for (const d of dirs) for (const n of names) { const p = path.join(d, n); if (fs.existsSync(p)) out.push(p); }
+  return out;
+}
+async function setChurchIcon(id) {
+  id = /^[a-z0-9-]{0,30}$/.test(id) ? id : '';
+  const p = prefs(); if (p.churchIcon === id && fs.existsSync(path.join(app.getPath('userData'), `church-${id || 'none'}.ico`))) { const img = await churchIconImage(id); if (img && main) main.setIcon(img); return true; }
+  const img = await churchIconImage(id); if (!img || img.isEmpty()) return false;
+  if (main && !main.isDestroyed()) main.setIcon(img);
+  if (process.platform !== 'win32') return true;
+  const ico = path.join(app.getPath('userData'), `church-${id || 'none'}.ico`);
+  try { fs.writeFileSync(ico, icoFrom(img)); } catch { return false; }
+  for (const lnk of ourShortcuts()) {
+    try { const l = shell.readShortcutLink(lnk); if (path.resolve(l.target).toLowerCase() === path.resolve(process.execPath).toLowerCase()) shell.writeShortcutLink(lnk, 'update', { icon: ico, iconIndex: 0 }); } catch {}
+  }
+  p.churchIcon = id; savePrefs(p);
+  return true;
+}
+ipcMain.handle('church', (e, id) => setChurchIcon(String(id || '')));
 ipcMain.handle('version', () => app.getVersion());
 ipcMain.handle('screens', () => {
   const p = prefs(), primary = screen.getPrimaryDisplay().id, auto = projectorDisplay();

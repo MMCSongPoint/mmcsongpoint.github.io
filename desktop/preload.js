@@ -10,4 +10,6 @@ contextBridge.exposeInMainWorld('SongPointDesktop', {
   keepAwake: on => ipcRenderer.invoke('keep-awake', !!on),
   // a laptop keeps presenting with its lid closed (on / off; no argument: just ask)
   lid: on => ipcRenderer.invoke('lid', on),
+  // the signed-in person's church: the window, taskbar and desktop shortcut take its icon ('' = the neutral grey one)
+  setChurch: id => ipcRenderer.invoke('church', String(id || '')),
 });
