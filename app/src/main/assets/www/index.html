@@ -410,7 +410,7 @@
   .prstage.blank { outline-color: #555; } .prstage.blank img { opacity: .25; }
   .ccliin { margin-left: auto; min-width: 7em; max-width: 50%; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); text-align: right; outline: none; white-space: nowrap; overflow: hidden; cursor: text; }
   .ccliin:focus { border-color: var(--accent-text); }
-  .prccli { position: absolute; right: 10px; bottom: 8px; z-index: 3; color: #fff; font-size: 12px; font-weight: 600; text-shadow: 0 0 3px #000, 0 1px 2px #000; pointer-events: none; }
+  .prccli { position: absolute; right: 10px; bottom: 8px; z-index: 3; color: #fff; background: rgba(0,0,0,.55); border-radius: 4px; padding: .15em .5em; font-size: 12px; font-weight: 600; pointer-events: none; white-space: nowrap; }
   .prccli:empty { display: none; }
   .prstage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }   /* fits the space left: a tall slide never pushes the buttons off the bottom */
   .prstage img:not([src]), .prstage img[src=''] { display: none; }
@@ -4751,9 +4751,16 @@ function prSend() {
 }
 // the CCLI licence notice: on a song's first slide only (not on speaker slides, pictures or videos)
 function prCcli() { const s = pr && pr.songs[pr.si]; return s && !s.deck && !s.media && !pr.blank && pr.slide === 0 ? ccliText() : ''; }
+// the notice in the preview sits where the projector puts it: inside the slide, a little up from its bottom-right corner
+function placePrCcli() {
+  const el = $('#prCcli'), img = $('#prCur'); if (!el.textContent || !img.naturalWidth) return;
+  const W = img.clientWidth, H = img.clientHeight, r = Math.min(W / img.naturalWidth, H / img.naturalHeight), w = img.naturalWidth * r, h = img.naturalHeight * r;
+  el.style.right = ((W - w) / 2 + w * 0.016) + 'px'; el.style.bottom = ((H - h) / 2 + h * 0.035) + 'px'; el.style.fontSize = Math.max(9, w * 0.015) + 'px';
+}
+$('#prCur').addEventListener('load', placePrCcli); addEventListener('resize', placePrCcli);
 function prRender() {
   if (!pr) return;
-  $('#prCcli').textContent = prCcli();
+  $('#prCcli').textContent = prCcli(); placePrCcli();
   const s = pr.songs[pr.si], deck = pr.deck, n = deck ? deck.imgs.length : 0;
   $('#prTitle').textContent = (s.number ? s.number + '. ' : '') + s.title;
   $('#prSub').textContent = ` · song ${pr.si + 1} of ${pr.songs.length}`;

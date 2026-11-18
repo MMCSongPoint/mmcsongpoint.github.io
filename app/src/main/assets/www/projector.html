@@ -20,8 +20,8 @@
   #vid { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; visibility: hidden; opacity: 0; transition: opacity .5s ease, visibility 0s .5s; }
   #vid.on { visibility: visible; opacity: 1; transition: opacity .5s ease, visibility 0s; }
   /* the CCLI licence notice, bottom right, on each song's first slide */
-  #ccli { position: fixed; right: 1.6vw; bottom: 1.3vw; z-index: 999999; color: #fff; font: 600 1.5vw/1.2 system-ui, sans-serif; text-shadow: 0 0 .25vw #000, 0 .08vw .2vw #000; opacity: 0; transition: opacity .5s ease; pointer-events: none; }
-  #ccli.on { opacity: .9; }
+  #ccli { position: fixed; right: 1.6vw; bottom: 1.3vw; z-index: 999999; color: #fff; font: 600 1.5vw/1.2 system-ui, sans-serif; background: rgba(0,0,0,.55); border-radius: .3em; padding: .15em .5em; white-space: nowrap; opacity: 0; transition: opacity .5s ease; pointer-events: none; }
+  #ccli.on { opacity: 1; }
 </style>
 </head>
 <body class="ui">
@@ -71,7 +71,7 @@ function placeCcli(src) {
     const set = () => { if (ccliFor !== src || !probe.naturalWidth) return; const r = Math.min(W / probe.naturalWidth, H / probe.naturalHeight); w = probe.naturalWidth * r; h = probe.naturalHeight * r; x = (W - w) / 2; y = (H - h) / 2; put(); };
     if (probe.complete) set(); else probe.onload = set;
   }
-  function put() { cc.style.right = (x + w * 0.016) + 'px'; cc.style.bottom = (y + h * 0.018) + 'px'; cc.style.fontSize = Math.max(12, w * 0.015) + 'px'; }
+  function put() { cc.style.right = (x + w * 0.016) + 'px'; cc.style.bottom = (y + h * 0.035) + 'px'; cc.style.fontSize = Math.max(12, w * 0.015) + 'px'; }
   put();
 }
 addEventListener('resize', () => { if (document.getElementById('ccli').classList.contains('on')) placeCcli(ccliFor); });
