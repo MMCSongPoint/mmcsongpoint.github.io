@@ -1442,10 +1442,12 @@
     <button data-m="smart">Scroll, Then Next Song</button><button data-m="split">Separate Song Buttons</button>
   </div>
   <p class="m pedalhelp" id="pedalHelp"></p>
+  <div id="shareSec" style="display:none">
   <h4>Share</h4>
   <button class="act" id="copyLinkBtn">Copy Web App Link</button>
   <button class="act" id="listenLinkBtn">Copy Listening Link</button>
   <p style="margin:6px 0 0;font-size:12px;color:var(--muted)">The listening link lets anyone play the approved MIDI songs (SFP, Zion's Praises, Christian Hymnal) with any instrument and voice. No sign-in needed.</p>
+  </div>
   <h4>About</h4>
   <p id="versionLine" style="margin:0"></p>
   <button class="act" id="buildLogBtn">Build Log</button>
@@ -6425,6 +6427,7 @@ function renderWelcome() {
   $('#midiBtn').style.display = isSuper() ? '' : 'none';
   $('#churchesBtn').style.display = isSuper() ? '' : 'none';
   $('#recordsBtn').style.display = isSuper() ? '' : 'none';
+  $('#shareSec').style.display = isAdmin() ? '' : 'none';   // the share links: admins only
 }
 function signOut(expired = false) {
   const visitor = !!(auth.user && auth.user.visitor);
