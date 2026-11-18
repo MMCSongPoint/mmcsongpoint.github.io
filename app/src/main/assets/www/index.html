@@ -4761,7 +4761,8 @@ function prStep(d) {
 // ---- "Chords Only" (per song, in the presenter or from the phone remote): the wall stays black, and people following see
 // the chord sheet even with "View Slides" on. For a song with chords whose slides aren't made or approved yet.
 const prCanCO = s => !!(s && !s.deck && !s.media && s.chords && s.chords.length);
-const prCO = s => !!(pr && prCanCO(s) && pr.cOnly && pr.cOnly.has(s.key));
+// For now it's automatic (the buttons are hidden): a song with chords whose slides aren't approved is chords only.
+const prCO = s => !!(pr && prCanCO(s) && !slidesOk(prFile(s)));
 function prSetCO(on) {
   if (!pr) return; const s = pr.songs[pr.si]; if (!prCanCO(s)) return toast('Only songs with a chord sheet can be shown as chords only');
   pr.cOnly = pr.cOnly || new Set();
@@ -4837,7 +4838,7 @@ function prRender() {
     $('#prMsg').innerHTML = `<b style="font-size:20px;color:#fff">${esc(s.title)}</b><br>Playing live on the projector, with animations.<br>The clicker and arrow keys now go to the projector window${prWin && !prWin.closed ? '' : ' (click the projector screen once if they don\'t)'}.<br><br>When the speaker is done, press <b>Next</b> here.<br><br><button class="pbtn ghost" id="prLiveFocus">Give the Clicker to the Projector</button>`;
     $('#prPos').textContent = 'Live Slides (Animations On)';
   }
-  $('#prChords').style.display = prCanCO(s) ? '' : 'none'; $('#prChords').classList.toggle('on', prCO(s));
+  $('#prChords').style.display = 'none'; $('#prChords').classList.toggle('on', prCO(s));
   $('#prChords').textContent = prCO(s) ? 'Chords Only ✓' : 'Chords Only';
   if (prCO(s)) {
     $('#prCur').style.display = 'none'; $('#prMsg').style.display = '';
@@ -7381,7 +7382,7 @@ function rmRender() {
   rmImg(st.deckId ? rmDeckKey(st) : st.song, st.liveDeck ? -1 : (st.slideIdx ?? st.slideNo ?? 0), $('#rmNowImg'), true);
   if (st.nextIdx >= 0) { $('#rmNextTxt').textContent = 'Next Slide'; rmImg(st.deckId ? rmDeckKey(st) : st.song, st.nextIdx, $('#rmNextImg')); }
   else { const nk = (st.list || [])[si + 1]; $('#rmNextTxt').textContent = nk ? `Next: ${titles[si + 1] || (rmItem(nk) || {}).title || ''}` : 'Next: black screen (end)'; rmImg(nk, nk ? 0 : -1, $('#rmNextImg')); }
-  $('#rmChords').style.display = st.canChords || st.chordsOnly ? '' : 'none'; $('#rmChords').classList.toggle('on', !!st.chordsOnly);
+  $('#rmChords').style.display = 'none'; $('#rmChords').classList.toggle('on', !!st.chordsOnly);
   $('#rmChords').textContent = st.chordsOnly ? 'Chords Only ✓ (wall is black)' : 'Chords Only';
   if (st.chordsOnly) { $('#rmPos').textContent = 'Chords only: the wall is black'; $('#rmNow').insertAdjacentHTML('beforeend', '<span class="rmbadge" style="background:var(--accent)">CHORDS ONLY</span>'); }
   $('#rmBlank').textContent = st.blank ? 'Show' : 'Black'; $('#rmBlank').classList.toggle('on', !!st.blank);
