@@ -2631,7 +2631,7 @@ let limit = LIMIT_STEP;
 const INFO_DOT = t => `<i class="chipwarn" title="${t}" aria-label="${t}">i</i>`;
 const mp3Unchecked = s => s.parts.some(p => isAiTrack(p, s));
 const slidesUnchecked = s => { const f = s.slides.length && prFile(s); return !!f && !slidesOk(f); };
-const fileChips = s => [s.sheets.length && ['Sheet Music'], s.chords && s.chords.length && ['Chords'], s.parts.some(p => !p.midi) && ['MP3', s.parts.some(p => !p.midi && isAiTrack(p, s)) && 'MP3s not reviewed yet'], s.slides.length && ['Slides', slidesUnchecked(s) && 'Slides not approved yet']]
+const fileChips = s => [s.sheets.length && [isTextDoc(s) ? 'Text' : 'Sheet Music'], s.chords && s.chords.length && ['Chords'], s.parts.some(p => !p.midi) && ['MP3', s.parts.some(p => !p.midi && isAiTrack(p, s)) && 'MP3s not reviewed yet'], s.slides.length && ['Slides', slidesUnchecked(s) && 'Slides not approved yet']]
   .filter(Boolean).map(([t, w], i) => `<span class="slidechip${i ? '' : ' first'}${w ? ' warn' : ''}">${t}${w ? INFO_DOT(w) : ''}</span>`).join('');
 // On a narrow screen, tapping a song's name shows everything (title, book, what it has); tapping again folds it back.
 const openRows = new Set();
