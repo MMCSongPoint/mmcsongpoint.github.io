@@ -793,6 +793,13 @@
   .ucard { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; }
   .ucard .acts2 { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
   .ucard .acts2 button { font-size: 13px; padding: 6px 10px; }
+  .chcard .field { margin-top: 8px; }
+  .chcard .field input[type=text] { width: 100%; }
+  .chbooks { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0 10px; }
+  .chbooks label { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+  .chcolor { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  .chcolor input[type=color] { width: 44px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: none; padding: 2px; }
+  .chswatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 6px; }
   .temp { font-family: ui-monospace, monospace; font-size: 18px; background: var(--row); border: 1px dashed var(--accent-text); border-radius: 10px; padding: 10px; text-align: center; margin: 8px 0; user-select: all; -webkit-user-select: all; }
   .slidechip { display: inline-flex; align-items: center; box-sizing: border-box; height: 16px; font-size: 11px; line-height: 1; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-right: 6px; }
   .slidechip.first { margin-left: 6px; }
@@ -1055,11 +1062,23 @@
       <label class="field"><span>Username (For Signing In)</span><input id="nuUser" placeholder="e.g. sam" autocapitalize="none" autocorrect="off" maxlength="30"></label>
       <label class="field"><span>Password</span><div class="pwrow"><input id="nuPw" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="pbtn ghost" id="nuPwNew" title="Make up a new one" aria-label="Make up a new password">↻</button></div></label>
       <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" id="nuMust" checked> Ask them to choose their own password the first time they sign in</label>
+      <label class="field" id="nuChurchRow" style="display:none"><span>Church</span><select id="nuChurch" style="font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)"></select></label>
       <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" id="nuAdmin"> Admin (can see everyone's usage and manage users)</label>
       <label style="display:flex;align-items:center;gap:8px;margin:0 0 12px"><input type="checkbox" id="nuGuest"> Guest (shared sign-in: can view songs and follow presentations, can't make lists, PowerPoints or chord sheets, or change the password)</label>
       <button class="pbtn" id="nuCreate">Add User</button>
     </div>
     <div id="usersList"><div class="vmsg">Loading…</div></div>
+  </div>
+</div>
+
+<div class="panel" id="churchesPanel">
+  <div class="phead">
+    <button class="icon" data-close="churchesPanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Churches</h2>
+  </div>
+  <div class="pbody">
+    <p class="m" style="margin:0 0 10px">Each church sees the books ticked for it (none ticked = every book), in its own colour and app name. Song lists, Songs We Know, saved keys, arrangements, admins and the CCLI number are kept per church. People are moved between churches in Manage Users.</p>
+    <div id="churchesList"><div class="vmsg">Loading…</div></div>
   </div>
 </div>
 
@@ -1398,6 +1417,7 @@
   <h4 style="margin-top:12px">Account</h4>
   <p id="acctLine" style="margin:0 0 4px"></p>
   <button class="act" id="usersBtn">Manage Users</button>
+  <button class="act" id="churchesBtn" style="display:none">Churches (Super Admin)</button>
   <button class="act" id="recordsBtn">Usage Records (Delete Entries)</button>
   <button class="act" id="checkBtn">Library Check (Missing Files)</button>
   <button class="act" id="midiBtn">MIDI Review (Flag Problems)</button>
@@ -1461,7 +1481,7 @@ $('#appName').textContent = CFG.appName; document.title = CFG.appName;
 const LISTEN = /[?&]listen\b/.test(location.search) || /(^|\.)songpoint\.(web\.app|firebaseapp\.com)$/i.test(location.hostname);   // …/?listen, or its own site
 if (LISTEN) document.documentElement.classList.add('listen');
 const LISTEN_BOOKS = /^(sfp|songs of faith and praise|zion['’]?s? praises|christian hymnal)$/i;
-const USER_KEYS = new Set(['notes', 'offlineLists', 'pendingLists', 'outbox', 'people', 'listTab', 'favs', 'favsPend', 'favsSynced', 'usage', 'plays']);
+const USER_KEYS = new Set(['notes', 'offlineLists', 'pendingLists', 'outbox', 'people', 'listTab', 'favs', 'favsPend', 'favsSynced', 'usage', 'plays', 'church']);
 const curUser = () => { if (LISTEN) return ''; try { const a = JSON.parse(localStorage.getItem('auth') || '{}'); return (a.user && a.user.username) || ''; } catch { return ''; } };
 const skey = k => { if (LISTEN) return k === 'library' ? k : 'listen~' + k; const u = USER_KEYS.has(k) && curUser(); return u ? `u~${u}~${k}` : k; };
 const store = {
@@ -1474,6 +1494,30 @@ const store = {
   for (const k of USER_KEYS) { const v = localStorage.getItem(k); if (v !== null) { if (localStorage.getItem(skey(k)) === null) localStorage.setItem(skey(k), v); localStorage.removeItem(k); } }
   localStorage.setItem('userKeysMoved', '1');
 } catch {} })();
+// ---- the church this person belongs to (from the server): the books it sees, its colour and its app name.
+// Song lists, Songs We Know, saved keys, arrangements and the CCLI number are kept per church on the server.
+let church = store.get('church', null);
+const HOME_CHURCH = 'martindale';
+const mixHex = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.substr(i, 2), 16) * (1 - t) + parseInt(b.substr(i, 2), 16) * t).toString(16).padStart(2, '0')).join('');
+const rgbOf = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16)).join(',');
+function churchTheme(accent) {
+  let st = document.getElementById('churchTheme');
+  if (!st) { st = document.createElement('style'); st.id = 'churchTheme'; document.head.appendChild(st); }
+  if (!/^#[0-9a-f]{6}$/i.test(accent || '')) { st.textContent = ''; return; }   // the built-in maroon
+  const lt = mixHex(accent, '#ffffff', 0.5);   // the colour as text on dark backgrounds
+  const dark = `--accent:${accent};--accent-text:${lt};--mark:rgba(${rgbOf(lt)},.28);--bg:${mixHex('#121212', accent, 0.06)};--panel:${mixHex('#1a1a1a', accent, 0.07)};--row:${mixHex('#222222', accent, 0.08)};--line:${mixHex('#303030', accent, 0.1)};--raised:${mixHex('#2a2a2a', accent, 0.08)};`;
+  const light = `--accent:${accent};--accent-text:${accent};--mark:rgba(${rgbOf(accent)},.16);--bg:${mixHex('#f6f6f6', accent, 0.05)};--row:${mixHex('#f1f1f1', accent, 0.07)};--line:${mixHex('#e1e1e1', accent, 0.1)};`;
+  st.textContent = `:root, :root[data-theme="dark"]{${dark}} @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){${light}}} :root[data-theme="light"]{${light}}`;
+}
+const churchAppName = () => (church && church.appName) || CFG.appName;
+const churchBooks = () => (church && church.books && church.books.length ? church.books : null);
+function setChurch(c, rebuild = true) {
+  const was = JSON.stringify(church); church = c || null; store.set('church', church);
+  churchTheme(church && church.accent);
+  $('#appName').textContent = churchAppName(); document.title = churchAppName();
+  if (rebuild && was !== JSON.stringify(church) && typeof buildIndex === 'function' && library && library.tracks) { buildIndex(); renderTabs(); search(); }
+}
+if (!LISTEN) setChurch(church, false);
 // ------------------------------------------------------------------ MIDI playback
 // Songs can come as MIDI files (.mid) as well as MP3s. MIDI is notes, not sound, so the app plays them with its own
 // little synthesizer (piano or organ, Settings): any key is exact (no warble), the tempo changes without the pitch,
@@ -2020,7 +2064,7 @@ const knownSet = new Set();
 for (const b of window.SONGS_KNOWN || []) for (const book of [b.book, ...(b.aka || [])]) for (const n of b.numbers) knownSet.add(bookKey(book) + '|' + n);
 let knownEdits = store.get('knownEdits', {});   // marked / unmarked in the app (admins), shared through the server
 // every Misc song counts as known; other books by the numbers in known.js
-const knownBase = s => !!(s && (/^misc$/i.test(s.collection) || (s.number && knownSet.has(bookKey(s.collection) + '|' + String(s.number).replace(/^0+/, '')))));
+const knownBase = s => !!(s && (!church || church.id === HOME_CHURCH) && (/^misc$/i.test(s.collection) || (s.number && knownSet.has(bookKey(s.collection) + '|' + String(s.number).replace(/^0+/, '')))));
 const isKnown = s => !!s && (s.key in knownEdits ? !!knownEdits[s.key] : knownBase(s));
 function applyKnown(map) {
   const was = JSON.stringify(knownEdits); knownEdits = map || {}; store.set('knownEdits', knownEdits);
@@ -2239,6 +2283,7 @@ function buildIndex() {
   }
   songs = [...songIndex.values()];
   if (LISTEN) songs = songs.filter(s => s.parts.length);
+  else if (churchBooks()) songs = songs.filter(s => churchBooks().includes(s.collection));   // only the books this church uses
   for (const [a, k] of aliases) if (!songIndex.has(a)) songIndex.set(a, songIndex.get(k));
 }
 
@@ -3408,7 +3453,7 @@ function drawChords() {
     <div class="cview">
       ${L || G ? `<div class="cgrp seg">${L ? `<button class="${shownView === 'list' ? 'on' : ''}" data-c="list" title="The order for ${esc(L.listTitle || 'this song list')}">List</button>` : ''}${G ? `<button class="${shownView === 'arranged' ? 'on' : ''}" data-c="arranged" title="The song's usual order">Arranged</button>` : ''}<button class="${shownView === 'original' ? 'on' : ''}" data-c="original">Original</button></div>` : ''}
       <button data-c="arrange">${lEdit ? (L ? 'Edit List Order' : 'List Order') : G ? 'Edit Order' : 'Section Order'}</button>
-      ${isAdmin() && chordFile ? '<button data-c="editsheet" title="Change the chords or words (for everyone)">Edit Sheet</button>' : ''}
+      ${isLibAdmin() && chordFile ? '<button data-c="editsheet" title="Change the chords or words (for everyone)">Edit Sheet</button>' : ''}
       ${keyMoved ? '<button class="ctog on" data-c="savekey">Save Key</button>' : ''}
     </div>
     <div class="cbody${useArr && arr.note ? ' hasnote' : ''}">
@@ -4359,7 +4404,7 @@ function slideSection(note, text) {
 // A song's slides are its folder there; the pictures load straight from Drive. (Speaker slides someone adds still go through the server.)
 const simgFor = f => f && f.ext === 'img' ? { f: f.id, m: String(f.modified || '') } : null;
 // admins: pictures added since are made viewable by link (Drive for desktop uploads them private)
-function shareNewPictures() { if (!isAdmin() || Date.now() - store.get('simgShareAt', 0) < 12 * 3600e3) return; store.set('simgShareAt', Date.now()); api('slideImagesShare', { seconds: 240 }).catch(() => {}); }
+function shareNewPictures() { if (!isLibAdmin() || Date.now() - store.get('simgShareAt', 0) < 12 * 3600e3) return; store.set('simgShareAt', Date.now()); api('slideImagesShare', { seconds: 240 }).catch(() => {}); }
 const simgLists = new Map();   // song folder -> Promise<{ pngs: [ids], names: [file names], json: id }>
 // Slides are kept on this device (browser storage) once loaded: opening or presenting a song again needs nothing from Drive.
 const SIMG_CACHE = 'songpoint-slides-v1', simgKey = k => `https://songpoint.local/slides/${encodeURIComponent(k)}`;
@@ -5418,7 +5463,7 @@ function svDraw() {
     <div class="svimg"><img src="${d.imgs[i]}" alt="Slide ${i + 1}"></div>
     <div class="svmeta"><span>Slide ${i + 1} of ${n}<button class="pbtn ghost svref" data-sv="refresh" title="Get these slides fresh from Google Drive (after they've been updated)">⟳ Refresh</button>${isAdmin() ? ' · ' + svSecPick(me, sec) : sec ? ' · ' + esc(sec) : ''}</span>${ok ? `<span class="svok">✓ Approved by ${esc(ok.by)}${ok.at ? ' ' + esc(shortDate(ok.at)) : ''}</span>` : ''}</div>
     <div class="svwords">${blk ? `<div class="svlab">${esc(blk.label)} · from the chord sheet</div>` : ''}${words}</div>
-    <div class="svnav"><button class="pbtn ghost" data-sv="prev"${i ? '' : ' disabled'}>◀ Previous</button>${isAdmin() ? `<button class="pbtn ${ok ? 'ghost' : ''}" data-sv="ok">${ok ? 'Unapprove' : '✓ Approve slides'}</button>` : ''}<button class="pbtn ghost" data-sv="next"${i < n - 1 ? '' : ' disabled'}>Next ▶</button></div>
+    <div class="svnav"><button class="pbtn ghost" data-sv="prev"${i ? '' : ' disabled'}>◀ Previous</button>${isLibAdmin() ? `<button class="pbtn ${ok ? 'ghost' : ''}" data-sv="ok">${ok ? 'Unapprove' : '✓ Approve slides'}</button>` : ''}<button class="pbtn ghost" data-sv="next"${i < n - 1 ? '' : ' disabled'}>Next ▶</button></div>
   </div>`;
 }
 // Refresh: look in Drive again (the song's PowerPoint and its slide pictures), drop the copies kept here, and show them
@@ -6320,7 +6365,10 @@ async function accountMenu() {
   if (c === 'add') return addAccount();
   if (c === 'out') return signOut();
 }
-const isAdmin = () => !!(auth.user && auth.user.admin);
+const isAdmin = () => !!(auth.user && (auth.user.admin || auth.user.super));
+const isSuper = () => !!(auth.user && auth.user.super);
+// the shared song library (MIDI review, library check, slides, chord sheets) is looked after by Martindale's admins
+const isLibAdmin = () => isSuper() || (isAdmin() && (auth.user.church || HOME_CHURCH) === HOME_CHURCH);
 const isGuest = () => !!(auth.user && auth.user.guest);
 const isVisitor = () => !!(auth.user && auth.user.visitor);   // joined a performance by QR code, no account
 let visitorEnded = false;
@@ -6337,13 +6385,14 @@ function visitorEnd(title, text) {
 function renderWelcome() {
   const n = userName();
   $('#welcome').innerHTML = n ? `<button class="whobtn" id="whoBtn" title="Switch user or sign out">Welcome, <b>${esc(n)}</b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>` : '';
-  $('#acctLine').textContent = auth.user ? `Signed in as ${auth.user.name} (${auth.user.username})${auth.user.admin ? ' · Admin' : ''}${auth.user.guest ? ' · Guest' : ''}` : '';
+  $('#acctLine').textContent = auth.user ? `Signed in as ${auth.user.name} (${auth.user.username})${church && church.name ? ' · ' + church.name : ''}${auth.user.super ? ' · Super Admin' : auth.user.admin ? ' · Admin' : ''}${auth.user.guest ? ' · Guest' : ''}` : '';
   document.body.classList.toggle('guest', isGuest());
   document.body.classList.toggle('visitor', isVisitor() || visitorEnded);
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
   $('#ccliRow').style.display = isAdmin() ? 'flex' : 'none'; if (document.activeElement !== $('#ccliIn')) $('#ccliIn').textContent = appSettings.ccli || '';
-  $('#checkBtn').style.display = isAdmin() ? '' : 'none';
-  $('#midiBtn').style.display = isAdmin() ? '' : 'none';
+  $('#checkBtn').style.display = isLibAdmin() ? '' : 'none';
+  $('#midiBtn').style.display = isLibAdmin() ? '' : 'none';
+  $('#churchesBtn').style.display = isSuper() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
 }
 function signOut(expired = false) {
@@ -6366,16 +6415,25 @@ $('#welcome').addEventListener('click', e => { if (e.target.closest('#whoBtn')) 
 $('#changePwBtn').onclick = () => { closeSheet(); showLock('change'); };
 
 // Users (admins only)
+let churchList = [];
+async function loadChurches() { try { const r = await api('listChurches'); if (r.ok) churchList = r.churches; } catch {} return churchList; }
+const churchName = id => (churchList.find(c => c.id === id) || {}).name || id;
 async function loadUsers() {
   $('#usersList').innerHTML = '<div class="vmsg">Loading…</div>';
   try {
+    if (isSuper()) {   // the Super Admin sees everyone, by church, and picks the church for new people
+      await loadChurches();
+      $('#nuChurch').innerHTML = churchList.map(c => `<option value="${esc(c.id)}"${c.id === (auth.user.church || HOME_CHURCH) ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+    }
+    $('#nuChurchRow').style.display = isSuper() ? '' : 'none';
     const r = await api('listUsers');
     if (!r.ok) throw new Error(r.error);
-    $('#usersList').innerHTML = r.users.sort((a, b) => a.name.localeCompare(b.name)).map(u => `
+    const order = c => { const i = churchList.findIndex(x => x.id === c); return i < 0 ? 99 : i; };
+    $('#usersList').innerHTML = r.users.sort((a, b) => (isSuper() ? order(a.church) - order(b.church) : 0) || a.name.localeCompare(b.name)).map(u => `
       <div class="card ucard" data-u="${esc(u.username)}">
-        <div><div class="t">${esc(u.name)}${u.admin ? '<span class="tag ok">Admin</span>' : ''}${u.guest ? '<span class="tag">Guest</span>' : ''}${u.disabled ? '<span class="tag">Turned off</span>' : ''}${u.mustChange ? '<span class="tag wait">Temp password</span>' : ''}</div>
+        <div><div class="t">${esc(u.name)}${u.super ? '<span class="tag ok">Super Admin</span>' : ''}${u.admin ? '<span class="tag ok">Admin</span>' : ''}${u.guest ? '<span class="tag">Guest</span>' : ''}${u.disabled ? '<span class="tag">Turned off</span>' : ''}${u.mustChange ? '<span class="tag wait">Temp password</span>' : ''}</div>
         <div class="m">${esc(u.username)} · ${u.lastLogin ? 'last signed in ' + esc(shortDate(u.lastLogin.slice(0, 10))) : 'never signed in'}</div></div>
-        <div></div>
+        <div>${isSuper() ? `<select class="uchurch" data-a="church" aria-label="Church" style="font:inherit;font-size:13px;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)">${churchList.map(c => `<option value="${esc(c.id)}"${c.id === u.church ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>` : ''}</div>
         ${u.username === auth.user.username ? '<div class="acts2"><button class="pbtn ghost" data-a="rename">Change Username</button><span class="m">This is you</span></div>' : `<div class="acts2">
           <button class="pbtn ghost" data-a="rename">Change Username</button>
           <button class="pbtn ghost" data-a="reset">Reset Password</button>
@@ -6384,6 +6442,39 @@ async function loadUsers() {
       </div>`).join('');
   } catch (e) { $('#usersList').innerHTML = `<div class="vmsg">${navigator.onLine ? esc(e.message || 'Couldn\'t load users.') : 'Connect to the internet to manage users.'}</div>`; }
 }
+// ---- Super Admin: the churches (name, app name, colour, books)
+const allBooks = () => { const seen = [...new Set([...songIndex.values()].map(s => s.collection))]; return [...library.collections.filter(c => seen.includes(c)), ...seen.filter(c => !library.collections.includes(c)).sort()]; };
+async function openChurches() {
+  closeSheet(); openPanel('churchesPanel'); $('#churchesList').innerHTML = '<div class="vmsg">Loading…</div>';
+  await loadChurches();
+  if (!churchList.length) { $('#churchesList').innerHTML = '<div class="vmsg">Couldn\'t load the churches. Check your internet connection.</div>'; return; }
+  const books = allBooks(), noFill = 'autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"';
+  $('#churchesList').innerHTML = churchList.map(c => `<div class="card chcard" data-ch="${esc(c.id)}">
+    <b><span class="chswatch" style="background:${esc(c.accent || '#72173b')}"></span>${esc(c.name)}</b>
+    <label class="field"><span>Church Name</span><input type="text" data-k="name" value="${esc(c.name)}" maxlength="60" ${noFill}></label>
+    <label class="field"><span>App Name</span><input type="text" data-k="appName" value="${esc(c.appName)}" maxlength="40" ${noFill}></label>
+    <div class="chcolor"><input type="color" data-k="accent" value="${esc(c.accent || '#72173b')}" aria-label="Colour"><span class="m">${c.accent ? esc(c.accent.toUpperCase()) : 'The standard SongPoint maroon'}</span>${c.accent ? '<button class="pbtn ghost" data-reset="1" style="font-size:13px;padding:4px 10px">Standard Colour</button>' : ''}</div>
+    <div class="m">Books</div>
+    <div class="chbooks">${books.map(b => `<label><input type="checkbox" value="${esc(b)}"${(c.books || []).includes(b) ? ' checked' : ''}>${esc(b)}</label>`).join('')}</div>
+    <button class="pbtn" data-save="1">Save</button>
+  </div>`).join('');
+}
+$('#churchesBtn').onclick = openChurches;
+$('#churchesList').addEventListener('input', e => { if (e.target.type === 'color') { e.target.dataset.touched = '1'; e.target.closest('.chcard').querySelector('.chswatch').style.background = e.target.value; } });
+$('#churchesList').addEventListener('click', async e => {
+  const card = e.target.closest('.chcard'); if (!card) return;
+  const reset = e.target.closest('[data-reset]'), save = e.target.closest('[data-save]'); if (!reset && !save) return;
+  const id = card.dataset.ch, col = card.querySelector('[data-k=accent]');
+  const data = { id, name: card.querySelector('[data-k=name]').value.trim(), appName: card.querySelector('[data-k=appName]').value.trim(), books: [...card.querySelectorAll('.chbooks input:checked')].map(x => x.value) };
+  if (reset) data.accent = ''; else if (col.dataset.touched) data.accent = col.value;
+  try {
+    const r = await api('saveChurch', { church: data });
+    if (!r.ok) return toast(r.error || 'Couldn\'t save that');
+    churchList = r.churches; toast(`${data.name} saved`);
+    const mine = r.churches.find(c => c.id === (auth.user.church || HOME_CHURCH)); if (mine) setChurch(Object.assign({}, church, mine));
+    openChurches();
+  } catch { toast('Connect to the internet to save'); }
+});
 function showTemp(name, username, temp, verb, must = true) {
   $('#tempBox').style.display = '';
   $('#tempBox').innerHTML = `<b>${esc(verb)} ${esc(name)}</b><p class="m" style="margin:6px 0 0">Give them these to sign in.${must ? ' They\'ll pick their own password right away.' : ''}</p>
@@ -6416,13 +6507,21 @@ $('#nuCreate').onclick = async () => {
   if (!password) return toast('Enter a password');
   $('#nuCreate').disabled = true;
   try {
-    const r = await api('createUser', { name, username, admin: !guest && $('#nuAdmin').checked, guest, password, mustChange: !guest && must });
+    const r = await api('createUser', { name, username, admin: !guest && $('#nuAdmin').checked, guest, password, mustChange: !guest && must, church: isSuper() ? $('#nuChurch').value : undefined });
     if (!r.ok) return toast(r.error || 'Couldn\'t add that user');
     $('#nuName').value = $('#nuUser').value = ''; $('#nuAdmin').checked = $('#nuGuest').checked = false; $('#nuMust').checked = true; $('#nuPw').value = suggestPassword();
     showTemp(name, r.username, r.tempPassword || password, 'Added', r.mustChange !== false && must); loadUsers();
   } catch { toast('Connect to the internet to add users'); } finally { $('#nuCreate').disabled = false; }
 };
+// Super Admin: move someone to another church
+$('#usersList').addEventListener('change', async e => {
+  const sel = e.target.closest('select.uchurch'); if (!sel) return;
+  const username = sel.closest('[data-u]').dataset.u;
+  try { const r = await api('setUserChurch', { username, church: sel.value }); toast(r.ok ? `Moved to ${churchName(sel.value)}` : r.error || 'Couldn\'t change that'); if (!r.ok) loadUsers(); }
+  catch { toast('Connect to the internet to change that'); loadUsers(); }
+});
 $('#usersList').addEventListener('click', async e => {
+  if (e.target.closest('select')) return;
   const b = e.target.closest('[data-a]'); if (!b) return;
   const card = b.closest('[data-u]'), username = card.dataset.u, name = card.querySelector('.t').firstChild.textContent;
   try {
@@ -6513,7 +6612,7 @@ if (!window.Native && !/Electron/i.test(navigator.userAgent)) {
 
 // ------------------------------------------------------------------ sign-in screen
 const needsLogin = () => !auth.token || !!(auth.user && auth.user.mustChange);
-$('#lockTitle').textContent = CFG.appName;
+$('#lockTitle').textContent = churchAppName();
 let lockMode = 'signin';
 function showLock(mode = 'signin', msg = '') {
   lockMode = mode;
@@ -6564,6 +6663,7 @@ $('#lockForm').addEventListener('submit', async e => {
     if (!r.ok) return err(r.error || 'That didn\'t work. Please try again.');
     const wasChange = lockMode === 'change', before = auth.user && !auth.user.visitor ? auth.user.username : '';
     auth = { token: r.token, user: r.user }; saveAuth(); store.set('lastUser', r.user.username);
+    if (r.church) setChurch(r.church);
     if (before && before !== r.user.username && !r.user.mustChange) return location.reload();   // another account added: start again as them
     $('#lock').classList.remove('show'); document.activeElement.blur(); renderWelcome();
     toast(wasChange ? 'Password saved' : `Welcome, ${r.user.name}!`);
@@ -7587,12 +7687,12 @@ function openRowMenu(s, btn) {
   $('#rowMenu').innerHTML =
     `<button data-m="fav"><span class="ic star">${isFav(s) ? '★' : '☆'}</span>${isFav(s) ? 'Remove from Favorites' : 'Add to Favorites'}</button>`
     + (N && files.length ? `<button data-m="dl"><span class="ic">${saved ? '✓' : '⬇'}</span>${busy ? 'Saving… (Tap to Cancel)' : saved ? 'Remove Offline Copy' : 'Save for Offline'}</button>` : '')
-    + (isAdmin() ? `<button data-m="editchords"><span class="ic">✎</span>${s.chords.length ? 'Edit Chord Sheet' : 'Write a Chord Sheet'}</button>` : '')
+    + (isLibAdmin() ? `<button data-m="editchords"><span class="ic">✎</span>${s.chords.length ? 'Edit Chord Sheet' : 'Write a Chord Sheet'}</button>` : '')
     + `<button data-m="chords"><span class="ic">♪</span>${s.chords.length ? 'Replace Chord Sheet (Upload a File)' : 'Upload a Chord Sheet'}</button>`
     + (isAdmin() ? `<button data-m="savedkey"><span class="ic">♯</span>Change Saved Key${s.musicKey ? ` (${esc(s.musicKey.replace('b', '♭').replace('#', '♯'))})` : ''}</button>` : '')
     + (isAdmin() ? `<button data-m="known"><span class="ic known">▍</span>${isKnown(s) ? 'Not a Song We Know' : 'Mark as a Song We Know'}</button>` : '')
     + (tuneMates(s) ? `<button data-m="tune"><span class="ic">♫</span>Same Tune As… (${tuneMates(s).length - 1})</button>` : '')
-    + (tuneMates(s) && isAdmin() ? `<button data-m="tunemain"><span class="ic star">${tuneMains[s.key] === true ? '★' : '☆'}</span>${tuneMains[s.key] === true ? 'Not the Main Tune' : 'Make This the Main Tune'}</button>` : '')
+    + (tuneMates(s) && isLibAdmin() ? `<button data-m="tunemain"><span class="ic star">${tuneMains[s.key] === true ? '★' : '☆'}</span>${tuneMains[s.key] === true ? 'Not the Main Tune' : 'Make This the Main Tune'}</button>` : '')
     + (myLive && !(perf && perf.role === 'host') ? liveBtn(myLive) : '');
   const m = $('#rowMenu'); m.classList.add('show');
   checkMyLive().then(x => { if (rowMenuSong === s && x && !m.querySelector('[data-m=live]') && !(perf && perf.role === 'host')) { m.insertAdjacentHTML('beforeend', liveBtn(x)); placeRowMenu(btn); } });
@@ -8533,7 +8633,7 @@ function startApp(fresh = false) {
     if (navigator.onLine && auth.token) { loadApproved(); loadSlidesApproved(); }
     if (navigator.onLine && auth.token) loadArrangements(true);
     if (navigator.onLine && auth.token) loadLists();
-    if (navigator.onLine && auth.token) api('me').then(r => { if (r.ok) { auth.user = r.user; saveAuth(); renderWelcome(); } }).catch(() => {});
+    if (navigator.onLine && auth.token) api('me').then(r => { if (r.ok) { auth.user = r.user; saveAuth(); if (r.church) setChurch(r.church); renderWelcome(); } }).catch(() => {});
   }
 }
 refreshDownloaded();

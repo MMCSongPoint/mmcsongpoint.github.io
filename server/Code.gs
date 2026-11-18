@@ -9,7 +9,55 @@ var TAB = 'Log', USERS = 'Users', CACHE = 'SlideCache';
 var HEAD = ['Logged at', 'Date used', 'Leader', 'Event', 'Note', 'Note ID', 'Version', 'Position', 'Book', 'Number',
   'Title', 'Song key', 'Device', 'Comment', 'Entry ID', 'Username'];
 var UHEAD = ['Username', 'Name', 'Admin', 'Salt', 'Hash', 'Must change password', 'Created', 'Last sign-in',
-  'Signed out before', 'Disabled', 'Guest'];
+  'Signed out before', 'Disabled', 'Guest', 'Church'];
+
+// ------------------------------------------------------------------ churches
+// The app serves several churches in the district. Each user belongs to one; each church has its own song lists and usage,
+// Songs We Know, saved keys, arrangements, admins and CCLI number, and sees the books the Super Admin picks for it, in its
+// own colour and app name. The song library itself is shared. Martindale (the home church) looks after the library.
+var SUPER = ['jadon1676'], HOME_CHURCH = 'martindale';
+var DEFAULT_CHURCHES = [
+  { id: 'martindale', name: 'Martindale Mennonite', appName: 'MMC SongPoint', accent: '', books: [] },
+  { id: 'cambridge', name: 'Cambridge Mennonite', appName: 'Cambridge SongPoint', accent: '#0071bb', books: [] },
+  { id: 'ephrata', name: 'Ephrata Bible Chapel', appName: 'EBC SongPoint', accent: '#2e7683', books: [] },
+  { id: 'parkview', name: 'Parkview Mennonite', appName: 'Parkview SongPoint', accent: '#7e2c18', books: [] },
+  { id: 'shiloh', name: 'Shiloh Mennonite', appName: 'Shiloh SongPoint', accent: '#0071bb', books: [] }];
+function churches_() {
+  var p = PropertiesService.getScriptProperties(), v = p.getProperty('churches'), list;
+  try { list = v ? JSON.parse(v) : null; } catch (e) { list = null; }
+  if (!list || !list.length) {   // first time: the defaults, with the CCLI number Martindale already had
+    list = JSON.parse(JSON.stringify(DEFAULT_CHURCHES));
+    list[0].ccli = p.getProperty('set_ccli') || '';
+  }
+  return list;
+}
+function saveChurches_(list) { PropertiesService.getScriptProperties().setProperty('churches', JSON.stringify(list)); }
+function church_(id) { var l = churches_(); return l.filter(function (c) { return c.id === id; })[0] || l[0]; }
+function churchPublic_(c) { return { id: c.id, name: c.name, appName: c.appName || 'SongPoint', accent: c.accent || '', books: c.books || [], ccli: c.ccli || '' }; }
+function rowChurch_(v) { return String(v || '').trim() || HOME_CHURCH; }
+function churchMap_() { var m = {}; users_().forEach(function (u) { m[u.username] = u.church; }); return m; }
+function sameChurch_(me, u) { return !!me.super || (u && u.church === me.church); }
+// the header of a column added later (older sheets don't have it yet)
+function ensureHead_(sh, col, name) { if (sh.getRange(1, col).getValue() !== name) sh.getRange(1, col).setValue(name).setFontWeight('bold'); }
+// Super Admin: change a church (or add one)
+function saveChurch_(d) {
+  var c = d.church || {}, id = String(c.id || '').trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{1,29}$/.test(id)) return { ok: false, error: 'A church id uses 2–30 letters, numbers or dashes.' };
+  var list = churches_(), x = list.filter(function (y) { return y.id === id; })[0];
+  if (!x) { x = { id: id }; list.push(x); }
+  if (c.name !== undefined) x.name = String(c.name || id).trim().slice(0, 60);
+  if (c.appName !== undefined) x.appName = String(c.appName || 'SongPoint').trim().slice(0, 40);
+  if (c.accent !== undefined) x.accent = /^#[0-9a-f]{6}$/i.test(String(c.accent)) ? String(c.accent) : '';
+  if (c.books !== undefined) x.books = (c.books || []).map(function (b) { return String(b).slice(0, 60); }).slice(0, 50);
+  saveChurches_(list);
+  return { ok: true, churches: list.map(churchPublic_) };
+}
+function setUserChurch_(d) {
+  var u = findUser_(d.username); if (!u) return { ok: false, error: 'No such user.' };
+  var id = String(d.church || ''); if (!churches_().some(function (c) { return c.id === id; })) return { ok: false, error: 'No such church.' };
+  u.church = id; saveUser_(u);
+  return { ok: true };
+}
 var ROUNDS = 2000;
 // A guest account (shared, e.g. for visiting musicians): views songs and follows presentations; nothing else.
 var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSlides', 'finalizeSlides', 'chordUpload',
@@ -17,6 +65,8 @@ var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSl
 // A visitor (joined by QR code, no account) can only follow the performance they joined.
 var VISITOR_OK = ['me', 'perfJoin', 'perfSend', 'perfPoll', 'perfState', 'file', 'slideDeck', 'deckFile', 'slideLive', 'getArrangements', 'slideSections',
   'slidesApproved', 'mp3Approved', 'getKnown', 'getTuneMains', 'getKeyChecks', 'getTextDocs', 'slideImagesIndex', 'slideChordsIndex', 'slideChordsGet'];
+var LIBRARY_ADMIN = ['setIgnored', 'setTextDoc', 'setSlidesApproved', 'setSlideSections', 'slideImagesRun', 'slideChordsSave', 'chordSave', 'slideImagesIndexBuild',
+  'slideImagesShare', 'slideImagesStatus', 'verseCountsBuild', 'slideImagesDedupe', 'mp3Review', 'mp3IssueDelete', 'setTuneMain'];
 var CHORDS_FOLDER = '1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ';   // Chord Pro (one subfolder per book): uploaded chord sheets go here
 var SHARED_SLIDES_FOLDER = '1A_h83VBsar3VD4j2LQ2js8sbdrBAIGQc';   // built PowerPoints are saved here (PowerPoint Presentations)
 
@@ -89,7 +139,7 @@ function users_() {
     return { row: i + 2, username: String(r[0]), name: String(r[1]), admin: r[2] === true || r[2] === 'TRUE',
       salt: String(r[3]), hash: String(r[4]), mustChange: r[5] === true || r[5] === 'TRUE',
       created: r[6], lastLogin: r[7], validAfter: Number(r[8]) || 0, disabled: r[9] === true || r[9] === 'TRUE',
-      guest: r[10] === true || r[10] === 'TRUE' };
+      guest: r[10] === true || r[10] === 'TRUE', church: rowChurch_(r[11]), super: SUPER.indexOf(String(r[0])) >= 0 };
   }).filter(function (u) { return u.username; });
 }
 function findUser_(username) {
@@ -98,13 +148,14 @@ function findUser_(username) {
 }
 function saveUser_(u) {
   var row = [u.username, u.name, u.admin, u.salt, u.hash, u.mustChange, u.created || new Date(), u.lastLogin || '',
-    u.validAfter || 0, u.disabled, !!u.guest];
-  if (u.row) usersTab_().getRange(u.row, 1, 1, row.length).setValues([row]);
-  else usersTab_().appendRow(row);
+    u.validAfter || 0, u.disabled, !!u.guest, u.church || HOME_CHURCH];
+  var sh = usersTab_(); ensureHead_(sh, 12, 'Church');
+  if (u.row) sh.getRange(u.row, 1, 1, row.length).setValues([row]);
+  else sh.appendRow(row);
 }
 function publicUser_(u) {
   return { username: u.username, name: u.name, admin: u.admin, guest: !!u.guest, visitor: !!u.visitor, mustChange: u.mustChange, disabled: u.disabled,
-    lastLogin: u.lastLogin ? new Date(u.lastLogin).toISOString() : '' };
+    lastLogin: u.lastLogin ? new Date(u.lastLogin).toISOString() : '', church: u.church || HOME_CHURCH, super: !!u.super };
 }
 function checkToken_(token) {
   var parts = String(token || '').split('.');
@@ -120,7 +171,10 @@ function checkToken_(token) {
 }
 // Visitors: someone scans the QR code on the leader's screen and follows along without an account. Their pass has
 // the guest account's limits (view songs, follow along) and stops working when that session ends.
-function visitorUser_(code) { return { username: 'visitor~' + code, name: 'Visitor', admin: false, guest: true, visitor: true, mustChange: false, disabled: false, validAfter: 0 }; }
+function visitorUser_(code) {
+  var s = perfSession_(code), host = s && s.user ? findUser_(s.user) : null;
+  return { username: 'visitor~' + code, name: 'Visitor', admin: false, guest: true, visitor: true, mustChange: false, disabled: false, validAfter: 0, church: host ? host.church : HOME_CHURCH };
+}
 function visitorJoin_(d) {
   var code = String(d.code || '').replace(/\D/g, ''), c = CacheService.getScriptCache(), n = Number(c.get('vfail') || 0);
   if (n >= 40) return { ok: false, error: 'Too many tries. Wait a few minutes and scan the code again.' };
@@ -141,7 +195,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 60 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 61 }); }
 
 function doPost(e) {
   var d;
@@ -164,7 +218,7 @@ function handle_(d) {
 
   var me = checkToken_(d.token);
   if (!me) return { ok: false, error: 'Please sign in again.', signedOut: true };
-  if (a === 'me') return { ok: true, user: publicUser_(me) };
+  if (a === 'me') return { ok: true, user: publicUser_(me), church: churchPublic_(church_(me.church)) };
   if (me.visitor && VISITOR_OK.indexOf(a) < 0) return { ok: false, error: 'Visitors can only follow the performance.' };
   if (me.visitor && a === 'perfJoin' && String(d.code || '').replace(/\D/g, '') !== me.username.slice(8)) return { ok: false, error: 'Visitors can only follow the performance they joined.' };
   if (me.guest && GUEST_BLOCKED.indexOf(a) >= 0) return { ok: false, error: 'The guest account can view songs and follow along, but can\'t change things.' };
@@ -178,10 +232,10 @@ function handle_(d) {
   if (a === 'finalizeSlides') return finalizeSlides_(me, d);
   if (a === 'bugReport') return bugReport_(me, d);
   if (a === 'getTextDocs') return { ok: true, textDocs: textDocs_() };
-  if (a === 'getKnown') return { ok: true, known: known_() };
+  if (a === 'getKnown') return { ok: true, known: known_(me.church) };
   if (a === 'verseCounts') return verseCounts_();
   if (a === 'favsSync') return favsSync_(me, d);   // this person's favorite songs (kept per user, on every device)
-  if (a === 'getKeyChecks') return { ok: true, keys: keyChecks_() };
+  if (a === 'getKeyChecks') return { ok: true, keys: keyChecks_(me.church) };
   if (a === 'mp3Approved') return { ok: true, reviewed: mp3Reviewed_() };
   if (a === 'slidesApproved') return { ok: true, approved: slidesApproved_() };
   if (a === 'slideSections') return { ok: true, sections: slideSections_() };
@@ -195,7 +249,7 @@ function handle_(d) {
   if (a === 'listSave') return listSave_(me, d);
   if (a === 'listDelete') return listDelete_(me, d);
   if (a === 'listShare') return listShare_(me, d);
-  if (a === 'listPeople') return { ok: true, people: users_().filter(function (u) { return !u.disabled && !u.guest; }).map(function (u) { return { username: u.username, name: u.name }; }) };
+  if (a === 'listPeople') return { ok: true, people: users_().filter(function (u) { return !u.disabled && !u.guest && u.church === me.church; }).map(function (u) { return { username: u.username, name: u.name }; }) };
   if (a === 'listsImport') return listsImport_(me, d);
   if (a === 'perfHost') return perfHost_(me, d);
   if (a === 'perfJoin') return perfJoin_(d);
@@ -208,20 +262,26 @@ function handle_(d) {
   if (a === 'slideImagesIndex') return slideImagesIndex_();
   if (a === 'slideChordsIndex') return { ok: true, index: slideChordsIndex_() };
   if (a === 'slideChordsGet') return slideChordsGet_(d);
-  if (a === 'getArrangements') return { ok: true, arrangements: arrangements_() };
+  if (a === 'getArrangements') return { ok: true, arrangements: arrangements_(me.church) };
   if (a === 'setArrangement') return setArrangement_(me, d);
   if (a === 'deleteArrangement') return deleteArrangement_(me, d);
 
   if (a === 'topicsFile') return topicsFile_(d);   // the Topical Index spreadsheet in the SongPoint folder
   if (a === 'tuneFile') return homeXlsx_('Hymn tune index.xlsx', d);   // songs that share a melody (tune groups)
   if (a === 'firstLinesFile') return homeXlsx_('First Lines.xlsx', d);   // the first words of each song (search by words)
-  if (a === 'getSettings') return { ok: true, settings: settings_() };   // church-wide settings (the CCLI licence number)
+  if (a === 'getSettings') return { ok: true, settings: settings_(me) };   // this church's settings (the CCLI licence number)
+  // Super Admin: the churches (books, colour, app name) and which church each person belongs to
+  if (a === 'listChurches') return me.super ? { ok: true, churches: churches_().map(churchPublic_) } : { ok: false, error: 'Only the Super Admin can do that.' };
+  if (a === 'saveChurch') return me.super ? saveChurch_(d) : { ok: false, error: 'Only the Super Admin can do that.' };
+  if (a === 'setUserChurch') return me.super ? setUserChurch_(d) : { ok: false, error: 'Only the Super Admin can do that.' };
   if (a === 'getTuneMains') return { ok: true, mains: tuneMains_() };
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);   // anyone signed in can flag a problem with a track (their name is saved with it)
-  if (!me.admin) return { ok: false, error: 'Only admins can do that.' };
-  if (a === 'listUsers') return { ok: true, users: users_().map(publicUser_) };
-  if (a === 'createUser') return createUser_(d);
-  if (a === 'resetPassword') return resetPassword_(d);
+  if (!me.admin && !me.super) return { ok: false, error: 'Only admins can do that.' };
+  // the shared library (MIDI review, slides, chord sheets, …) is looked after by Martindale's admins
+  if (LIBRARY_ADMIN.indexOf(a) >= 0 && !me.super && me.church !== HOME_CHURCH) return { ok: false, error: 'The song library is looked after by Martindale\'s admins.' };
+  if (a === 'listUsers') return { ok: true, users: users_().filter(function (u) { return sameChurch_(me, u); }).map(publicUser_) };
+  if (a === 'createUser') return createUser_(me, d);
+  if (a === 'resetPassword') return resetPassword_(me, d);
   if (a === 'setAdmin') return setAdmin_(me, d);
   if (a === 'setDisabled') return setDisabled_(me, d);
   if (a === 'renameUser') return renameUser_(me, d);
@@ -230,7 +290,7 @@ function handle_(d) {
   if (a === 'setTextDoc') return setTextDoc_(me, d);
   if (a === 'setKnown') return setKnown_(me, d);
   if (a === 'setTuneMain') return setTuneMain_(me, d);
-  if (a === 'setSetting') return setSetting_(d);
+  if (a === 'setSetting') return setSetting_(me, d);
   if (a === 'setKeyCheck') return setKeyCheck_(me, d);
   if (a === 'setSlidesApproved') return setSlidesApproved_(me, d);
   if (a === 'setSlideSections') return setSlideSections_(me, d);
@@ -246,7 +306,7 @@ function handle_(d) {
   if (a === 'mp3Review') return mp3Review_(me, d);
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);
   if (a === 'mp3IssueDelete') return mp3IssueDelete_(me, d);
-  if (a === 'logRecords') return logRecords_();
+  if (a === 'logRecords') return logRecords_(me);
   if (a === 'deleteLog') return deleteLog_(me, d);
   return { ok: false, error: 'Unknown action' };
 }
@@ -262,7 +322,7 @@ function setupAdmin_(d) {
     var u = { username: username, name: String(d.name || username).trim().slice(0, 40), admin: true, salt: salt,
       hash: hash_(d.password, salt), mustChange: false, created: new Date(), lastLogin: new Date(), validAfter: 0, disabled: false };
     saveUser_(u);
-    return { ok: true, token: token_(username), user: publicUser_(u) };
+    return { ok: true, token: token_(username), user: publicUser_(u), church: churchPublic_(church_(u.church || HOME_CHURCH)) };
   } finally { lock.releaseLock(); }
 }
 
@@ -276,7 +336,7 @@ function login_(d) {
     return { ok: false, error: 'Wrong username or password.' };
   }
   u.lastLogin = new Date(); saveUser_(u);
-  return { ok: true, token: token_(u.username), user: publicUser_(u) };
+  return { ok: true, token: token_(u.username), user: publicUser_(u), church: churchPublic_(church_(u.church)) };
 }
 
 function changePassword_(me, d) {
@@ -287,7 +347,8 @@ function changePassword_(me, d) {
   return { ok: true, token: token_(me.username), user: publicUser_(me) };
 }
 
-function createUser_(d) {
+function createUser_(me, d) {
+  var church = me.super && d.church && churches_().some(function (c) { return c.id === d.church; }) ? String(d.church) : me.church;
   var username = String(d.username || '').trim().toLowerCase();
   if (!validUsername_(username)) return { ok: false, error: 'Usernames use 2–30 letters, numbers, dots or dashes.' };
   if (findUser_(username)) return { ok: false, error: 'That username is taken.' };
@@ -296,13 +357,13 @@ function createUser_(d) {
   var temp = chosen ? String(d.password) : tempPassword_(), salt = newSalt_(), must = chosen ? d.mustChange !== false : true;
   if (d.guest) must = false;   // a shared password: nobody changes it
   saveUser_({ username: username, name: String(d.name || username).trim().slice(0, 40), admin: !d.guest && !!d.admin, guest: !!d.guest, salt: salt,
-    hash: hash_(temp, salt), mustChange: must, created: new Date(), lastLogin: '', validAfter: 0, disabled: false });
+    hash: hash_(temp, salt), mustChange: must, created: new Date(), lastLogin: '', validAfter: 0, disabled: false, church: church });
   return { ok: true, username: username, tempPassword: chosen ? '' : temp, mustChange: must };
 }
 
-function resetPassword_(d) {
+function resetPassword_(me, d) {
   var u = findUser_(d.username);
-  if (!u) return { ok: false, error: 'No such user.' };
+  if (!u || !sameChurch_(me, u)) return { ok: false, error: 'No such user.' };
   var temp = tempPassword_();
   u.salt = newSalt_(); u.hash = hash_(temp, u.salt); u.mustChange = !u.guest; u.validAfter = Date.now();
   saveUser_(u);
@@ -311,8 +372,8 @@ function resetPassword_(d) {
 
 function setAdmin_(me, d) {
   var u = findUser_(d.username);
-  if (!u) return { ok: false, error: 'No such user.' };
-  if (!d.admin && users_().filter(function (x) { return x.admin && !x.disabled; }).length <= 1 && u.admin)
+  if (!u || !sameChurch_(me, u)) return { ok: false, error: 'No such user.' };
+  if (!d.admin && users_().filter(function (x) { return x.admin && !x.disabled && x.church === u.church; }).length <= 1 && u.admin && !me.super)
     return { ok: false, error: 'There has to be at least one admin.' };
   if (u.guest && d.admin) return { ok: false, error: 'The guest account can\'t be an admin.' };
   u.admin = !!d.admin; saveUser_(u);
@@ -321,7 +382,7 @@ function setAdmin_(me, d) {
 
 function setDisabled_(me, d) {
   var u = findUser_(d.username);
-  if (!u) return { ok: false, error: 'No such user.' };
+  if (!u || !sameChurch_(me, u)) return { ok: false, error: 'No such user.' };
   if (u.username === me.username) return { ok: false, error: 'You can\'t turn off your own account.' };
   u.disabled = !!d.disabled; u.validAfter = Date.now(); saveUser_(u);
   return { ok: true };
@@ -367,12 +428,12 @@ function day_(v) {
 }
 
 function usage_(me, d) {
-  var everyone = me.admin && d.scope === 'all';
+  var everyone = me.admin && d.scope === 'all', cm = churchMap_();
   var values = logTab_().getDataRange().getValues();
   values.shift();
   values = values.filter(function (r) {
     if (r[3] !== 'note saved') return false;
-    if (everyone) return true;
+    if (everyone) return rowChurch_(cm[String(r[15])]) === me.church;
     return r[15] ? String(r[15]) === me.username : String(r[2]) === me.name;
   });
   var latest = {};
@@ -594,11 +655,11 @@ function setTextDoc_(me, d) {
 }
 
 /** Keys checked by an admin against the sheet music (Settings › Verify keys): song -> { key, by, at }. */
-var KEYCHK = 'Key Checks', KCHEAD = ['Song', 'Key', 'Title', 'Book', 'Was', 'Checked by', 'When'];
-function keyChecks_() {
+var KEYCHK = 'Key Checks', KCHEAD = ['Song', 'Key', 'Title', 'Book', 'Was', 'Checked by', 'When', 'Church'];
+function keyChecks_(church) {
   var sh = tab_(KEYCHK, KCHEAD), n = sh.getLastRow() - 1, out = {};
   if (n < 1) return out;
-  sh.getRange(2, 1, n, 7).getValues().forEach(function (r) { if (r[0] && r[1]) out[String(r[0])] = { key: String(r[1]), by: String(r[5] || ''), at: r[6] ? new Date(r[6]).toISOString() : '' }; });
+  sh.getRange(2, 1, n, 8).getValues().forEach(function (r) { if (r[0] && r[1] && rowChurch_(r[7]) === church) out[String(r[0])] = { key: String(r[1]), by: String(r[5] || ''), at: r[6] ? new Date(r[6]).toISOString() : '' }; });
   return out;
 }
 function setKeyCheck_(me, d) {
@@ -607,15 +668,15 @@ function setKeyCheck_(me, d) {
   if (key && !/^[A-G][b#]?$/.test(key)) return { ok: false, error: 'That isn\'t a key.' };
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    var sh = tab_(KEYCHK, KCHEAD), n = sh.getLastRow() - 1;
-    var keys = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [], i = keys.indexOf(song);
+    var sh = tab_(KEYCHK, KCHEAD), n = sh.getLastRow() - 1; ensureHead_(sh, 8, 'Church');
+    var keys = n > 0 ? sh.getRange(2, 1, n, 8).getValues().map(function (r) { return String(r[0]) + '|' + rowChurch_(r[7]); }) : [], i = keys.indexOf(song + '|' + me.church);
     if (!key) { if (i >= 0) sh.deleteRow(i + 2); }   // "not checked" again
     else {
-      var row = [song, key, String(d.title || ''), String(d.book || ''), String(d.was || ''), me.name || me.username, new Date()];
+      var row = [song, key, String(d.title || ''), String(d.book || ''), String(d.was || ''), me.name || me.username, new Date(), me.church];
       if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
     }
   } finally { lock.releaseLock(); }
-  return { ok: true, keys: keyChecks_() };
+  return { ok: true, keys: keyChecks_(me.church) };
 }
 
 // ---- chords placed on the slide pictures (musicians' "View Slides" + Chords): one JSON file per song in "Slide Chords"
@@ -705,23 +766,23 @@ function setSlideSections_(me, d) {
 }
 
 /** "Songs we know" changes made in the app (on top of the list built into the app): key -> known yes/no. */
-var KNOWN = 'Known Songs', KHEAD = ['Song', 'Known', 'Title', 'Book', 'Marked by', 'When'];
-function known_() {
+var KNOWN = 'Known Songs', KHEAD = ['Song', 'Known', 'Title', 'Book', 'Marked by', 'When', 'Church'];
+function known_(church) {
   var sh = tab_(KNOWN, KHEAD), n = sh.getLastRow() - 1, out = {};
   if (n < 1) return out;
-  sh.getRange(2, 1, n, 2).getValues().forEach(function (r) { if (r[0]) out[String(r[0])] = r[1] === true || r[1] === 'TRUE'; });
+  sh.getRange(2, 1, n, 7).getValues().forEach(function (r) { if (r[0] && rowChurch_(r[6]) === church) out[String(r[0])] = r[1] === true || r[1] === 'TRUE'; });
   return out;
 }
 function setKnown_(me, d) {
   var key = String(d.key || ''); if (!key) return { ok: false, error: 'No song given.' };
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    var sh = tab_(KNOWN, KHEAD), n = sh.getLastRow() - 1;
-    var keys = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [];
-    var row = [key, !!d.known, String(d.title || ''), String(d.book || ''), me.name || me.username, new Date()], i = keys.indexOf(key);
+    var sh = tab_(KNOWN, KHEAD), n = sh.getLastRow() - 1; ensureHead_(sh, 7, 'Church');
+    var keys = n > 0 ? sh.getRange(2, 1, n, 7).getValues().map(function (r) { return String(r[0]) + '|' + rowChurch_(r[6]); }) : [];
+    var row = [key, !!d.known, String(d.title || ''), String(d.book || ''), me.name || me.username, new Date(), me.church], i = keys.indexOf(key + '|' + me.church);
     if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
   } finally { lock.releaseLock(); }
-  return { ok: true, known: known_() };
+  return { ok: true, known: known_(me.church) };
 }
 
 /** Favorite songs, per person: one row per user and song in the "Favorites" tab. favsSync applies the changes made in
@@ -747,16 +808,17 @@ function favsSync_(me, d) {
 
 /** Church-wide settings, set by an admin in the app: ccli = the CCLI licence number (shown on each song's first slide). */
 var SETTING_KEYS = ['ccli'];
-function settings_() {
-  var p = PropertiesService.getScriptProperties(), out = {};
-  SETTING_KEYS.forEach(function (k) { out[k] = p.getProperty('set_' + k) || ''; });
+function settings_(me) {
+  var c = church_(me.church), out = {};
+  SETTING_KEYS.forEach(function (k) { out[k] = c[k] || ''; });
   return out;
 }
-function setSetting_(d) {
+function setSetting_(me, d) {
   var k = String(d.key || ''); if (SETTING_KEYS.indexOf(k) < 0) return { ok: false, error: 'Unknown setting.' };
-  var v = String(d.value == null ? '' : d.value).trim().slice(0, 40), p = PropertiesService.getScriptProperties();
-  if (v) p.setProperty('set_' + k, v); else p.deleteProperty('set_' + k);
-  return { ok: true, settings: settings_() };
+  var v = String(d.value == null ? '' : d.value).trim().slice(0, 40), list = churches_();
+  var c = list.filter(function (x) { return x.id === me.church; })[0]; if (!c) return { ok: false, error: 'No church.' };
+  c[k] = v; saveChurches_(list);
+  return { ok: true, settings: settings_(me) };
 }
 
 /** The main tune of each tune group (the hymn people know that melody by), chosen by admins: song key -> main yes/no.
@@ -868,8 +930,9 @@ function mp3IssueFiles_(fileId, fileName, book) {
 
 // ------------------------------------------------------------------ usage records (admins)
 /** Every logged song list (all versions together) and every PowerPoint build, newest first. */
-function logRecords_() {
+function logRecords_(me) {
   var v = logTab_().getDataRange().getValues(); v.shift();
+  var cm = churchMap_(); if (!me.super) v = v.filter(function (r) { return rowChurch_(cm[String(r[15])]) === me.church; });
   var groups = {}, order = [];
   v.forEach(function (r) {
     var event = String(r[3] || ''), noteId = String(r[5] || ''), entry = String(r[14] || '');
@@ -905,9 +968,9 @@ function deleteLog_(me, d) {
   try {
     var sh = logTab_(), last = sh.getLastRow();
     if (last < 2) return { ok: true, deleted: 0 };
-    var v = sh.getRange(2, 1, last - 1, HEAD.length).getValues(), keep = [], gone = [];
+    var v = sh.getRange(2, 1, last - 1, HEAD.length).getValues(), keep = [], gone = [], cm = churchMap_();
     v.forEach(function (r) {
-      var del = (String(r[3]) === 'note saved' && noteIds[String(r[5])]) || entryIds[String(r[14])];
+      var del = ((String(r[3]) === 'note saved' && noteIds[String(r[5])]) || entryIds[String(r[14])]) && (me.super || rowChurch_(cm[String(r[15])]) === me.church);
       (del ? gone : keep).push(r);
     });
     if (!gone.length) return { ok: true, deleted: 0 };
@@ -957,11 +1020,11 @@ function file_(d) {
 
 // ------------------------------------------------------------------ chord chart arrangements
 // One shared section order (and key) per chord chart. The chart file itself is never changed.
-var ARR = 'Arrangements', AHEAD = ['Chart ID', 'Song key', 'Title', 'Book', 'Order', 'Key', 'Updated by', 'Updated', 'Note'];
-function arrangements_() {
+var ARR = 'Arrangements', AHEAD = ['Chart ID', 'Song key', 'Title', 'Book', 'Order', 'Key', 'Updated by', 'Updated', 'Note', 'Church'];
+function arrangements_(church) {
   var sh = tab_(ARR, AHEAD), n = sh.getLastRow() - 1;
   if (n < 1) return [];
-  return sh.getRange(2, 1, n, AHEAD.length).getValues().filter(function (r) { return r[0]; }).map(function (r) {
+  return sh.getRange(2, 1, n, AHEAD.length).getValues().filter(function (r) { return r[0] && rowChurch_(r[9]) === church; }).map(function (r) {
     var order = []; try { order = JSON.parse(r[4] || '[]'); } catch (e) {}
     return { chartId: String(r[0]), songKey: String(r[1]), order: order, key: String(r[5] || ''), by: String(r[6] || ''),
       at: r[7] instanceof Date ? r[7].toISOString() : String(r[7] || ''), note: String(r[8] || '') };
@@ -972,26 +1035,26 @@ function setArrangement_(me, d) {
   var order = (d.order || []).slice(0, 60).map(function (x) { return { i: Number(x.i) || 0, label: String(x.label || '').slice(0, 60) }; });
   if (!order.length) return { ok: false, error: 'Choose at least one section.' };
   var row = [id, String(d.songKey || ''), String(d.title || '').slice(0, 120), String(d.book || '').slice(0, 60), JSON.stringify(order),
-    String(d.key || '').slice(0, 8), me.name || me.username, new Date(), String(d.note || '').slice(0, 1000)];
+    String(d.key || '').slice(0, 8), me.name || me.username, new Date(), String(d.note || '').slice(0, 1000), me.church];
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    var sh = tab_(ARR, AHEAD), n = sh.getLastRow() - 1;
-    var ids = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [];
-    var i = ids.indexOf(id);
+    var sh = tab_(ARR, AHEAD), n = sh.getLastRow() - 1; ensureHead_(sh, 10, 'Church');
+    var ids = n > 0 ? sh.getRange(2, 1, n, 10).getValues().map(function (r) { return String(r[0]) + '|' + rowChurch_(r[9]); }) : [];
+    var i = ids.indexOf(id + '|' + me.church);
     if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
   } finally { lock.releaseLock(); }
-  return { ok: true, arrangements: arrangements_() };
+  return { ok: true, arrangements: arrangements_(me.church) };
 }
 function deleteArrangement_(me, d) {
   var id = String(d.chartId || '');
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     var sh = tab_(ARR, AHEAD), n = sh.getLastRow() - 1;
-    var ids = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(function (r) { return String(r[0]); }) : [];
-    var i = ids.indexOf(id);
+    var ids = n > 0 ? sh.getRange(2, 1, n, 10).getValues().map(function (r) { return String(r[0]) + '|' + rowChurch_(r[9]); }) : [];
+    var i = ids.indexOf(id + '|' + me.church);
     if (i >= 0) sh.deleteRow(i + 2);
   } finally { lock.releaseLock(); }
-  return { ok: true, arrangements: arrangements_() };
+  return { ok: true, arrangements: arrangements_(me.church) };
 }
 
 // ------------------------------------------------------------------ performance mode (devices following a host)
@@ -1081,10 +1144,10 @@ function listOut_(x) {
 }
 function listCanEdit_(me, x) { return x.owner === me.username; }
 function listsGet_(me) {
-  var lists = [], deleted = [];
+  var lists = [], deleted = [], cm = churchMap_();
   listRows_().forEach(function (x) {
     if (x.deleted) deleted.push(x.id);
-    else if (x.owner === me.username || x.shared || (x.sharedWith || []).indexOf(me.username) >= 0) lists.push(listOut_(x));
+    else if (x.owner === me.username || (x.shared && rowChurch_(cm[x.owner]) === me.church) || (x.sharedWith || []).indexOf(me.username) >= 0) lists.push(listOut_(x));
   });
   return { ok: true, lists: lists, deleted: deleted };
 }
@@ -1138,7 +1201,7 @@ function listShare_(me, d) {
     if (x.owner !== me.username) return { ok: false, error: 'Only the person who made this list can share it.' };
     var sh = tab_(LISTS, LHEAD), now = Date.now();
     if (d.users) {   // share with particular people (usernames); "everyone" stays as it was
-      var ok = {}; users_().forEach(function (u) { if (!u.disabled && !u.guest) ok[u.username] = 1; });
+      var ok = {}; users_().forEach(function (u) { if (!u.disabled && !u.guest && u.church === me.church) ok[u.username] = 1; });
       var list = []; d.users.forEach(function (u) { u = String(u || '').trim().toLowerCase(); if (ok[u] && u !== x.owner && list.indexOf(u) < 0) list.push(u); });
       if (sh.getRange(1, 10).getValue() !== 'Shared with') sh.getRange(1, 10).setValue('Shared with').setFontWeight('bold');
       sh.getRange(x.row, 10).setValue(list.join(','));
@@ -1522,7 +1585,7 @@ function renameUser_(me, d) {
   if (!validUsername_(to)) return { ok: false, error: 'Usernames use 2–30 letters, numbers, dots or dashes.' };
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    var u = findUser_(from); if (!u) return { ok: false, error: 'No such user.' };
+    var u = findUser_(from); if (!u || !sameChurch_(me, u)) return { ok: false, error: 'No such user.' };
     if (from === to) return { ok: true, username: to };
     if (findUser_(to)) return { ok: false, error: 'That username is taken.' };
     u.username = to; saveUser_(u);
