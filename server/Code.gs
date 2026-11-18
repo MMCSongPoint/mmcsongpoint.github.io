@@ -1126,7 +1126,7 @@ function perfRemote_(me, d) {
   if (!s) return { ok: false, ended: true, error: 'That session has ended.' };
   if (s.user !== me.username && !me.admin) return { ok: false, error: 'Only the person running the session can change its list.' };
   var cmd = d.cmd || {};
-  if (cmd.t === 'add' && cmd.song) return perfSend_({ code: code, to: s.hostPeer, msg: { type: 'remote', cmd: { t: 'add', song: String(cmd.song), where: cmd.where === 'end' ? 'end' : 'next' }, by: me.name || me.username } });
+  if (cmd.t === 'add' && cmd.song) return perfSend_({ code: code, to: s.hostPeer, msg: { type: 'remote', cmd: { t: 'add', song: String(cmd.song), where: cmd.where === 'end' ? 'end' : 'next', order: Array.isArray(cmd.order) ? cmd.order.slice(0, 40).map(function (o) { return { i: Number(o && o.i) || 0, label: String(o && o.label || '').slice(0, 60) }; }) : null }, by: me.name || me.username } });
   // remote control of a presentation from a phone: next / prev / blank / unblank / goto
   if (['next', 'prev', 'blank', 'unblank', 'goto'].indexOf(cmd.t) >= 0)
     return perfSend_({ code: code, to: s.hostPeer, msg: { type: 'remote', cmd: { t: cmd.t, si: Number(cmd.si) || 0, n: String(cmd.n || '') }, by: me.name || me.username } });

@@ -818,6 +818,7 @@
   .busybox { position: fixed; inset: 0; z-index: 95; background: var(--scrim); display: none; place-items: center; }
   .busybox.show { display: grid; }
   .flagopts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; font-size: 15px; }
+  #choiceChecks[hidden] { display: none; }
   .flagopts label { display: flex; align-items: center; gap: 8px; } .flagopts input { width: 20px; height: 20px; margin: 0; }
   .busybox > div { background: var(--panel); border-radius: 16px; padding: 22px 24px; width: min(330px, 88vw); text-align: center; }
   .busybox .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent-text); margin: 0 auto 12px; animation: spin 1s linear infinite; }
@@ -1410,6 +1411,7 @@
 </div>
 
 <div class="busybox" id="choiceBox"><div><b id="choiceTitle"></b><p id="choiceText" style="color:var(--muted);font-size:14px;margin:8px 0 16px;word-break:break-word"></p>
+  <div class="flagopts" id="choiceChecks" hidden style="text-align:left;margin:-6px 0 14px;grid-template-columns:1fr"></div>
   <div class="choicebar" id="choiceBar" hidden><i></i></div>
   <div class="choicebtns" id="choiceBtns"></div></div></div>
 <div class="busybox" id="flagBox"><div style="text-align:left"><b id="flagTitle">Flag a problem</b><p id="flagSub" style="color:var(--muted);font-size:13px;margin:4px 0 12px;word-break:break-word"></p>
@@ -3907,6 +3909,8 @@ function perfRemoteAdd(m) {
   };
   if (pr) {
     if (!place(pr.songs, pr.si)) return toast(`“${s.title}” is already showing`);
+    if (Array.isArray(c.order) && c.order.length) { pr.larrs = Object.assign({}, pr.larrs); pr.larrs[s.key] = { order: c.order.map(o => ({ i: +o.i || 0, label: String(o.label || '') })) }; }
+    else if (pr.larrs && pr.larrs[s.key] && c.order !== undefined) { pr.larrs = Object.assign({}, pr.larrs); delete pr.larrs[s.key]; }
     prDeck(s).catch(() => {}); prRender();
   } else if (viewing) {
     if (!viewerList || !viewerList.includes(viewing)) viewerList = [viewing];
@@ -7511,15 +7515,41 @@ function closingMatch(title) {
 function renderClosing() {
   $('#closingList').innerHTML = (window.CLOSING_SONGS || []).map(c => {
     const m = closingMatch(c.title), f = m && prFile(m), ok = !!(f && slidesOk(f));
-    const tag = f ? `<span class="slidechip first${ok ? '' : ' warn'}">Slides${ok ? '' : INFO_DOT('Slides not approved yet')}</span>` : '';
+    const tag = (f ? `<span class="slidechip first${ok ? '' : ' warn'}">Slides${ok ? '' : INFO_DOT('Slides not approved yet')}</span>` : '')
+      + (m && m.chords && m.chords.length ? `<span class="slidechip">Chords</span>` : '');
     return `<li><span class="cltitle">${esc(c.title)}${tag}</span><span class="clacts">${ok ? `<button class="pbtn ghost clpres" data-pres="${esc(m.key)}" title="Add to the end of the slideshow">＋ Present</button>` : ''}${m && hasMusic(m) ? `<button class="dl sm" data-k="${esc(m.key)}" aria-label="Sheet music for ${esc(c.title)}">${ICON_MUSIC}</button>` : ''}</span></li>`;
   }).join('');
 }
+// The song's parts in the order they'd be shown: the chord sheet's (its arrangement if it has one), or the slides' own
+// parts when there's no chord sheet. [{i, label}]
+async function songParts(s) {
+  try {
+    if (s.chords && s.chords.length) {
+      const f = s.chords[0], chart = parseChordPro(await loadChordText(f));
+      let a = arrangements.get(f.id); if (!a) for (const x of arrangements.values()) if (x.songKey === s.key && (!a || (x.at || '') > (a.at || ''))) a = x;
+      return (a ? resolveOrder(chart, a.order) : chartSections(chart)).filter(x => chart.blocks[x.i] && chart.blocks[x.i].lines.some(l => l.kind === 'lyric'));   // not a comment on its own
+    }
+    const d = await prDeck(s), out = []; let last = null;
+    (d && d.sections || []).forEach((l, i) => { const k = secKey(l); if (k && k !== last && !out.some(x => secKey(x.label) === k)) out.push({ i, label: l }); last = k; });
+    return out;
+  } catch { return []; }
+}
 async function addToPresentation(s) {
-  if (pr) return perfRemoteAdd({ cmd: { song: s.key, where: 'end' } });   // the presenter on this device
+  // which verses and choruses (all ticked to start); nothing changes when they're all left ticked
+  let order = null;
+  const parts = await songParts(s);
+  if (parts.length > 1) {
+    const v = await choose(`Add “${s.title}”`, 'To the end of the slideshow. Untick any parts to leave out.',
+      [{ label: 'Add', value: 'add', primary: true }, { label: 'Cancel', value: 'cancel' }], { checks: parts.map((p, n) => ({ label: p.label, value: n })) });
+    if (v !== 'add') return;
+    const keep = choose.checked || [];
+    if (!keep.length) return toast('Tick at least one part');
+    if (keep.length < parts.length) order = keep.map(n => ({ i: parts[n].i, label: parts[n].label }));
+  }
+  if (pr) return perfRemoteAdd({ cmd: { song: s.key, where: 'end', order } });   // the presenter on this device
   const x = await checkMyLive(true);
   if (!x || !x.presenter) return toast('No slideshow is running. Start one from a song list (Present) or the menu (Present Slides).', 4500);
-  const r = await api('perfRemote', { code: x.code, cmd: { t: 'add', song: s.key, where: 'end' } }).catch(() => ({}));
+  const r = await api('perfRemote', { code: x.code, cmd: { t: 'add', song: s.key, where: 'end', order } }).catch(() => ({}));
   if (r.ended) { myLive = null; return toast('Your slideshow isn\'t running any more'); }
   toast(r.ok ? `Added to the end of the slideshow: ${s.title}` : (r.error || 'Couldn\'t send it. Check your connection.'), 3500);
 }
@@ -8617,8 +8647,11 @@ function choose(title, text, buttons, opts = {}) {
     }
     $('#choiceTitle').textContent = title; $('#choiceTitle').style.display = title ? '' : 'none';
     $('#choiceText').textContent = text; $('#choiceText').style.display = text ? '' : 'none';
+    // opts.checks: tick boxes above the buttons; what's ticked is left in choose.checked
+    const ck = $('#choiceChecks'); ck.hidden = !opts.checks; choose.checked = null;
+    ck.innerHTML = (opts.checks || []).map((c, i) => `<label><input type="checkbox" data-ci="${i}"${c.checked === false ? '' : ' checked'}> ${esc(c.label)}</label>`).join('');
     $('#choiceBtns').innerHTML = buttons.map((b, i) => `<button class="pbtn${b.primary ? '' : ' ghost'}" data-i="${i}">${esc(b.label)}</button>`).join('');
-    const done = v => { clearInterval(timer); bar.hidden = true; $('#choiceBox').classList.remove('show'); choose.pending = null; res(v); };
+    const done = v => { if (opts.checks) choose.checked = [...ck.querySelectorAll('input:checked')].map(x => opts.checks[+x.dataset.ci].value); clearInterval(timer); bar.hidden = true; $('#choiceBox').classList.remove('show'); choose.pending = null; res(v); };
     choose.pending = () => done('cancel');
     $('#choiceBtns').onclick = e => { const b = e.target.closest('[data-i]'); if (b) done(buttons[+b.dataset.i].value); };
     $('#choiceBox').onclick = e => { if (e.target.id === 'choiceBox') done('cancel'); };
