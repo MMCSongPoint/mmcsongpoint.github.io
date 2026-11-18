@@ -408,6 +408,8 @@
   .prmain { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
   .prstage { flex: 1; min-height: 0; background: #000; border-radius: 10px; display: grid; place-items: center; overflow: hidden; position: relative; outline: 3px solid transparent; }
   .prstage.blank { outline-color: #555; } .prstage.blank img { opacity: .25; }
+  .ccliin { margin-left: auto; min-width: 7em; max-width: 50%; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); text-align: right; outline: none; white-space: nowrap; overflow: hidden; cursor: text; }
+  .ccliin:focus { border-color: var(--accent-text); }
   .prccli { position: absolute; right: 10px; bottom: 8px; z-index: 3; color: #fff; font-size: 12px; font-weight: 600; text-shadow: 0 0 3px #000, 0 1px 2px #000; pointer-events: none; }
   .prccli:empty { display: none; }
   .prstage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }   /* fits the space left: a tall slide never pushes the buttons off the bottom */
@@ -1400,7 +1402,7 @@
   <button class="act" id="checkBtn">Library Check (Missing Files)</button>
   <button class="act" id="midiBtn">MIDI Review (Flag Problems)</button>
   <button class="act" id="installBtn">Installers</button>
-  <label class="act" id="ccliRow" style="display:none;align-items:center;gap:10px;justify-content:space-between"><span>CCLI Licence Number</span><input id="ccliIn" name="ccli-licence" type="text" inputmode="numeric" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" style="font:inherit;width:9em;margin-left:auto;text-align:right;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)"></label>
+  <div class="act" id="ccliRow" style="display:none;align-items:center;gap:10px;justify-content:space-between"><span>CCLI Licence Number</span><span id="ccliIn" class="ccliin" contenteditable="true" role="textbox" aria-label="CCLI Licence Number" inputmode="numeric" spellcheck="false"></span></div>
   <label class="act" id="projScreenRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Projector Screen <select id="projScreen" style="font:inherit;max-width:60%"></select></label>
   <label class="act" id="lidRow" style="display:none;align-items:center;gap:10px;justify-content:space-between">Keep Presenting With the Lid Closed <input type="checkbox" id="lidAwake" style="width:20px;height:20px"></label>
   <button class="act" id="changePwBtn">Change Password</button>
@@ -6339,7 +6341,7 @@ function renderWelcome() {
   document.body.classList.toggle('guest', isGuest());
   document.body.classList.toggle('visitor', isVisitor() || visitorEnded);
   $('#usersBtn').style.display = isAdmin() ? '' : 'none';
-  $('#ccliRow').style.display = isAdmin() ? 'flex' : 'none'; if (document.activeElement !== $('#ccliIn')) $('#ccliIn').value = appSettings.ccli || '';
+  $('#ccliRow').style.display = isAdmin() ? 'flex' : 'none'; if (document.activeElement !== $('#ccliIn')) $('#ccliIn').textContent = appSettings.ccli || '';
   $('#checkBtn').style.display = isAdmin() ? '' : 'none';
   $('#midiBtn').style.display = isAdmin() ? '' : 'none';
   $('#recordsBtn').style.display = isAdmin() ? '' : 'none';
@@ -8506,15 +8508,18 @@ let started = false;
 // Church-wide settings from the server (an admin sets them in Settings): the CCLI licence number, shown at the bottom right
 // of the first slide of every song when presenting. A copy is kept on the device for presenting offline.
 let appSettings = (() => { try { return JSON.parse(localStorage.getItem('appSettings') || '{}'); } catch { return {}; } })();
-function applySettings(x) { appSettings = x || {}; try { localStorage.setItem('appSettings', JSON.stringify(appSettings)); } catch {} if (!$('#ccliIn').matches(':focus')) $('#ccliIn').value = appSettings.ccli || ''; if (typeof pr !== 'undefined' && pr) { prRender(); } }
+function applySettings(x) { appSettings = x || {}; try { localStorage.setItem('appSettings', JSON.stringify(appSettings)); } catch {} if (!$('#ccliIn').matches(':focus')) $('#ccliIn').textContent = appSettings.ccli || ''; if (typeof pr !== 'undefined' && pr) { prRender(); } }
 async function loadSettings() { try { const r = await api('getSettings'); if (r.ok) applySettings(r.settings); } catch {} }
 const ccliText = () => appSettings.ccli ? `CCLI Licence # ${appSettings.ccli}` : '';
-$('#ccliIn').addEventListener('change', async e => {
-  const v = e.target.value.trim();
+// a plain editable box rather than a form field, so password managers leave it alone
+$('#ccliIn').addEventListener('blur', async e => {
+  const v = e.target.textContent.replace(/\s+/g, ' ').trim(); e.target.textContent = v;
+  if (v === (appSettings.ccli || '')) return;
   try { const r = await api('setSetting', { key: 'ccli', value: v }); if (!r.ok) return toast(r.error || 'Couldn\'t save that'); applySettings(r.settings); toast(v ? 'CCLI licence number saved' : 'CCLI licence number removed'); }
   catch { toast('Couldn\'t reach the server. Check your internet connection.'); }
 });
-$('#ccliIn').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+$('#ccliIn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
+$('#ccliIn').addEventListener('paste', e => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData.getData('text/plain') || '').replace(/\s+/g, ' ').trim()); });
 function startApp(fresh = false) {
   if (!library.synced || Date.now() - library.synced > CFG.syncMinutes * 60000 || !library.sheets || (CFG.slideImagesFolder && (!library.slides || library.slidesV !== 2)) || (CFG.chordsFolder && !library.chords)) sync();
   if (!started || fresh) {
