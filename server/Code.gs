@@ -71,6 +71,7 @@ var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSl
 // A visitor (joined by QR code, no account) can only follow the performance they joined.
 var VISITOR_OK = ['me', 'perfJoin', 'perfSend', 'perfPoll', 'perfState', 'file', 'slideDeck', 'deckFile', 'slideLive', 'getArrangements', 'slideSections',
   'slidesApproved', 'mp3Approved', 'getKnown', 'getTuneMains', 'getKeyChecks', 'getTextDocs', 'slideImagesIndex', 'slideChordsIndex', 'slideChordsGet'];
+var SUPER_ONLY = ['logRecords', 'deleteLog', 'mp3Issues', 'mp3Review', 'mp3IssueDelete', 'getIgnored', 'setIgnored', 'setTextDoc'];
 var LIBRARY_ADMIN = ['setIgnored', 'setTextDoc', 'setSlidesApproved', 'setSlideSections', 'slideImagesRun', 'slideChordsSave', 'chordSave', 'slideImagesIndexBuild',
   'slideImagesShare', 'slideImagesStatus', 'verseCountsBuild', 'slideImagesDedupe', 'mp3Review', 'mp3IssueDelete', 'setTuneMain'];
 var CHORDS_FOLDER = '1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ';   // Chord Pro (one subfolder per book): uploaded chord sheets go here
@@ -201,7 +202,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 62 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 63 }); }
 
 function doPost(e) {
   var d;
@@ -283,7 +284,9 @@ function handle_(d) {
   if (a === 'getTuneMains') return { ok: true, mains: tuneMains_() };
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);   // anyone signed in can flag a problem with a track (their name is saved with it)
   if (!me.admin && !me.super) return { ok: false, error: 'Only admins can do that.' };
-  // the shared library (MIDI review, slides, chord sheets, …) is looked after by Martindale's admins
+  // usage records, the library check and MIDI review: the Super Admin only
+  if (SUPER_ONLY.indexOf(a) >= 0 && !me.super) return { ok: false, error: 'Only the Super Admin can do that.' };
+  // the shared library (slides, chord sheets, …) is looked after by Martindale's admins
   if (LIBRARY_ADMIN.indexOf(a) >= 0 && !me.super && me.church !== HOME_CHURCH) return { ok: false, error: 'The song library is looked after by Martindale\'s admins.' };
   if (a === 'listUsers') return { ok: true, users: users_().filter(function (u) { return sameChurch_(me, u); }).map(publicUser_) };
   if (a === 'createUser') return createUser_(me, d);
