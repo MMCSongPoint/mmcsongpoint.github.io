@@ -4715,7 +4715,7 @@ async function prOrdered(s, deck) {
 async function prShowSong(si, slide) {
   if (!pr) return;
   const target = pr.songs[Math.max(0, Math.min(si, pr.songs.length - 1))];
-  if (target && target.deck && target.live && !target.liveId) await prLiveId(target);
+  if (target && target.deck && target.live && !prLiveLink(target)) await prLiveId(target);
   if (pr.pptOpen && !(prIsPpt(target) && prFile(target).id === pr.pptOpen)) pptEnd();
   if (pr.songs[pr.si] !== target) { pr.pptError = ''; mediaStop(pr.songs[pr.si]); }
   pr.liveFocus = prIsLive(target);
@@ -4776,7 +4776,7 @@ function prSend() {
   if (!prChannel || !pr) return;
   const s = pr.songs[pr.si], img = pr.deck && pr.deck.imgs[pr.slide];
   if (prCO(s)) return prChannel.postMessage({ t: 'blank' });
-  if (!pr.blank && prIsLive(s)) return prChannel.postMessage({ t: 'live', url: liveUrl(s.liveId), focus: !!pr.liveFocus });
+  if (!pr.blank && prIsLive(s)) return prChannel.postMessage({ t: 'live', url: prLiveLink(s), focus: !!pr.liveFocus });
   if (s.media === 'video' && !pr.blank) return prChannel.postMessage({ t: 'video', url: s.url, play: !!s.mPlaying, loop: !!s.mLoop, sn: s.mSeekN || 0, st: s.mSeekT || 0 });
   if (s.media === 'audio' || s.upP) return prChannel.postMessage({ t: 'blank' });
   // PowerPoint's own show covers the projector; until it's up, the projector stays black (pictures only if it failed)
@@ -4826,7 +4826,7 @@ function prRender() {
   const picSet = pr.songs[pr.si] && pr.songs[pr.si].media === 'pics';   // pictures: a number on each (tap it to move that picture)
   $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<div class="prth${i === pr.slide ? ' now' : ''}" data-i="${i}"><img src="${u}" alt="Slide ${i + 1}" draggable="false">${picSet ? `<button class="prnum" data-pos="${i}" title="Shows ${i + 1}${['st', 'nd', 'rd'][i] || 'th'}. Tap to move it.">${i + 1}</button>` : ''}</div>`).join('') : '';
   const nowThumb = $('#prThumbs .now'); if (nowThumb) nowThumb.scrollIntoView({ block: 'nearest' });
-  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.upP ? '<small>uploading…</small>' : x.media ? `<small>${x.media === 'video' ? 'video' : x.media === 'audio' ? 'music' : x.count === 1 ? 'picture' : x.count + ' pictures'}</small>` : x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'live' ? 'Google Slides' : 'still pictures'}</u>`}</small>` : prCO(x) ? '<small style="color:inherit;opacity:.8">chords only</small>' : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
+  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.upP ? '<small>uploading…</small>' : x.media ? `<small>${x.media === 'video' ? 'video' : x.media === 'audio' ? 'music' : x.count === 1 ? 'picture' : x.count + ' pictures'}</small>` : x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'office' ? 'PowerPoint viewer (online)' : x.mode === 'live' ? 'Google Slides' : 'still pictures'}</u>`}</small>` : prCO(x) ? '<small style="color:inherit;opacity:.8">chords only</small>' : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
   $('#prPos').dataset.ppt = '';
   if (prIsPpt(s)) {
     const st = pr.ppt;
@@ -4852,6 +4852,7 @@ function prRender() {
 function prExit() {
   if (!pr) return;
   pptEnd(); clearInterval(pptTimer); mediaStop(pr.songs[pr.si]);
+  prOfficeTidy(pr.songs);
   prCloseProj();
   pr = null; $('#presenter').classList.remove('show');
   render(); if (editing && $('#notePanel').classList.contains('show')) renderNoteSongs();   // keys: back to this screen's own
@@ -4955,17 +4956,17 @@ $('#prSongs').addEventListener('click', e => {
   const b = e.target.closest('[data-i]'); if (!b || !pr) return;
   if (e.target.closest('[data-live]')) {   // animations on / still pictures
     if (pr.songs[+b.dataset.i].upP) return;
-    const it = pr.songs[+b.dataset.i], modes = [...(pptHelper ? ['ppt'] : []), 'live', 'pics'];
+    const it = pr.songs[+b.dataset.i], modes = [...(pptHelper ? ['ppt'] : []), ...(prOfficeOk(it) ? ['office'] : []), 'live', 'pics'];
     if (it.mode === 'ppt' && pr.songs[pr.si] === it) pptEnd();
-    it.mode = modes[(modes.indexOf(it.mode) + 1) % modes.length]; it.live = it.mode === 'live'; it.modeAuto = false;
+    it.mode = modes[(modes.indexOf(it.mode) + 1) % modes.length]; it.live = it.mode === 'live' || it.mode === 'office'; it.modeAuto = false;
     if (it.mode === 'ppt') pptPrefetch(it);
-    toast(it.mode === 'ppt' ? 'Plays in PowerPoint on the projector' : it.mode === 'live' ? 'Plays in Google Slides (animations; musicians can\'t follow the slide)' : 'Still pictures, stepped from here', 3000);
+    toast(it.mode === 'ppt' ? 'Plays in PowerPoint on the projector' : it.mode === 'office' ? 'Plays in Microsoft\'s PowerPoint viewer (animations; musicians can\'t follow the slide)' : it.mode === 'live' ? 'Plays in Google Slides (animations; musicians can\'t follow the slide)' : 'Still pictures, stepped from here', 3000);
     if (it.live) prLiveId(it).then(() => { if (pr && pr.songs[pr.si] === it) prShowSong(pr.si, 0); else prRender(); }); else { if (pr.songs[pr.si] === it) prShowSong(pr.si, 0); else prRender(); }
     return;
   }
   if (e.target.closest('[data-x]')) {   // take a speaker's slides out of the presentation
     const i = +b.dataset.i, cur = pr.songs[pr.si];
-    mediaStop(pr.songs[i]); pr.songs.splice(i, 1);
+    mediaStop(pr.songs[i]); prOfficeTidy([pr.songs[i]]); pr.songs.splice(i, 1);
     if (!pr.songs.length) return prExit();
     if (i === pr.si) return prShowSong(Math.min(i, pr.songs.length - 1), 0);
     pr.si = pr.songs.indexOf(cur); return prRender();
@@ -5070,12 +5071,21 @@ const deckItem = (id, title, live = false) => ({ key: 'deck:' + id, deck: true, 
 // "Live": the projector plays the deck in Google Slides' own player, so animations and transitions work. The clicker
 // then drives the projector window; Next here moves on when the speaker is done.
 const liveUrl = id => `https://docs.google.com/presentation/d/${id}/embed?start=false&loop=false&delayms=60000&rm=minimal`;
+// "Office": Microsoft's free online PowerPoint viewer plays the .pptx itself (animations and transitions as built), on
+// any computer, no PowerPoint needed. The server opens the file to "anyone with the link" while it's presented.
+const officeUrl = src => `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(src)}`;
+const prOfficeOk = it => !!(it && it.deck && !it.media && !it.pdf && !/\.pdf$/i.test(it.title || ''));
+const prLiveLink = s => s && (s.mode === 'office' ? s.officeSrc && officeUrl(s.officeSrc) : s.liveId && liveUrl(s.liveId));
 async function prLiveId(item) {
-  if (item.liveId) return item.liveId;
-  if (!item.liveP) item.liveP = api('slideLive', { id: prFile(item).id }).then(r => { if (!r.ok) throw new Error(r.error); return (item.liveId = r.id); });
-  try { return await item.liveP; } catch (e) { item.liveP = null; item.live = false; toast((e.message || 'Can\'t play these with animations') + ' Showing them as pictures.', 5000); prRender(); return null; }
+  const office = item.mode === 'office';
+  if (office ? item.officeSrc : item.liveId) return prLiveLink(item);
+  const k = office ? 'officeP' : 'liveP';
+  if (!item[k]) item[k] = api(office ? 'slideOffice' : 'slideLive', { id: prFile(item).id }).then(r => { if (!r.ok) throw new Error(r.error); if (office) item.officeSrc = r.url; else item.liveId = r.id; return prLiveLink(item); });
+  try { return await item[k]; } catch (e) { item[k] = null; item.live = false; item.mode = 'pics'; toast((e.message || 'Can\'t play these with animations') + ' Showing them as pictures.', 5000); prRender(); return null; }
 }
-const prIsLive = s => !!(s && s.deck && s.live && s.liveId);
+const prIsLive = s => !!(s && s.deck && s.live && prLiveLink(s));
+// after presenting: a speaker's file opened for Microsoft's viewer goes back to private
+function prOfficeTidy(list) { for (const it of list || []) if (it && it.officeSrc) api('slideOffice', { id: prFile(it).id, off: 1 }).catch(() => {}); }
 function prInsertDeck(item, at = pr ? pr.si + 1 : 0, quiet = false) {
   if (!pr) return;
   pr.songs.splice(at, 0, item);
@@ -5085,8 +5095,8 @@ function prInsertDeck(item, at = pr ? pr.si + 1 : 0, quiet = false) {
 }
 function prDeckSetup(item) {
   const pdf = /\.pdf$/i.test(item.title) || item.pdf;
-  // PowerPoint (with the helper) by default, Google Slides' player without it; PDFs as pictures. Tap the label to change.
-  item.mode = pdf ? 'pics' : pptHelper ? 'ppt' : item.live ? 'live' : 'pics'; item.live = item.mode === 'live';
+  // PowerPoint (with the helper) by default, Microsoft's online PowerPoint viewer without it; PDFs as pictures. Tap the label to change.
+  item.mode = pdf ? 'pics' : pptHelper ? 'ppt' : item.google ? 'live' : 'office'; item.live = item.mode === 'live' || item.mode === 'office';
   item.modeAuto = !pdf;
   if (item.mode === 'ppt') pptPrefetch(item);   // not picked by hand: switches to PowerPoint as soon as the helper is found
   if (item.modeAuto && !pptHelper) pptPing().then(() => { if (pptHelper) pptAutoModes(); });
