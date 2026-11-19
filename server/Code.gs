@@ -67,7 +67,7 @@ function setUserChurch_(d) {
 var ROUNDS = 2000;
 // A guest account (shared, e.g. for visiting musicians): views songs and follows presentations; nothing else.
 var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSlides', 'finalizeSlides', 'chordUpload',
-  'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log', 'slideUpload', 'listPeople', 'favsSync'];
+  'listSave', 'listDelete', 'listShare', 'listsImport', 'setArrangement', 'deleteArrangement', 'perfHost', 'perfRemote', 'log', 'slideUpload', 'listPeople', 'favsSync', 'slideOffice'];
 // A visitor (joined by QR code, no account) can only follow the performance they joined.
 var VISITOR_OK = ['me', 'perfJoin', 'perfSend', 'perfPoll', 'perfState', 'file', 'slideDeck', 'deckFile', 'slideLive', 'getArrangements', 'slideSections',
   'slidesApproved', 'mp3Approved', 'getKnown', 'getTuneMains', 'getKeyChecks', 'getTextDocs', 'slideImagesIndex', 'slideChordsIndex', 'slideChordsGet'];
@@ -202,7 +202,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 65 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 66 }); }
 
 function doPost(e) {
   var d;
@@ -250,6 +250,7 @@ function handle_(d) {
   if (a === 'slideDeck') return slideDeck_(d);
   if (a === 'slideUpload') return slideUpload_(me, d);
   if (a === 'slideLive') return slideLive_(d);
+  if (a === 'slideOffice') return slideOffice_(d);
   if (a === 'deckFile') return deckFile_(d);
   // chord sheets are shared by every church: only Martindale's admins and the Super Admin replace them
   if (a === 'chordUpload') return me.super || (me.admin && me.church === HOME_CHURCH) ? chordUpload_(me, d) : { ok: false, error: 'Chord sheets are shared by every church, so they\'re looked after by Martindale\'s admins.' };
@@ -1511,6 +1512,22 @@ function slideLive_(d) {
   var conv = converted_(src.getId()), f = DriveApp.getFileById(conv);
   try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
   return { ok: true, id: conv };
+}
+// A speaker's deck for Microsoft's online PowerPoint viewer (animations and transitions, no PowerPoint needed): it fetches
+// the file itself, so the file is opened to "anyone with the link" while it's presented. off: private again (after).
+function slideOffice_(d) {
+  var src;
+  try { src = DriveApp.getFileById(String(d.id || '')); } catch (e) { return { ok: false, error: 'Can\'t open those slides.' }; }
+  var gs = src.getMimeType() === 'application/vnd.google-apps.presentation';
+  if (!gs && !/\.pptx?$/i.test(src.getName())) return { ok: false, error: 'Only PowerPoint files play in Microsoft\'s viewer.' };
+  if (d.off) {   // only uploaded speakers' slides go back to private (song decks keep their sharing)
+    var p = src.getParents(), inSpeaker = false; while (p.hasNext()) if (p.next().getName() === 'Speaker Slides') inSpeaker = true;
+    if (inSpeaker) try { src.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE); } catch (e) {}
+    return { ok: true };
+  }
+  try { src.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { return { ok: false, error: 'Couldn\'t share the file for the viewer.' }; }
+  return { ok: true, url: gs ? 'https://docs.google.com/presentation/d/' + src.getId() + '/export/pptx'
+    : 'https://drive.usercontent.google.com/download?id=' + src.getId() + '&export=download&confirm=t' };
 }
 // A speaker's deck as a PowerPoint file, for the PowerPoint helper on the projector computer: the uploaded .pptx / .ppt
 // itself, or a Google Slides deck exported as .pptx.
