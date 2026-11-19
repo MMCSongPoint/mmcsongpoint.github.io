@@ -24,7 +24,7 @@
   #ccli.on { opacity: 1; }
 </style>
 </head>
-<body class="ui">
+<body class="ui" tabindex="-1">
 <img class="slide" alt=""><img class="slide" alt="">
 <div id="title"></div>
 <div id="ccli"></div>
@@ -76,12 +76,28 @@ function placeCcli(src) {
 }
 addEventListener('resize', () => { if (document.getElementById('ccli').classList.contains('on')) placeCcli(ccliFor); });
 // a speaker's deck playing in Google Slides' own player: the clicker / arrow keys go straight to it
+// The clicker has to reach the player inside the frame. "liveHad": the player has had the keys since it came up; if a
+// key then lands here instead, the player let go of it (the end of the show), so the presenter moves on. A key that
+// lands here before the player ever had it only hands the keys to the player (it never skips the slides).
+let liveHad = false;
+function liveFocus() { try { window.focus(); live.focus(); live.contentWindow.focus(); } catch (e) {} }
 function showLive(m) {
   img.classList.remove('on'); title.classList.remove('on');
+  if (!live.classList.contains('on') || live.dataset.url !== m.url) liveHad = false;
   if (live.dataset.url !== m.url) { live.dataset.url = m.url; live.src = m.url; }
-  live.classList.add('on'); placeLive();
-  if (m.focus) { window.focus(); setTimeout(() => { try { live.focus(); live.contentWindow.focus(); } catch (e) {} }, 300); }
+  live.inert = false; live.classList.add('on'); placeLive();
+  if (m.focus) [50, 400, 1200, 2500, 4500].forEach(t => setTimeout(() => { if (live.classList.contains('on') && !liveHad) liveFocus(); }, t));
 }
+function hideLive() {
+  if (!live.classList.contains('on')) return;
+  live.classList.remove('on'); liveHad = false;
+  live.inert = true; try { live.blur(); } catch (e) {} try { document.body.focus(); } catch (e) {}   // the keys come back here
+}
+// the next item is a speaker's deck: load its player now (hidden), so it's ready when it comes up
+function preLive(m) { if (!live.classList.contains('on') && m.url && live.dataset.url !== m.url) { live.dataset.url = m.url; live.inert = true; live.src = m.url; placeLive(); } }
+setInterval(() => {
+  if (!liveHad && live.classList.contains('on') && document.hasFocus() && document.activeElement === live) { liveHad = true; ch.postMessage({ t: 'livefocus' }); }
+}, 200);
 // Microsoft's PowerPoint viewer puts a control bar under the slide and a thin frame round it. Its window is made a
 // little bigger than the screen, so the 16:9 slide fills the screen and the bar and frame fall off the edges (a little
 // extra all round hides any black edge the viewer leaves).
@@ -93,7 +109,7 @@ function placeLive() {
     width: w + 2 * OFFICE_EDGE + 'px', height: h + 2 * OFFICE_EDGE + OFFICE_BAR + 'px' });
 }
 addEventListener('resize', placeLive);
-live.addEventListener('load', () => { if (live.classList.contains('on')) try { live.focus(); live.contentWindow.focus(); } catch (e) {} });
+live.addEventListener('load', () => { if (live.classList.contains('on') && !liveHad) liveFocus(); });
 // a video added in the presenter: it plays here, with sound. The presenter says play / pause; this reports back.
 const vid = document.getElementById('vid');
 let vWant = false, vBlocked = false, vSn = -1, vTimer = 0;
@@ -117,7 +133,9 @@ vid.addEventListener('ended', vStat);
 document.addEventListener('pointerdown', () => { if (vBlocked && vWant) vPlay(); });   // sound needs a click here once
 ch.onmessage = e => {
   const m = e.data || {};
-  if (m.t !== 'live' && m.t !== 'close') live.classList.remove('on');
+  if (m.t === 'prelive') return preLive(m);
+  if (m.t === 'focuslive') { if (live.classList.contains('on')) liveFocus(); return; }
+  if (m.t !== 'live' && m.t !== 'close') hideLive();
   if (m.t !== 'video' && m.t !== 'slide' && m.t !== 'title') hideVideo();   // a slide or title covers a video instead
   const cc = document.getElementById('ccli');
   if (m.t === 'slide' || m.t === 'title') { if (m.ccli) { cc.textContent = m.ccli; placeCcli(m.t === 'slide' ? m.img : ''); } cc.classList.toggle('on', !!m.ccli); }
@@ -154,7 +172,13 @@ window.addEventListener('message', e => { const m = e.data || {}; if (e.origin =
 goFull();
 document.addEventListener('dblclick', () => goFull());
 document.addEventListener('fullscreenchange', () => { const fs = !!document.fullscreenElement; document.body.classList.toggle('ui', !fs); ch.postMessage({ t: 'fs', on: fs }); });
-document.addEventListener('keydown', e => { if (vBlocked && vWant) return vPlay(); if (e.key === 'f' || e.key === 'F') goFull(); else ch.postMessage({ t: 'key', key: e.key }); });   // a clicker pressed here still works
+document.addEventListener('keydown', e => {   // a clicker pressed here still works
+  if (vBlocked && vWant) return vPlay();
+  if (e.key === 'f' || e.key === 'F') return goFull();
+  const onLive = live.classList.contains('on');
+  ch.postMessage({ t: 'key', key: e.key, live: onLive ? (liveHad ? 'had' : 'never') : '' });
+  if (onLive && !liveHad) liveFocus();   // the player didn't have the keys yet: give them to it
+});   // a clicker pressed here still works
 </script>
 </body>
 </html>

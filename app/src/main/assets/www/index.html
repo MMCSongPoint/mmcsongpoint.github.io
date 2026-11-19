@@ -4718,7 +4718,7 @@ async function prShowSong(si, slide) {
   if (target && target.deck && target.live && !prLiveLink(target)) await prLiveId(target);
   if (pr.pptOpen && !(prIsPpt(target) && prFile(target).id === pr.pptOpen)) pptEnd();
   if (pr.songs[pr.si] !== target) { pr.pptError = ''; mediaStop(pr.songs[pr.si]); }
-  pr.liveFocus = prIsLive(target);
+  pr.liveFocus = prIsLive(target); if (pr.songs[pr.si] !== target) pr.liveHad = false;
   if (pr.liveFocus) { try { if (prWin && !prWin.closed) prWin.focus(); } catch {} }
   pr.si = Math.max(0, Math.min(si, pr.songs.length - 1)); pr.slide = slide; pr.deck = null;
   const s = pr.songs[pr.si], want = pr.si;
@@ -4777,6 +4777,7 @@ function prSend() {
   const s = pr.songs[pr.si], img = pr.deck && pr.deck.imgs[pr.slide];
   if (prCO(s)) return prChannel.postMessage({ t: 'blank' });
   if (!pr.blank && prIsLive(s)) return prChannel.postMessage({ t: 'live', url: prLiveLink(s), focus: !!pr.liveFocus });
+  const nx = pr.songs[pr.si + 1]; if (nx && prIsLive(nx)) prChannel.postMessage({ t: 'prelive', url: prLiveLink(nx) });   // get it ready
   if (s.media === 'video' && !pr.blank) return prChannel.postMessage({ t: 'video', url: s.url, play: !!s.mPlaying, loop: !!s.mLoop, sn: s.mSeekN || 0, st: s.mSeekT || 0 });
   if (s.media === 'audio' || s.upP) return prChannel.postMessage({ t: 'blank' });
   // PowerPoint's own show covers the projector; until it's up, the projector stays black (pictures only if it failed)
@@ -5323,11 +5324,22 @@ if (prChannel) prChannel.onmessage = e => {
   else if (m.t === 'vstat') mediaStat(m);
   else if (m.t === 'bye') { prSeen = false; prFull = false; if (prWin && prWin.closed) prWin = null; setTimeout(prProjLabel, 100); }
   else if (m.t === 'fs') prFull = !!m.on;
-  else if (m.t === 'key' && pr) prKey(m.key);
+  else if (m.t === 'livefocus' && pr) pr.liveHad = true;
+  else if (m.t === 'key' && pr) prKey(m.key, m.live || 'none');
 };
-function prKey(key) {
-  if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(key)) prStep(1);
-  else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(key)) prStep(-1);
+// A speaker's deck playing live (Microsoft's viewer / Google Slides): the clicker belongs to the player on the projector.
+// A key that reaches us before the player ever had it only hands the keys over (it never skips the deck). After the
+// player has had them, a key here means it let go (the end of the show, or someone clicked away): go on as usual.
+// from: 'had' / 'never' (pressed on the projector window), 'none' (pressed here in the presenter).
+function prKey(key, from = 'none') {
+  const fwd = ['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(key), back = ['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(key);
+  if ((fwd || back) && prIsLive(pr.songs[pr.si]) && !pr.blank && ((prWin && !prWin.closed) || prSeen) && (from === 'never' || (from === 'none' && !pr.liveHad))) {
+    try { if (prWin && !prWin.closed) prWin.focus(); } catch {}
+    if (prChannel) prChannel.postMessage({ t: 'focuslive' });
+    return toast('The slides have the clicker now. Press again.', 2500);
+  }
+  if (fwd) prStep(1);
+  else if (back) prStep(-1);
   else if (key === 'b' || key === 'B' || key === '.') { if (prIsPpt(pr.songs[pr.si]) && pr.pptOpen) return $('#prBlank').onclick(); pr.blank = !pr.blank; prRender(); }
 }
 document.addEventListener('keydown', e => {
