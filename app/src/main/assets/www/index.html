@@ -4825,9 +4825,9 @@ function prRender() {
   $('#prNextImg').src = nextImg || ''; $('#prNextImg').style.display = nextImg ? '' : 'none';
   $('#prNextMsg').textContent = nextMsg; $('#prNextMsg').style.display = nextMsg ? '' : 'none';
   const picSet = pr.songs[pr.si] && pr.songs[pr.si].media === 'pics';   // pictures: a number on each (tap it to move that picture)
-  $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<div class="prth${i === pr.slide ? ' now' : ''}" data-i="${i}"><img src="${u}" alt="Slide ${i + 1}" draggable="false">${picSet ? `<button class="prnum" data-pos="${i}" title="Shows ${i + 1}${['st', 'nd', 'rd'][i] || 'th'}. Tap to move it.">${i + 1}</button>` : ''}</div>`).join('') : '';
+  $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<div class="prth${i === pr.slide ? ' now' : ''}" data-i="${i}" title="Ctrl+click: this slide with the screen black"><img src="${u}" alt="Slide ${i + 1}" draggable="false">${picSet ? `<button class="prnum" data-pos="${i}" title="Shows ${i + 1}${['st', 'nd', 'rd'][i] || 'th'}. Tap to move it.">${i + 1}</button>` : ''}</div>`).join('') : '';
   const nowThumb = $('#prThumbs .now'); if (nowThumb) nowThumb.scrollIntoView({ block: 'nearest' });
-  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.upP ? '<small>uploading…</small>' : x.media ? `<small>${x.media === 'video' ? 'video' : x.media === 'audio' ? 'music' : x.count === 1 ? 'picture' : x.count + ' pictures'}</small>` : x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'office' ? 'PowerPoint viewer (online)' : x.mode === 'live' ? 'Google Slides' : 'still pictures'}</u>`}</small>` : prCO(x) ? '<small style="color:inherit;opacity:.8">chords only</small>' : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
+  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move · Ctrl+click: go here with the screen black"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.upP ? '<small>uploading…</small>' : x.media ? `<small>${x.media === 'video' ? 'video' : x.media === 'audio' ? 'music' : x.count === 1 ? 'picture' : x.count + ' pictures'}</small>` : x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'office' ? 'PowerPoint viewer (online)' : x.mode === 'live' ? 'Google Slides' : 'still pictures'}</u>`}</small>` : prCO(x) ? '<small style="color:inherit;opacity:.8">chords only</small>' : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
   $('#prPos').dataset.ppt = '';
   if (prIsPpt(s)) {
     const st = pr.ppt;
@@ -4972,6 +4972,7 @@ $('#prSongs').addEventListener('click', e => {
     if (i === pr.si) return prShowSong(Math.min(i, pr.songs.length - 1), 0);
     pr.si = pr.songs.indexOf(cur); return prRender();
   }
+  if (e.ctrlKey || e.metaKey) { pr.blank = true; pr.endBlank = false; }   // Ctrl+click: go there with the screen black (B or Blank shows it)
   prShowSong(+b.dataset.i, 0);
 });
 // drag a box up or down to change the order (songs and speakers' slides)
@@ -5323,7 +5324,7 @@ $('#prFile').onchange = async e => {
   if (fresh) { if (pr && pr.songs.length) await prLaunch(); else pr = null; return; }
   if (added) toast(`Added after “${pr.songs[pr.si] ? pr.songs[pr.si].title : ''}”. Drag to move.`, 3000);
 };
-$('#prThumbs').addEventListener('click', e => { const im = e.target.closest('[data-i]'); if (im && pr) { pr.slide = +im.dataset.i; pr.blank = false; prRender(); } });
+$('#prThumbs').addEventListener('click', e => { const im = e.target.closest('[data-i]'); if (im && pr) { pr.slide = +im.dataset.i; pr.blank = !!(e.ctrlKey || e.metaKey); pr.endBlank = false; prRender(); } });   // Ctrl+click: that slide, screen black
 if (prChannel) prChannel.onmessage = e => {
   const m = e.data || {};
   if (m.t === 'hello') { prSeen = true; prProjLabel(); prSend(); }
