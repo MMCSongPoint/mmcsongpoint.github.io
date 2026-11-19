@@ -79,9 +79,20 @@ addEventListener('resize', () => { if (document.getElementById('ccli').classList
 function showLive(m) {
   img.classList.remove('on'); title.classList.remove('on');
   if (live.dataset.url !== m.url) { live.dataset.url = m.url; live.src = m.url; }
-  live.classList.add('on');
+  live.classList.add('on'); placeLive();
   if (m.focus) { window.focus(); setTimeout(() => { try { live.focus(); live.contentWindow.focus(); } catch (e) {} }, 300); }
 }
+// Microsoft's PowerPoint viewer puts a control bar under the slide and a thin frame round it. Its window is made a
+// little bigger than the screen, so the 16:9 slide fills the screen and the bar and frame fall off the edges (a little
+// extra all round hides any black edge the viewer leaves).
+const OFFICE_BAR = 24, OFFICE_EDGE = 2, OFFICE_OVER = 0.012;
+function placeLive() {
+  if (!/officeapps\.live\.com/.test(live.dataset.url || '')) { live.style.cssText = ''; return; }
+  const W = innerWidth, H = innerHeight, w0 = Math.min(W, H * 16 / 9), w = w0 * (1 + 2 * OFFICE_OVER), h = w * 9 / 16;
+  Object.assign(live.style, { inset: 'auto', left: (W - w) / 2 - OFFICE_EDGE + 'px', top: (H - h) / 2 - OFFICE_EDGE + 'px',
+    width: w + 2 * OFFICE_EDGE + 'px', height: h + 2 * OFFICE_EDGE + OFFICE_BAR + 'px' });
+}
+addEventListener('resize', placeLive);
 live.addEventListener('load', () => { if (live.classList.contains('on')) try { live.focus(); live.contentWindow.focus(); } catch (e) {} });
 // a video added in the presenter: it plays here, with sound. The presenter says play / pause; this reports back.
 const vid = document.getElementById('vid');
