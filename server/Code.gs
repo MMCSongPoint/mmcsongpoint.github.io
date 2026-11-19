@@ -202,7 +202,7 @@ function failed_(username) {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 66 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 67 }); }
 
 function doPost(e) {
   var d;
@@ -862,13 +862,14 @@ function setTuneMain_(me, d) {
 // ------------------------------------------------------------------ MP3 review (admins)
 // Flags on MP3s ("at 1:23 the alto drops out"). Kept in the "MP3 Issues" tab, and written out as text files in the
 // "MP3 Issues" folder next to this sheet: one file per MP3, plus "_All MP3 issues.txt", for whoever fixes them.
-var MP3I = 'MP3 Issues', MHEAD = ['ID', 'MP3 file ID', 'MP3 file', 'Folder', 'Book', 'Song', 'Part', 'Seconds', 'Time', 'Note', 'Flagged by', 'When'];
+// "Fix notes": whoever fixes the file (Claude) writes what was changed there; it shows under the flag in MIDI / MP3 Review.
+var MP3I = 'MP3 Issues', MHEAD = ['ID', 'MP3 file ID', 'MP3 file', 'Folder', 'Book', 'Song', 'Part', 'Seconds', 'Time', 'Note', 'Flagged by', 'When', 'Fix notes'];
 function mp3Rows_() {
   var sh = tab_(MP3I, MHEAD), n = sh.getLastRow() - 1;
   if (n < 1) return [];
   return sh.getRange(2, 1, n, MHEAD.length).getValues().map(function (r, i) {
     return { row: i + 2, id: String(r[0]), fileId: String(r[1]), file: String(r[2]), folder: String(r[3]), book: String(r[4]), song: String(r[5]),
-      part: String(r[6]), t: Number(r[7]) || 0, time: String(r[8]), note: String(r[9]), by: String(r[10]), when: r[11] ? new Date(r[11]).toISOString() : '' };
+      part: String(r[6]), t: Number(r[7]) || 0, time: String(r[8]), note: String(r[9]), by: String(r[10]), when: r[11] ? new Date(r[11]).toISOString() : '', fixNote: String(r[12] || '') };
   }).filter(function (x) { return x.id; });
 }
 function mp3Issues_() { return mp3Rows_().map(function (x) { delete x.row; return x; }); }
@@ -879,7 +880,7 @@ function mp3IssueAdd_(me, d) {
   try {
     var id = Utilities.getUuid().slice(0, 8), t = Math.round((Number(d.t) || 0) * 10) / 10;
     tab_(MP3I, MHEAD).appendRow([id, fileId, String(d.file || ''), String(d.folder || ''), String(d.book || ''), String(d.song || ''), String(d.part || ''),
-      t, mmss_(t), String(d.note || '').slice(0, 1000), me.name || me.username, new Date()]);
+      t, mmss_(t), String(d.note || '').slice(0, 1000), me.name || me.username, new Date(), '']);
     mp3IssueFiles_(fileId, String(d.file || ''), String(d.book || ''));
   } finally { lock.releaseLock(); }
   return { ok: true, issues: mp3Issues_() };
@@ -925,7 +926,7 @@ function mp3IssueFiles_(fileId, fileName, book) {
   else {
     var x = mine[0], text = ['MP3: Hymnal Mp3s/' + (x.book ? x.book + '/' : '') + (x.folder ? x.folder + '/' : '') + x.file, 'Drive file ID: ' + fileId,
       'Song: ' + x.song + (x.book ? ' (' + x.book + ')' : '') + (x.part ? ' · part: ' + x.part : ''), '', 'Issues (time into the track — note — who, when):']
-      .concat(mine.map(function (r) { return '- ' + r.time + ' — ' + (r.note || '(no note)') + ' — ' + r.by + ', ' + String(r.when).slice(0, 10); })).join('\n') + '\n';
+      .concat(mine.map(function (r) { return '- ' + r.time + ' — ' + (r.note || '(no note)') + ' — ' + r.by + ', ' + String(r.when).slice(0, 10) + (r.fixNote ? '\n    Fix notes: ' + r.fixNote : ''); })).join('\n') + '\n';
     if (f) f.setContent(text); else folder.createFile(name, text, 'text/plain');
   }
   // summary of every flagged MP3

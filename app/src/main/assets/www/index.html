@@ -108,6 +108,8 @@
   .rvflag { background: #c0392b; color: #fff; margin-left: auto; }
   .rvflags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .rvflags span { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 8px; font-size: 12.5px; display: inline-flex; gap: 6px; align-items: center; }
+  .rvflags span { flex-wrap: wrap; } .rvflags .rvfix { flex-basis: 100%; font-style: normal; color: var(--text); background: var(--row); border-left: 3px solid var(--accent); border-radius: 4px; padding: 3px 8px; margin: 2px 4px 2px 0; white-space: pre-wrap; }
+  .rvrow .fl .flfix { font-weight: 400; }
   .rvflags span b { color: #e05a4a; cursor: pointer; } .rvflags button { background: none; border: none; color: var(--muted); font-size: 15px; padding: 0 4px; }
   #nowTitle { display: flex; align-items: center; gap: 4px; min-width: 0; } #nowTitle .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   #nowTitle .aimark { color: var(--accent); flex: none; }
@@ -7164,7 +7166,7 @@ function rvRender() {
   const pct = all.length ? Math.floor(done / all.length * 100) : 0;
   $('#rvCount').textContent = `${done} of ${all.length} ${rvLabel()}s reviewed · ${all.length - done} left · ${pct}% done${$('#rvShow').value === 'done' ? ' · showing the reviewed ones (tap one, then “Not reviewed” to put it back)' : ''}`;
   const count = id => rvIssues.filter(x => x.fileId === id).length;
-  $('#rvList').innerHTML = rvTracks.slice(0, 600).map((t, i) => `<div class="rvrow${rvCur && rvCur.id === t.id ? ' now' : ''}" data-i="${i}"><div class="t"><div>${esc(t.name)}</div><small>${esc(t.collection)}${t.subfolder ? ' / ' + esc(t.subfolder) : ''}</small></div>${count(t.id) ? `<span class="fl">⚑ ${count(t.id)}</span>` : ''}</div>`).join('')
+  $('#rvList').innerHTML = rvTracks.slice(0, 600).map((t, i) => `<div class="rvrow${rvCur && rvCur.id === t.id ? ' now' : ''}" data-i="${i}"><div class="t"><div>${esc(t.name)}</div><small>${esc(t.collection)}${t.subfolder ? ' / ' + esc(t.subfolder) : ''}</small></div>${count(t.id) ? `<span class="fl">${rvIssues.some(x => x.fileId === t.id && x.fixNote) ? '<span class="flfix" title="Has fix notes">💬</span> ' : ''}⚑ ${count(t.id)}</span>` : ''}</div>`).join('')
     + (rvTracks.length > 600 ? `<p class="m">Showing 600 of ${rvTracks.length}. Pick a book or filter to narrow it down.</p>` : '') + (rvTracks.length ? '' : `<div class="vmsg">No ${rvLabel()}s match.</div>`);
   rvRenderNow();
 }
@@ -7179,7 +7181,7 @@ function rvRenderNow() {
     const fb = $('#rvFavBtn'), fav = !!(s && isFav(s)); fb.disabled = !s; fb.textContent = fav ? '♥ Favorite' : '♡ Favorite'; fb.classList.toggle('ghost', !fav);
     fb.title = fav ? 'In your favorites. Tap to take it out.' : 'Tap to add it to your favorites.'; }
   const mine = t ? rvIssues.filter(x => x.fileId === t.id).sort((a, b) => a.t - b.t) : [];
-  $('#rvFlags').innerHTML = (t && rvIsReviewed(t) ? '<button class="pbtn ghost" id="rvUndo" style="padding:4px 10px">✓ Reviewed · Not Reviewed</button>' : '') + mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button></span>`).join('');
+  $('#rvFlags').innerHTML = (t && rvIsReviewed(t) ? '<button class="pbtn ghost" id="rvUndo" style="padding:4px 10px">✓ Reviewed · Not Reviewed</button>' : '') + mine.map(x => `<span><b data-t="${x.t}" title="Go there">⚑ ${esc(fmt(x.t))}</b>${esc(x.note || '(no note)')}<button data-del="${esc(x.id)}" title="Remove this flag">×</button>${x.fixNote ? `<em class="rvfix" title="Fix notes (from the MP3 Issues sheet)">💬 ${esc(x.fixNote)}</em>` : ''}</span>`).join('');
 }
 // review speed: kept from song to song (and next time)
 let rvRate = store.get('rvRate', 1);
