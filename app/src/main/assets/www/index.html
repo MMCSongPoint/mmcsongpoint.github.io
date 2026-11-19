@@ -4827,7 +4827,7 @@ function prRender() {
   const picSet = pr.songs[pr.si] && pr.songs[pr.si].media === 'pics';   // pictures: a number on each (tap it to move that picture)
   $('#prThumbs').innerHTML = deck ? deck.imgs.map((u, i) => `<div class="prth${i === pr.slide ? ' now' : ''}" data-i="${i}" title="Ctrl+click: this slide with the screen black"><img src="${u}" alt="Slide ${i + 1}" draggable="false">${picSet ? `<button class="prnum" data-pos="${i}" title="Shows ${i + 1}${['st', 'nd', 'rd'][i] || 'th'}. Tap to move it.">${i + 1}</button>` : ''}</div>`).join('') : '';
   const nowThumb = $('#prThumbs .now'); if (nowThumb) nowThumb.scrollIntoView({ block: 'nearest' });
-  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move · Ctrl+click: go here with the screen black"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.upP ? '<small>uploading…</small>' : x.media ? `<small>${x.media === 'video' ? 'video' : x.media === 'audio' ? 'music' : x.count === 1 ? 'picture' : x.count + ' pictures'}</small>` : x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'in PowerPoint' : 'PowerPoint (helper not running)') : x.mode === 'office' ? 'PowerPoint viewer (online)' : x.mode === 'live' ? 'Google Slides' : 'still pictures'}</u>`}</small>` : prCO(x) ? '<small style="color:inherit;opacity:.8">chords only</small>' : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
+  $('#prSongs').innerHTML = pr.songs.map((x, i) => `<button class="${i === pr.si ? 'now' : ''}${x.deck ? ' deck' : ''}" data-i="${i}" draggable="true" title="Drag to move · Ctrl+click: go here with the screen black"><span>${i + 1}</span>${x.deck ? '<i class="prx" data-x="1" title="Take out">×</i>' : ''}${esc((x.number ? x.number + '. ' : '') + x.title)}${x.upP ? '<small>uploading…</small>' : x.media ? `<small>${x.media === 'video' ? 'video' : x.media === 'audio' ? 'music' : x.count === 1 ? 'picture' : x.count + ' pictures'}</small>` : x.deck ? `<small>speaker slides${x.pdf ? '' : ` · <u data-live="1" title="Tap to switch">${x.mode === 'ppt' ? (pptHelper ? 'PowerPoint (this computer)' : 'PowerPoint (helper not running)') : x.mode === 'office' ? 'PowerPoint (online)' : x.mode === 'live' ? 'Google Slides' : 'still pictures'}</u>`}</small>` : prCO(x) ? '<small style="color:inherit;opacity:.8">chords only</small>' : prFile(x) ? '' : '<small>no slides</small>'}</button>`).join('');
   $('#prPos').dataset.ppt = '';
   if (prIsPpt(s)) {
     const st = pr.ppt;
@@ -4961,7 +4961,7 @@ $('#prSongs').addEventListener('click', e => {
     if (it.mode === 'ppt' && pr.songs[pr.si] === it) pptEnd();
     it.mode = modes[(modes.indexOf(it.mode) + 1) % modes.length]; it.live = it.mode === 'live' || it.mode === 'office'; it.modeAuto = false;
     if (it.mode === 'ppt') pptPrefetch(it);
-    toast(it.mode === 'ppt' ? 'Plays in PowerPoint on the projector' : it.mode === 'office' ? 'Plays in Microsoft\'s PowerPoint viewer (animations; musicians can\'t follow the slide)' : it.mode === 'live' ? 'Plays in Google Slides (animations; musicians can\'t follow the slide)' : 'Still pictures, stepped from here', 3000);
+    toast(it.mode === 'ppt' ? 'Plays in PowerPoint on the projector' : it.mode === 'office' ? 'Plays in PowerPoint online (animations; musicians can\'t follow the slide)' : it.mode === 'live' ? 'Plays in Google Slides (animations; musicians can\'t follow the slide)' : 'Still pictures, stepped from here', 3000);
     if (it.live) prLiveId(it).then(() => { if (pr && pr.songs[pr.si] === it) prShowSong(pr.si, 0); else prRender(); }); else { if (pr.songs[pr.si] === it) prShowSong(pr.si, 0); else prRender(); }
     return;
   }
@@ -5097,10 +5097,11 @@ function prInsertDeck(item, at = pr ? pr.si + 1 : 0, quiet = false) {
 }
 function prDeckSetup(item) {
   const pdf = /\.pdf$/i.test(item.title) || item.pdf;
-  // PowerPoint (with the helper) by default, Microsoft's online PowerPoint viewer without it; PDFs as pictures. Tap the label to change.
-  item.mode = pdf ? 'pics' : pptHelper ? 'ppt' : item.google ? 'live' : 'office'; item.live = item.mode === 'live' || item.mode === 'office';
-  item.modeAuto = !pdf;
-  if (item.mode === 'ppt') pptPrefetch(item);   // not picked by hand: switches to PowerPoint as soon as the helper is found
+  // Microsoft's online PowerPoint viewer by default (PowerPoint itself, through the helper, when there's no internet);
+  // Google Slides links in Google's player; PDFs as pictures. Tap the label to change.
+  item.mode = pdf ? 'pics' : item.google ? 'live' : navigator.onLine ? 'office' : pptHelper ? 'ppt' : 'pics'; item.live = item.mode === 'live' || item.mode === 'office';
+  item.modeAuto = !pdf && item.mode !== 'office';
+  if (item.mode === 'ppt' || (pptHelper && !pdf)) pptPrefetch(item);   // PowerPoint's copy ready, in case the internet drops; not picked by hand: switches to PowerPoint as soon as the helper is found
   if (item.modeAuto && !pptHelper) pptPing().then(() => { if (pptHelper) pptAutoModes(); });
   if (item.live) prLiveId(item).then(() => prRender());
   prDeck(item).then(d => { if (d && d.title && item.title === 'Speaker slides') { item.title = d.title; prRender(); } }).catch(e => toast(e.message || 'Couldn\'t open those slides', 5000));
@@ -5287,7 +5288,7 @@ $('#prMsg').addEventListener('click', e => {
 $('#prAdd').onclick = () => prAddPick(false);
 async function prAddPick(fresh) {
   await pptPing();
-  const c = await choose('Add Slides or Media', `PowerPoint (.pptx / .ppt) or PDF files, pictures, videos or music (pick several at once), or a link to Google Slides. ${pptHelper ? 'The PowerPoint helper is running: decks play in real PowerPoint on the projector (all animations), and your Next / Previous / clicker drive them.' : 'Tip: run the PowerPoint helper on this computer (Settings › PowerPoint helper) to play decks in real PowerPoint with all their animations. Without it they play in Google Slides\' player.'} PDFs show as still pictures. Tap the mode on the box to switch.`,
+  const c = await choose('Add Slides or Media', `PowerPoint (.pptx / .ppt) or PDF files, pictures, videos or music (pick several at once), or a link to Google Slides. PowerPoints play in PowerPoint online on the projector, with their animations.${pptHelper ? ' PowerPoint on this computer is ready too (tap the mode to use it, e.g. if the internet drops).' : ''} PDFs show as still pictures. Tap the mode on the box to switch.`,
     [{ label: 'Choose Files', value: 'file', primary: true }, { label: 'Google Slides Link', value: 'link' }, { label: 'Cancel', value: 'cancel' }]);
   if (c === 'file') { prFresh = fresh; $('#prFile').value = ''; $('#prFile').click(); }
   else if (c === 'link') {
