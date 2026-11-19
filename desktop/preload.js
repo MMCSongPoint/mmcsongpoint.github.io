@@ -12,4 +12,6 @@ contextBridge.exposeInMainWorld('SongPointDesktop', {
   lid: on => ipcRenderer.invoke('lid', on),
   // the signed-in person's church: the window, taskbar and desktop shortcut take its icon ('' = the neutral grey one)
   setChurch: id => ipcRenderer.invoke('church', String(id || '')),
+  // put the keyboard (the clicker) inside a speaker's slides playing live on the projector
+  focusLive: () => ipcRenderer.invoke('focus-live'),
 });

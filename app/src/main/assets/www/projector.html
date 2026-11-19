@@ -80,13 +80,15 @@ addEventListener('resize', () => { if (document.getElementById('ccli').classList
 // key then lands here instead, the player let go of it (the end of the show), so the presenter moves on. A key that
 // lands here before the player ever had it only hands the keys to the player (it never skips the slides).
 let liveHad = false;
-function liveFocus() { try { window.focus(); live.focus(); live.contentWindow.focus(); } catch (e) {} }
+const DESK = window.SongPointDesktop && window.SongPointDesktop.focusLive ? window.SongPointDesktop : null;
+// the Windows app can reach right into the player (and bring this window forward); a browser can only focus the frame
+function liveFocus() { try { window.focus(); live.focus(); live.contentWindow.focus(); } catch (e) {} if (DESK) DESK.focusLive().catch(() => {}); }
 function showLive(m) {
   img.classList.remove('on'); title.classList.remove('on');
   if (!live.classList.contains('on') || live.dataset.url !== m.url) liveHad = false;
   if (live.dataset.url !== m.url) { live.dataset.url = m.url; live.src = m.url; }
   live.inert = false; live.classList.add('on'); placeLive();
-  if (m.focus) [50, 400, 1200, 2500, 4500].forEach(t => setTimeout(() => { if (live.classList.contains('on') && !liveHad) liveFocus(); }, t));
+  if (m.focus) [50, 400, 1200, 2500, 4500].forEach(t => setTimeout(() => { if (live.classList.contains('on') && (!liveHad || (DESK && t <= 2500))) liveFocus(); }, t));
 }
 function hideLive() {
   if (!live.classList.contains('on')) return;
@@ -109,7 +111,7 @@ function placeLive() {
     width: w + 2 * OFFICE_EDGE + 'px', height: h + 2 * OFFICE_EDGE + OFFICE_BAR + 'px' });
 }
 addEventListener('resize', placeLive);
-live.addEventListener('load', () => { if (live.classList.contains('on') && !liveHad) liveFocus(); });
+live.addEventListener('load', () => { if (live.classList.contains('on')) { liveFocus(); if (DESK) setTimeout(liveFocus, 1500); } });
 // a video added in the presenter: it plays here, with sound. The presenter says play / pause; this reports back.
 const vid = document.getElementById('vid');
 let vWant = false, vBlocked = false, vSn = -1, vTimer = 0;

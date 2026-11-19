@@ -5276,7 +5276,13 @@ function prUpload(f, at, split = 0) {
   }).finally(() => { prUploads--; prUpShow(); });
   prInsertDeck(item, at, true);
 }
-$('#prMsg').addEventListener('click', e => { if (e.target.id === 'prLiveFocus') { pr.liveFocus = true; try { prWin && prWin.focus(); } catch {} prSend(); } });
+// "Give the Clicker to the Projector": the projector window comes forward and the player gets the keys
+$('#prMsg').addEventListener('click', e => {
+  if (e.target.id !== 'prLiveFocus' || !pr) return;
+  pr.liveFocus = true; try { prWin && prWin.focus(); } catch {}
+  if (prChannel) prChannel.postMessage({ t: 'focuslive' });
+  if (!DESK) toast('If the slides don\'t move, click once on the projector screen (a browser can\'t always hand the keys over)', 5000);
+});
 $('#prAdd').onclick = () => prAddPick(false);
 async function prAddPick(fresh) {
   await pptPing();

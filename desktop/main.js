@@ -187,6 +187,26 @@ function renameOldShortcuts() {
   }
 }
 ipcMain.handle('version', () => app.getVersion());
+// A speaker's deck playing live on the projector (Microsoft's PowerPoint viewer or Google Slides): bring the projector
+// to the front and put the keyboard inside the player itself. The player sits a few frames deep, where a web page
+// can't reach, so without this the clicker often didn't get to it until someone clicked on the projector screen.
+async function focusLive() {
+  if (!proj || proj.isDestroyed()) return false;
+  try { if (proj.isMinimized()) proj.restore(); proj.show(); proj.focus(); proj.webContents.focus(); } catch (e) {}
+  const top = proj.webContents.mainFrame, depth = f => { let n = 0; for (let p = f.parent; p; p = p.parent) n++; return n; };
+  let best = null, bestArea = 0, bestDepth = -1;
+  for (const f of top.framesInSubtree) {
+    if (f === top || !/^https:\/\/[^/]*(officeapps\.live\.com|office\.com|docs\.google\.com)\//.test(f.url || '')) continue;
+    let area = 0;   // the player is the deepest frame that fills most of the screen (not a small hidden helper frame)
+    try { area = await f.executeJavaScript('innerWidth * innerHeight'); } catch (e) {}
+    const big = area >= 0.4 * bestAreaOf(top);
+    if (big && (depth(f) > bestDepth || (depth(f) === bestDepth && area > bestArea))) { best = f; bestArea = area; bestDepth = depth(f); }
+  }
+  if (best) try { await best.executeJavaScript('window.focus(); if (document.body && (!document.activeElement || document.activeElement === document.body)) { document.body.tabIndex = -1; document.body.focus(); } true', true); } catch (e) {}
+  return !!best;
+}
+function bestAreaOf(top) { try { const b = proj.getContentBounds(); return b.width * b.height; } catch (e) { return 0; } }
+ipcMain.handle('focus-live', () => focusLive());
 ipcMain.handle('screens', () => {
   const p = prefs(), primary = screen.getPrimaryDisplay().id, auto = projectorDisplay();
   return { picked: p.projector || '', auto: auto ? String(auto.id) : '', screens: screen.getAllDisplays().map((d, i) => ({
