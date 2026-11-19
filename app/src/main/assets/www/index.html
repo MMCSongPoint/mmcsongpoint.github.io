@@ -5307,12 +5307,20 @@ $('#prFile').onchange = async e => {
   const kind = f => /\.(pptx?|pdf)$/i.test(f.name) ? 'deck' : /^image\//.test(f.type) || /\.(jpe?g|png|gif|webp|bmp|avif|heic|heif)$/i.test(f.name) ? 'pic'
     : /^video\//.test(f.type) || /\.(mp4|m4v|mov|webm|mkv|ogv)$/i.test(f.name) ? 'video' : /^audio\//.test(f.type) || /\.(mp3|m4a|wav|aac|ogg|oga|flac|opus)$/i.test(f.name) ? 'audio' : '';
   const bad = files.filter(f => !kind(f)), big = files.filter(f => kind(f) === 'deck' && f.size > 35 * 1048576);
+  // PowerPoints and PDFs are uploaded to the server first: without it they can't be added (pictures, videos and music can)
+  const decks = files.filter(f => kind(f) === 'deck' && !big.includes(f)), skip = [...big];
+  if (decks.length && !(await serverUp())) {
+    skip.push(...decks);   // left out below
+    await choose('Internet Needed', `${decks.map(f => f.name).join(', ')} can't be added right now: PowerPoints and PDFs are uploaded to the server first, and ${navigator.onLine ? 'the server can\'t be reached' : 'this computer isn\'t connected to the internet'}. Connect, then add ${decks.length === 1 ? 'it' : 'them'} again.${files.length > decks.length ? ' Pictures, videos and music are still added.' : ''}`,
+      [{ label: 'OK', value: 'ok', primary: true }]);
+    if (files.length === decks.length) { if (fresh) pr = null; return; }
+  }
   if (bad.length) toast(`Skipped ${bad.map(f => f.name).join(', ')}: use PowerPoint, PDF, pictures, videos or music`, 6000);
   if (big.length) toast(`${big.map(f => f.name).join(', ')}: over 35 MB. Try saving it as a PDF, or share it as Google Slides.`, 6000);
   let at = pr.si + 1, added = 0;
   const pics = files.filter(f => kind(f) === 'pic');
   for (const f of files) {
-    const k = kind(f); if (!k || big.includes(f)) continue;
+    const k = kind(f); if (!k || skip.includes(f)) continue;
     if (k === 'deck') { prUpload(f, at++, await pdfSplitAsk(f)); added++; }
     else if (k === 'video' || k === 'audio') { prInsertDeck(mediaItem(k, f.name.replace(/\.[^.]+$/, ''), { url: URL.createObjectURL(f) }), at++); added++; }
     else if (f === pics[0]) {   // the pictures picked together: one item, a slide each, where the first one was
@@ -6348,6 +6356,15 @@ function deviceName() {
   return (ios ? 'iPhone/iPad' : /Android/.test(navigator.userAgent) ? 'Android' : 'Computer') + (standalone ? ' app' : ' browser');
 }
 // One call to the SongPoint server (Google Apps Script). Adds the sign-in token.
+// can the server be reached right now (a quick check, at most 6 seconds)?
+async function serverUp() {
+  if (!navigator.onLine || !CFG.logUrl) return false;
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000);
+  try {   // the same kind of request as everything else the app sends (so it gets through wherever they do)
+    const r = await fetch(CFG.logUrl, { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'status' }) });
+    return r.ok;
+  } catch { return false; } finally { clearTimeout(t); }
+}
 async function api(action, data = {}) {
   if (!CFG.logUrl) throw new Error('No server is set up.');
   if (LISTEN && action !== 'midiApproved') return { ok: false, error: 'Not available here.' };
