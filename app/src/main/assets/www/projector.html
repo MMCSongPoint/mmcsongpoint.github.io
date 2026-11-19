@@ -17,6 +17,7 @@
   #title.on { opacity: 1; }
   #live { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #000; }
   #live.on { display: block; z-index: 1000000; }
+  #live.wait { opacity: 0; } #live { transition: opacity .4s ease; }   /* black until the player's own loading screen is over */
   #vid { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; visibility: hidden; opacity: 0; transition: opacity .5s ease, visibility 0s .5s; }
   #vid.on { visibility: visible; opacity: 1; transition: opacity .5s ease, visibility 0s; }
   /* the CCLI licence notice, bottom right, on each song's first slide */
@@ -86,17 +87,30 @@ function liveFocus() { try { window.focus(); live.focus(); live.contentWindow.fo
 function showLive(m) {
   img.classList.remove('on'); title.classList.remove('on');
   if (!live.classList.contains('on') || live.dataset.url !== m.url) liveHad = false;
-  if (live.dataset.url !== m.url) { live.dataset.url = m.url; live.src = m.url; }
-  live.inert = false; live.classList.add('on'); placeLive();
+  if (live.dataset.url !== m.url) { live.dataset.url = m.url; live.dataset.loaded = ''; live.src = m.url; }
+  live.inert = false; live.classList.add('on'); placeLive(); liveReveal();
   if (m.focus) [50, 400, 1200, 2500, 4500].forEach(t => setTimeout(() => { if (live.classList.contains('on') && (!liveHad || (DESK && t <= 2500))) liveFocus(); }, t));
 }
 function hideLive() {
   if (!live.classList.contains('on')) return;
-  live.classList.remove('on'); liveHad = false;
+  live.classList.remove('on'); liveHad = false; clearTimeout(liveRevealT); live.classList.remove('wait'); liveAskedAt = 0;
   live.inert = true; try { live.blur(); } catch (e) {} try { document.body.focus(); } catch (e) {}   // the keys come back here
 }
 // the next item is a speaker's deck: load its player now (hidden), so it's ready when it comes up
-function preLive(m) { if (!live.classList.contains('on') && m.url && live.dataset.url !== m.url) { live.dataset.url = m.url; live.inert = true; live.src = m.url; placeLive(); } }
+function preLive(m) { if (!live.classList.contains('on') && m.url && live.dataset.url !== m.url) { live.dataset.url = m.url; live.dataset.loaded = ''; live.inert = true; live.src = m.url; placeLive(); } }
+// The player shows its own loading screen (the PowerPoint logo) for a moment after its page has loaded: the screen
+// stays black until a little after that (at most 12 seconds after it was asked for). A player loaded ahead (the
+// item before it) shows straight away.
+const LIVE_SETTLE = 2500;
+let liveRevealT = 0, liveAskedAt = 0;
+function liveReveal() {
+  clearTimeout(liveRevealT);
+  const loaded = +live.dataset.loaded || 0, now = Date.now();
+  if (!liveAskedAt || !live.classList.contains('wait')) liveAskedAt = now;
+  const wait = loaded ? loaded + LIVE_SETTLE - now : Math.max(0, liveAskedAt + 12000 - now);
+  if (wait <= 0) { live.classList.remove('wait'); liveAskedAt = 0; return; }
+  live.classList.add('wait'); liveRevealT = setTimeout(liveReveal, Math.min(wait, 500));
+}
 setInterval(() => {
   if (!liveHad && live.classList.contains('on') && document.hasFocus() && document.activeElement === live) { liveHad = true; ch.postMessage({ t: 'livefocus' }); }
 }, 200);
@@ -111,6 +125,7 @@ function placeLive() {
     width: w + 2 * OFFICE_EDGE + 'px', height: h + 2 * OFFICE_EDGE + OFFICE_BAR + 'px' });
 }
 addEventListener('resize', placeLive);
+live.addEventListener('load', () => { if (live.getAttribute('src')) live.dataset.loaded = Date.now(); });
 live.addEventListener('load', () => { if (live.classList.contains('on')) { liveFocus(); if (DESK) setTimeout(liveFocus, 1500); } });
 // a video added in the presenter: it plays here, with sound. The presenter says play / pause; this reports back.
 const vid = document.getElementById('vid');
