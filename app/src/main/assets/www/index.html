@@ -2473,6 +2473,7 @@ function runSearch(q) {
   const words = normalize(q.replace(/#/g, ' ')).split(' ').filter(Boolean);
   let pool = songs;
   if (collection === '__fav') pool = pool.filter(isFav);
+  else if (collection === '__ai') pool = aiTabOk() ? pool.filter(hasAiChords) : pool;
   else if (collection) pool = pool.filter(s => s.collection === collection);
   if (fields.part) pool = pool.filter(s => s.parts.some(p => normalize(p.part).includes(fields.part)));
   if (fields.book) pool = pool.filter(s => normalize(s.collection).includes(fields.book));
@@ -2595,6 +2596,8 @@ function renderTabs() {
   const order = store.get('tabOrder', []), rank = c => { const i = order.indexOf(c); return i < 0 ? 999 + all.indexOf(c) : i; };
   const books = all.filter(c => counts[c]).sort((a, b) => rank(a) - rank(b));
   const tabs = [['', 'All', main.length], ...books.map(c => [c, c, counts[c]])];
+  if (aiTabOk()) tabs.push(['__ai', '✨ AI Chords', songs.filter(hasAiChords).length]);
+  else if (collection === '__ai') collection = '';
   $('#tabs').innerHTML = tabs.map(([v, label, n]) =>
     `<button class="tab${v === collection ? ' on' : ''}" data-c="${esc(v)}">${esc(label)}<small>${n}</small></button>`).join('');
 }
@@ -2632,9 +2635,25 @@ function renderTabs() {
   bar.addEventListener('contextmenu', e => { if (e.target.closest('.tab')) e.preventDefault(); });
   bar.addEventListener('click', e => { if (suppress) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
 })();
+// For now (Jadon and Derek only): a tab with the songs whose chord sheets were made by AI, to check them. Chord sheets
+// are only known to be AI-made once their text is on this device, so opening the tab fetches any it hasn't seen yet.
+function aiTabOk() { const u = curUser().toLowerCase(), n = (store.get('auth', {}).user || {}).name || ''; return u === 'jadon1676' || u === 'derek' || /^derek\b/i.test(n); }
+function hasAiChords(s) { return !!(s.chords && s.chords.some(aiChord)); }
+var aiScanning = false;
+async function aiChordScan() {
+  if (aiScanning || !navigator.onLine) return; aiScanning = true;
+  try {
+    const todo = songs.flatMap(s => s.chords || []).filter(f => { const k = 'cho:' + f.id + ':' + (f.modified || ''); if (chordText.has(k)) return false; try { return localStorage.getItem(k) == null; } catch { return true; } });
+    if (todo.length) toast(`Checking ${todo.length} chord sheet${todo.length === 1 ? '' : 's'} for AI-made ones…`, 3000);
+    let i = 0, n = 0;
+    await Promise.all(Array.from({ length: 6 }, async () => { while (i < todo.length) { const f = todo[i++]; try { await loadChordText(f); } catch {} if (++n % 40 === 0 && collection === '__ai') { renderTabs(); search(); } } }));
+  } finally { aiScanning = false; }
+  renderTabs(); if (collection === '__ai') search();
+}
 $('#tabs').addEventListener('click', e => {
   const t = e.target.closest('.tab'); if (!t) return;
   collection = t.dataset.c; store.set('collection', collection);
+  if (collection === '__ai') aiChordScan();
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
   search(); window.scrollTo({ top: 0 });
 });
@@ -2683,6 +2702,7 @@ function render() {
   } else if (!results.length) {
     list.innerHTML = collection === '__fav' && !lastQ
       ? `<div class="empty"><b>No favorites yet</b>Tap ⋮ next to a song, then “Add to favorites”.</div>`
+      : collection === '__ai' && !lastQ ? `<div class="empty"><b>${aiScanning ? 'Checking the chord sheets…' : 'No AI-made chord sheets'}</b>Chord sheets with {meta: ai_generated yes} show here.</div>`
       : `<div class="empty"><b>No matches${lastQ ? ` for “${esc(lastQ)}”` : ''}</b>${collection ? 'Try the “All” tab, or fewer words.' : 'Try fewer words.'}</div>`;
   } else {
     list.innerHTML = results.slice(0, limit).map(({ s, fuzzy, tune, lyric }, i) => songRow(s, i, words, fuzzy, false, tune, lyric)).join('') + (results.length > limit ? `<div class="empty" style="padding:18px"><button class="chip" id="moreBtn">Show more (${results.length - limit})</button></div>` : '');
@@ -3343,11 +3363,12 @@ function renderChordChart(chart, semis, table, simple = false) {
 }
 const chordText = new Map();
 // a chord sheet made by AI ({meta: ai_generated yes}), known once its text has been opened on this device
-const aiChordMemo = new Map();
+var aiChordMemo = null;   // (var / function: the song list can be drawn before this part of the script has run)
 function aiChord(f) {
   if (!f) return false; const k = 'cho:' + f.id + ':' + (f.modified || '');
+  aiChordMemo = aiChordMemo || new Map();
   if (aiChordMemo.has(k)) return aiChordMemo.get(k);
-  let t = chordText.get(k); if (t == null) try { t = localStorage.getItem(k); } catch {}
+  let t = null; try { t = chordText.get(k); } catch {} if (t == null) try { t = localStorage.getItem(k); } catch {}
   if (t == null) return false;
   const v = /\{\s*(meta\s*[:\s]\s*)?(x_)?ai[_ -]?generated\b(?![^}]*\b(no|false)\s*\})/i.test(t); aiChordMemo.set(k, v); return v;
 }
