@@ -1632,7 +1632,8 @@ const MIDI_SOUNDS = {   // made by the app: always there, offline too, and the s
 };
 // Recorded instruments: short recordings of each note (the FluidR3 GM sound set, CC BY 3.0, via midi-js-soundfonts),
 // served with the web app from sounds/. Each is downloaded the first time it's used (2–3 MB) and kept for offline use.
-// [name, file, gain, release (s), built-in stand-in, { shift: semitones up, min: lowest note played, ring: s }]
+// [name, file, gain, release (s), built-in stand-in, { shift: semitones up, min: lowest note played, ring: s, max: highest note }]
+const shiftNote = (o, n) => { let m = n + (o ? o.shift : 0); if (o && o.max) while (m > o.max) m -= 12; return m; };
 const MIDI_SAMPLED = {
   grand:   ['Grand Piano', 'acoustic_grand_piano', 1.7, 0.3, 'piano'],
   pipe:    ['Pipe Organ', 'church_organ', 1.0, 0.12, 'organ'],
@@ -1644,8 +1645,9 @@ const MIDI_SAMPLED = {
   harp:    ['Harp', 'orchestral_harp', 1.6, 0.6, 'piano'],
   // tone chimes (a celesta): played an octave up with a short ring; every note plays, bass included
   smallbells: ['Tone Chimes', 'celesta', 1.3, 1.2, 'piano', { shift: 12, min: 0, ring: 1.4 }],
-  // handbells (a music box: twinkly without the clank of a real bell recording): an octave up, short ring, every note plays
-  handbells: ['Handbells', 'music_box', 1.3, 1.2, 'piano', { shift: 12, min: 0, ring: 1.4 }],
+  // handbells (a music box: twinkly without the clank of a real bell recording): two octaves up, short ring, every note
+  // plays (anything above the top recorded note, C8, comes down an octave)
+  handbells: ['Handbells', 'music_box', 1.3, 1.2, 'piano', { shift: 24, min: 0, ring: 1.4, max: 108 }],
   bass:    ['Upright Bass', 'acoustic_bass', 1.9, 0.25, 'piano'],
   harmonica: ['Harmonica', 'harmonica', 1.2, 0.12, 'organ'],
 };
@@ -1753,7 +1755,7 @@ function prefetchMidi(url) {
   // and start decoding the instrument notes it needs, so it starts straight away
   p.then(ab => {
     const song = parseMidi(ab), AC = window.AudioContext || window.webkitAudioContext; const ctx = actx || (actx = new AC()), seen = new Set();
-    for (const x of song.notes) { const k = midiSoundFor(x.vo), o = MIDI_SOUNDS[k].opts; if (!MIDI_SOUNDS[k].sampled || (o && x.n < o.min)) continue; const n = x.n + (o ? o.shift : 0); if (!seen.has(k + n)) { seen.add(k + n); sampleBuf(ctx, k, n); } }
+    for (const x of song.notes) { const k = midiSoundFor(x.vo), o = MIDI_SOUNDS[k].opts; if (!MIDI_SOUNDS[k].sampled || (o && x.n < o.min)) continue; const n = shiftNote(o, x.n); if (!seen.has(k + n)) { seen.add(k + n); sampleBuf(ctx, k, n); } }
   }).catch(() => {});
 }
 class MidiPlayer extends EventTarget {
@@ -1841,7 +1843,7 @@ class MidiPlayer extends EventTarget {
   _prep() {
     if (!this.song) return;
     const AC = window.AudioContext || window.webkitAudioContext; const ctx = actx || (actx = new AC()), seen = new Set();
-    for (const x of this.song.notes) { const k = midiSoundFor(x.vo), o = MIDI_SOUNDS[k].opts; if (o && x.n + this.transpose < o.min) continue; const n = x.n + this.transpose + (o ? o.shift : 0), id = k + n; if (!seen.has(id) && MIDI_SOUNDS[k].sampled) { seen.add(id); sampleBuf(ctx, k, n); } }
+    for (const x of this.song.notes) { const k = midiSoundFor(x.vo), o = MIDI_SOUNDS[k].opts; if (o && x.n + this.transpose < o.min) continue; const n = shiftNote(o, x.n + this.transpose), id = k + n; if (!seen.has(id) && MIDI_SOUNDS[k].sampled) { seen.add(id); sampleBuf(ctx, k, n); } }
   }
   // resolves once every recorded note this song needs is decoded (null if they all are already); gives up after 20 s
   // (e.g. offline the first time), and then the built-in stand-in plays instead
@@ -1874,7 +1876,7 @@ class MidiPlayer extends EventTarget {
       const vf = this.focus ? (x.vo === this.focus ? 1.25 : 0.28) : 1;
       const key = midiSoundFor(x.vo), snd = MIDI_SOUNDS[key], so = snd.opts;
       if (so && x.n + this.transpose < so.min) continue;   // too low for this instrument: left out
-      const nn = x.n + this.transpose + (so ? so.shift : 0), f = 440 * Math.pow(2, (nn - 69) / 12);
+      const nn = shiftNote(so, x.n + this.transpose), f = 440 * Math.pow(2, (nn - 69) / 12);
       const peak = (snd.gain || 0.22) * (0.35 + 0.65 * x.v) * vf * Math.min(1, 1.6 - (x.n - 60) / 80), off = start + Math.max(0.03, len);
       const v = midiNote(ctx, this.out, key, f, start, off, peak, this._waves, nn); v.start = start; v.idx = this._next - 1; this.live.push(v);
     }
