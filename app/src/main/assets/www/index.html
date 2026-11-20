@@ -1248,6 +1248,7 @@
       <button class="pbtn ghost" id="rvFwd" title="Forward 5 s (→)">+5s</button>
       <button class="pbtn ghost" id="rvNext" title="Next">⏭</button>
       <button class="pbtn ghost" id="rvSheet" title="Open the sheet music (S)">📄 Music</button>
+      <button class="pbtn ghost" id="rvReload" title="Get this file again from Drive (after it was fixed or replaced)" style="display:none">⟳ Reload</button>
       <button class="pbtn ghost" id="rvKnownBtn" title="Mark as a song we know (or not)">☆ Known</button>
       <button class="pbtn ghost" id="rvFavBtn" title="Add to your favorites (or take it out)">♡ Favorite</button>
       <select id="rvVoice" title="Bring one voice forward (stays for the next songs)" aria-label="Bring forward" style="font:inherit;font-size:14px;max-width:12em;display:none"></select>
@@ -7176,6 +7177,7 @@ function rvRender() {
 }
 function rvRenderNow() {
   const t = rvCur;
+  $('#rvReload').style.display = t && t.midi ? '' : 'none';
   $('#rvTitle').textContent = t ? t.name : `Pick ${rvKind === 'midi' ? 'a MIDI' : 'an MP3'} below`;
   $('#rvSub').textContent = t ? `${t.collection}${t.subfolder ? ' / ' + t.subfolder : ''}` : '';
   $('#rvPlay').textContent = rvAudio.paused ? '▶' : '❚❚';
@@ -7334,6 +7336,29 @@ $('#rvInst').innerHTML = instOpts();
 $('#rvInst').onchange = e => { setMidiInstrument(e.target.value); e.target.blur(); };
 $('#rvRate').onchange = e => { rvRate = +e.target.value || 1; store.set('rvRate', rvRate); rvApplyRate(); e.target.blur(); };
 rvAudio.addEventListener('loadedmetadata', rvApplyRate);
+// ⟳ Reload: the MIDI file again from Drive, skipping every saved copy (the browser's, the offline one, the server's
+// relay), e.g. after it was fixed. It carries on from the same spot.
+async function rvReload() {
+  const t = rvCur; if (!t || !t.midi) return;
+  if (!navigator.onLine) return toast('Connect to the internet to reload it');
+  const at = rvAudio.currentTime || 0, playing = !rvAudio.paused, url = mediaUrl(t.id), b = $('#rvReload');
+  rvAudio.pause(); b.disabled = true;
+  try {
+    let ab = null, saved = false;
+    try { saved = await (await caches.open('songpoint-files-v1')).delete(url); } catch {}
+    if (relayed.has(t.id)) { URL.revokeObjectURL(relayed.get(t.id)); relayed.delete(t.id); }
+    try { if (driveBlocked()) throw 0; const r = await fetch(url, { cache: 'reload' }); if (!r.ok) throw 0; ab = await r.arrayBuffer(); }
+    catch { if (canRelay()) try { ab = await (await fetch(await relayFile(t.id))).arrayBuffer(); } catch {} }
+    if (!ab) return toast('Couldn\'t reload it. Check your connection.', 3000);
+    if (saved) try { await (await caches.open('songpoint-files-v1')).put(url, new Response(ab.slice(0), { headers: { 'Content-Type': 'audio/midi' } })); } catch {}
+    if (rvCur !== t) return;
+    const src = sourceFor(t); midiPrefetch.set(src, Promise.resolve(ab));
+    rvAudio.midi.addEventListener('loadedmetadata', () => { if (rvCur !== t) return; try { rvAudio.currentTime = Math.min(at, Math.max(0, (rvAudio.duration || at) - 0.5)); } catch {} if (playing) rvAudio.play(); }, { once: true });
+    rvAudio.src = src;
+    toast('Reloaded from Drive', 1500);
+  } finally { b.disabled = false; }
+}
+$('#rvReload').onclick = e => { e.currentTarget.blur(); rvReload(); };
 // MIDI Review: bring one voice forward (soprano, alto, tenor, bass…), like the player's "Bring Forward"; kept for the next songs
 let rvFocus = store.get('rvFocus', '');
 function rvVoices() {
