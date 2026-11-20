@@ -6423,13 +6423,13 @@ function deviceName() {
   return (ios ? 'iPhone/iPad' : /Android/.test(navigator.userAgent) ? 'Android' : 'Computer') + (standalone ? ' app' : ' browser');
 }
 // One call to the SongPoint server (Google Apps Script). Adds the sign-in token.
-// which app this is, for the Super Admin's App Usage screen ("Android app", "Windows app", "Browser · iPhone"…)
+// which app this is, for the Super Admin's App Usage screen ("Android app", "Windows app", "Browser (iPhone)"…)
 function clientKind() {
   if (window.Native && window.Native.isAndroid) return 'Android app';
   if (window.SongPointDesktop) return 'Windows app';
   const ua = navigator.userAgent, dev = /iPhone|iPod/.test(ua) ? 'iPhone' : /iPad|Macintosh.*Mobile/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : /CrOS/.test(ua) ? 'Chromebook' : 'Other';
   const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  return (installed ? 'Installed web app' : 'Browser') + ' · ' + dev;
+  return `${installed ? 'Installed web app' : 'Browser'} (${dev})`;
 }
 // can the server be reached right now (a quick check, at most 6 seconds)?
 async function serverUp() {
