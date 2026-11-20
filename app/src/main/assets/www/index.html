@@ -708,6 +708,13 @@
   .tab.tabdrag { background: var(--row); border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.25); transform: scale(1.06); position: relative; z-index: 2; }
   #tabs.reordering { overflow-x: hidden; }
   .tab { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .usesum { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .usesum div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; } .usesum b { display: block; font-size: 22px; } .usesum small { color: var(--muted); font-size: 12.5px; }
+  .usechart { display: flex; align-items: flex-end; gap: 3px; height: 90px; padding: 6px 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .usechart i { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; opacity: .85; } .usechart i.z { opacity: .2; }
+  .usecap { display: flex; justify-content: space-between; color: var(--muted); font-size: 11.5px; margin: 3px 2px 0; }
+  .useu { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 9px 4px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .useu small { color: var(--muted); font-size: 12.5px; } .useu .r { text-align: right; } .useu.off { opacity: .55; }
   .recbar { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 13.5px; }
   .recbar label { display: flex; align-items: center; gap: 6px; }
   .recbar span { flex: 1; color: var(--muted); font-size: 12.5px; }
@@ -1037,6 +1044,22 @@
     <input id="recQ" type="search" placeholder="Filter by title, leader or song" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;margin-bottom:8px">
     <div class="recbar"><label><input type="checkbox" id="recAll"> Select all shown</label><span id="recCount"></span><button class="pbtn" id="recDelete" disabled style="background:var(--danger)">Delete</button></div>
     <div id="recList"><div class="vmsg">Loading…</div></div>
+  </div>
+</div>
+
+<!-- Super Admin: who uses the app, and when -->
+<div class="panel" id="appUsePanel">
+  <div class="phead">
+    <button class="icon" data-close="appUsePanel" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>App Usage</h2>
+    <button class="icon" id="useRefresh" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+  </div>
+  <div class="pbody">
+    <div id="useSum" class="usesum"></div>
+    <div id="useChart" class="usechart"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 8px"><input id="useQ" type="search" placeholder="Filter by name or church" style="flex:1 1 200px;min-width:0;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit">
+      <select id="useChurch" style="font:inherit;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text)"><option value="">All churches</option></select></div>
+    <div id="useList"><div class="vmsg">Loading…</div></div>
   </div>
 </div>
 
@@ -1440,6 +1463,7 @@
   <p id="acctLine" style="margin:0 0 4px"></p>
   <button class="act" id="usersBtn">Manage Users</button>
   <button class="act" id="churchesBtn" style="display:none">Churches (Super Admin)</button>
+  <button class="act" id="appUseBtn">App Usage (Who Uses the App)</button>
   <button class="act" id="recordsBtn">Usage Records (Delete Entries)</button>
   <button class="act" id="checkBtn">Library Check (Missing Files)</button>
   <button class="act" id="midiBtn">MIDI Review (Flag Problems)</button>
@@ -6399,6 +6423,14 @@ function deviceName() {
   return (ios ? 'iPhone/iPad' : /Android/.test(navigator.userAgent) ? 'Android' : 'Computer') + (standalone ? ' app' : ' browser');
 }
 // One call to the SongPoint server (Google Apps Script). Adds the sign-in token.
+// which app this is, for the Super Admin's App Usage screen ("Android app", "Windows app", "Browser · iPhone"…)
+function clientKind() {
+  if (window.Native && window.Native.isAndroid) return 'Android app';
+  if (window.SongPointDesktop) return 'Windows app';
+  const ua = navigator.userAgent, dev = /iPhone|iPod/.test(ua) ? 'iPhone' : /iPad|Macintosh.*Mobile/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : /CrOS/.test(ua) ? 'Chromebook' : 'Other';
+  const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  return (installed ? 'Installed web app' : 'Browser') + ' · ' + dev;
+}
 // can the server be reached right now (a quick check, at most 6 seconds)?
 async function serverUp() {
   if (!navigator.onLine || !CFG.logUrl) return false;
@@ -6412,7 +6444,7 @@ async function api(action, data = {}) {
   if (!CFG.logUrl) throw new Error('No server is set up.');
   if (LISTEN && action !== 'midiApproved') return { ok: false, error: 'Not available here.' };
   const r = await fetch(CFG.logUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ action, token: auth.token || '' }, data)) });
+    body: JSON.stringify(Object.assign({ action, token: auth.token || '', client: clientKind() }, data)) });
   const body = await r.json();
   if (body.signedOut && auth.token) { signOut(true); }
   if (body.mustChange && auth.user) { auth.user.mustChange = true; saveAuth(); showLock('change'); }
@@ -6565,6 +6597,7 @@ function renderWelcome() {
   $('#midiBtn').style.display = isSuper() ? '' : 'none';
   $('#churchesBtn').style.display = isSuper() ? '' : 'none';
   $('#recordsBtn').style.display = isSuper() ? '' : 'none';
+  $('#appUseBtn').style.display = isSuper() ? '' : 'none';
   $('#shareSec').style.display = isAdmin() ? '' : 'none';   // the share links: admins only
 }
 function signOut(expired = false) {
@@ -8479,6 +8512,42 @@ async function deleteRecords(keys) {
     keys.forEach(k => recSel.delete(k)); usageAll = null; loadRecords(); loadUsage(true);
   } catch { busy(false); toast('Couldn’t reach the server. Try again.', 4500); }
 }
+// ---- App Usage (Super Admin): when each person last used the app, how often, for how long, and on what
+let usage30 = null;
+async function loadUsageStats() {
+  $('#useList').innerHTML = '<div class="vmsg">Loading…</div>';
+  try { const r = await api('activityStats'); if (!r.ok) throw new Error(r.error); usage30 = r; renderUsageStats(); }
+  catch (e) { $('#useList').innerHTML = `<div class="vmsg">Couldn't load it${e && e.message ? ': ' + esc(e.message) : ''}.</div>`; }
+}
+function renderUsageStats() {
+  const r = usage30; if (!r) return;
+  const day = 864e5, seenIn = (u, d) => u.lastSeen && Date.now() - Date.parse(u.lastSeen) < d * day;
+  const today = new Date().toDateString(), active = r.users.filter(u => !u.disabled);
+  $('#useSum').innerHTML = [[active.filter(u => u.lastSeen && new Date(u.lastSeen).toDateString() === today).length, 'used it today'],
+    [active.filter(u => seenIn(u, 7)).length, 'in the last 7 days'], [active.filter(u => seenIn(u, 30)).length, 'in the last 30 days'],
+    [active.filter(u => !u.lastSeen).length, 'not seen yet']].map(([n, t]) => `<div><b>${n}</b><small>${t}</small></div>`).join('');
+  const max = Math.max(1, ...r.daily.map(d => d.n)), lbl = d => new Date(d + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  $('#useChart').innerHTML = r.daily.map(d => `<i class="${d.n ? '' : 'z'}" style="height:${Math.round(d.n / max * 100)}%" title="${lbl(d.day)}: ${d.n} ${d.n === 1 ? 'person' : 'people'}"></i>`).join('');
+  const cap = document.querySelector('.usecap') || $('#useChart').insertAdjacentElement('afterend', Object.assign(document.createElement('div'), { className: 'usecap' }));
+  cap.innerHTML = `<span>${lbl(r.daily[0].day)}</span><span>People using the app each day (most: ${max})</span><span>Today</span>`;
+  const ch = $('#useChurch'), churches = [...new Set(r.users.map(u => u.church))].sort();
+  if (ch.options.length !== churches.length + 1) { const v = ch.value; ch.innerHTML = '<option value="">All churches</option>' + churches.map(c => `<option>${esc(c)}</option>`).join(''); ch.value = v; }
+  const q = normalize($('#useQ').value || ''), cf = ch.value;
+  const list = r.users.filter(u => (!cf || u.church === cf) && (!q || normalize(u.name + ' ' + u.username + ' ' + u.church).includes(q)))
+    .sort((a, b) => (b.lastSeen || '').localeCompare(a.lastSeen || '') || (b.lastLogin || '').localeCompare(a.lastLogin || '') || a.name.localeCompare(b.name));
+  const when = iso => { const t = Date.parse(iso); return Date.now() - t < 7 * day ? ago(t) : shortDate(iso); };
+  const mins = m => m < 60 ? `${m} min` : `${Math.round(m / 6) / 10} h`;
+  $('#useList').innerHTML = list.length ? list.map(u => `<div class="useu${u.disabled ? ' off' : ''}">
+      <div><b>${esc(u.name || u.username)}</b> <small>${esc(u.username)} · ${esc(u.church)}${u.admin ? ' · admin' : ''}${u.guest ? ' · guest' : ''}${u.disabled ? ' · turned off' : ''}</small></div>
+      <div class="r">${u.lastSeen ? `<b>${esc(when(u.lastSeen))}</b>` : `<small>${u.lastLogin ? 'signed in ' + esc(when(u.lastLogin)) : 'never signed in'}</small>`}</div>
+      <small>${u.days ? `${u.days7} of the last 7 days · ${u.days30} of the last 30 · about ${mins(u.minutes30)} in 30 days` : 'Not seen since tracking started'}</small>
+      <small class="r">${esc((u.apps || []).join(', '))}</small>
+    </div>`).join('') : '<div class="vmsg">Nobody matches.</div>';
+  if (r.since) $('#useList').insertAdjacentHTML('beforeend', `<p class="m" style="font-size:12.5px;color:var(--muted)">Tracked since ${esc(shortDate(r.since + 'T12:00'))}. Each person counts at most once every 10 minutes, so times are rough. Kept in the Activity tab of the SongPoint Log sheet.</p>`);
+}
+$('#appUseBtn').onclick = () => { closeSheet(); openPanel('appUsePanel'); loadUsageStats(); };
+$('#useRefresh').onclick = loadUsageStats;
+$('#useQ').addEventListener('input', renderUsageStats); $('#useChurch').onchange = renderUsageStats;
 $('#recordsBtn').onclick = () => { closeSheet(); recSel.clear(); $('#recQ').value = ''; openPanel('recordsPanel'); loadRecords(); };
 $('#recRefresh').onclick = loadRecords;
 $('#recQ').oninput = renderRecords;

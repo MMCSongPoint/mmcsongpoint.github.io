@@ -71,7 +71,7 @@ var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSl
 // A visitor (joined by QR code, no account) can only follow the performance they joined.
 var VISITOR_OK = ['me', 'perfJoin', 'perfSend', 'perfPoll', 'perfState', 'file', 'slideDeck', 'deckFile', 'slideLive', 'getArrangements', 'slideSections',
   'slidesApproved', 'mp3Approved', 'getKnown', 'getTuneMains', 'getKeyChecks', 'getTextDocs', 'slideImagesIndex', 'slideChordsIndex', 'slideChordsGet'];
-var SUPER_ONLY = ['logRecords', 'deleteLog', 'mp3Issues', 'mp3Review', 'mp3IssueDelete', 'getIgnored', 'setIgnored', 'setTextDoc'];
+var SUPER_ONLY = ['activityStats', 'logRecords', 'deleteLog', 'mp3Issues', 'mp3Review', 'mp3IssueDelete', 'getIgnored', 'setIgnored', 'setTextDoc'];
 var LIBRARY_ADMIN = ['setIgnored', 'setTextDoc', 'setSlidesApproved', 'setSlideSections', 'slideImagesRun', 'slideChordsSave', 'chordSave', 'slideImagesIndexBuild',
   'slideImagesShare', 'slideImagesStatus', 'verseCountsBuild', 'slideImagesDedupe', 'mp3Review', 'mp3IssueDelete', 'setTuneMain'];
 var CHORDS_FOLDER = '1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ';   // Chord Pro (one subfolder per book): uploaded chord sheets go here
@@ -201,8 +201,65 @@ function failed_(username) {
   c.put(k, String(Number(c.get(k) || 0) + 1), 600);
 }
 
+// ------------------------------------------------------------------ activity (Super Admin: who uses the app, and when)
+// The "Activity" tab: one row per person per day they used the app: when they first and last used it that day, how many
+// 10-minute spans they were active (roughly how long they used it) and which app (Android, Windows, browser…). Any
+// signed-in request counts, at most once every 10 minutes per person, so it costs next to nothing.
+var ACT = 'Activity', AHEAD = ['Date', 'Username', 'Name', 'Church', 'First seen', 'Last seen', 'Active (10-min spans)', 'App'];
+function touch_(me, d) {
+  if (!me || me.visitor) return;
+  try {
+    var c = CacheService.getScriptCache(), k = 'seen:' + me.username;
+    if (c.get(k)) return;
+    c.put(k, '1', 600);
+    var lock = LockService.getScriptLock(); if (!lock.tryLock(3000)) return;
+    try {
+      var now = new Date(), day = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd'), app = String(d.client || '').slice(0, 60);
+      var sh = tab_(ACT, AHEAD), last = sh.getLastRow();
+      if (last > 1) {
+        var start = Math.max(2, last - 400), v = sh.getRange(start, 1, last - start + 1, AHEAD.length).getValues();
+        for (var i = v.length - 1; i >= 0; i--) {
+          if (day_(v[i][0]) !== day) break;   // the rows go in date order: today's are at the end
+          if (String(v[i][1]) === me.username) {
+            var apps = String(v[i][7] || '').split(' · ').filter(Boolean); if (app && apps.indexOf(app) < 0) apps.push(app);
+            sh.getRange(start + i, 6, 1, 3).setValues([[now, (Number(v[i][6]) || 0) + 1, apps.join(' · ')]]);
+            return;
+          }
+        }
+      }
+      sh.appendRow(["'" + day, me.username, me.name || '', me.church || HOME_CHURCH, now, now, 1, app]);
+    } finally { lock.releaseLock(); }
+  } catch (e) {}
+}
+function activityStats_() {
+  var tz = Session.getScriptTimeZone(), dayOf = function (ms) { return Utilities.formatDate(new Date(ms), tz, 'yyyy-MM-dd'); };
+  var nowMs = Date.now(), d7 = dayOf(nowMs - 6 * 864e5), d30 = dayOf(nowMs - 29 * 864e5);
+  var sh = tab_(ACT, AHEAD), n = sh.getLastRow() - 1, rows = n > 0 ? sh.getRange(2, 1, n, AHEAD.length).getValues() : [];
+  var by = {}, daily = {};
+  rows.forEach(function (r) {
+    var day = day_(r[0]).replace(/^'/, ''), u = String(r[1]); if (!u || !day) return;
+    var x = by[u] = by[u] || { days: 0, days7: 0, days30: 0, spans30: 0, first: '', last: '', apps: {} };
+    x.days++; if (day >= d7) x.days7++;
+    if (day >= d30) { x.days30++; x.spans30 += Number(r[6]) || 0; (daily[day] = daily[day] || {})[u] = 1; }
+    var f = r[4] instanceof Date ? r[4].toISOString() : '', l = r[5] instanceof Date ? r[5].toISOString() : '';
+    if (f && (!x.first || f < x.first)) x.first = f;
+    if (l && (!x.last || l > x.last)) { x.last = l; }
+    String(r[7] || '').split(' · ').forEach(function (a) { if (a) x.apps[a] = day; });
+  });
+  var cm = {}; churches_().forEach(function (c) { cm[c.id] = c; });
+  var users = users_().filter(function (u) { return u.username.indexOf('visitor_') !== 0; }).map(function (u) {
+    var x = by[u.username] || { days: 0, days7: 0, days30: 0, spans30: 0, first: '', last: '', apps: {} };
+    var apps = Object.keys(x.apps).sort(function (a, b) { return x.apps[b] < x.apps[a] ? -1 : 1; });
+    return { username: u.username, name: u.name, church: (cm[u.church] || {}).name || u.church, admin: u.admin, disabled: u.disabled, guest: u.guest,
+      lastSeen: x.last, firstSeen: x.first, lastLogin: u.lastLogin ? new Date(u.lastLogin).toISOString() : '',
+      days: x.days, days7: x.days7, days30: x.days30, minutes30: x.spans30 * 10, apps: apps };
+  });
+  var out = []; for (var i = 29; i >= 0; i--) { var dd = dayOf(nowMs - i * 864e5); out.push({ day: dd, n: Object.keys(daily[dd] || {}).length }); }
+  return { ok: true, users: users, daily: out, since: rows.length ? day_(rows[0][0]).replace(/^'/, '') : '' };
+}
+
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 67 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 68 }); }
 
 function doPost(e) {
   var d;
@@ -225,6 +282,7 @@ function handle_(d) {
 
   var me = checkToken_(d.token);
   if (!me) return { ok: false, error: 'Please sign in again.', signedOut: true };
+  touch_(me, d);   // when each person last used the app (Activity tab)
   if (a === 'me') return { ok: true, user: publicUser_(me), church: churchPublic_(church_(me.church)) };
   if (me.visitor && VISITOR_OK.indexOf(a) < 0) return { ok: false, error: 'Visitors can only follow the performance.' };
   if (me.visitor && a === 'perfJoin' && String(d.code || '').replace(/\D/g, '') !== me.username.slice(8)) return { ok: false, error: 'Visitors can only follow the performance they joined.' };
@@ -318,6 +376,7 @@ function handle_(d) {
   if (a === 'mp3IssueAdd') return mp3IssueAdd_(me, d);
   if (a === 'mp3IssueDelete') return mp3IssueDelete_(me, d);
   if (a === 'logRecords') return logRecords_(me);
+  if (a === 'activityStats') return activityStats_();
   if (a === 'deleteLog') return deleteLog_(me, d);
   return { ok: false, error: 'Unknown action' };
 }
