@@ -1249,6 +1249,7 @@
       <button class="pbtn ghost" id="rvSheet" title="Open the sheet music (S)">📄 Music</button>
       <button class="pbtn ghost" id="rvKnownBtn" title="Mark as a song we know (or not)">☆ Known</button>
       <button class="pbtn ghost" id="rvFavBtn" title="Add to your favorites (or take it out)">♡ Favorite</button>
+      <select id="rvVoice" title="Bring one voice forward (stays for the next songs)" aria-label="Bring forward" style="font:inherit;font-size:14px;max-width:12em;display:none"></select>
       <select id="rvInst" title="Instrument for MIDI songs (stays for the next songs)" aria-label="Instrument" style="font:inherit;font-size:14px;max-width:11em"></select>
       <select id="rvRate" title="Playback speed (stays for the next songs)" aria-label="Playback speed" style="font:inherit;font-size:14px"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option><option value="2">2×</option></select>
       <button class="pbtn rvflag" id="rvFlag" title="Flag a problem here (F)">⚑ Flag</button>
@@ -7190,7 +7191,7 @@ let rvRate = store.get('rvRate', 1);
 const rvApplyRate = () => { try { rvAudio.playbackRate = rvRate; if ('defaultPlaybackRate' in rvAudio.el) rvAudio.el.defaultPlaybackRate = rvRate; } catch {} };
 async function rvPlay(t, autoplay = true) {
   const sheetOpen = $('#viewer').classList.contains('show') && $('#mp3Panel').classList.contains('show');
-  rvCur = t; rvAudio.src = sourceFor(t); rvAudio.currentTime = 0;
+  rvCur = t; rvAudio.src = sourceFor(t); rvAudio.currentTime = 0; rvVoices();
   if (sheetOpen) {   // looking at the sheet music: show the next song's instead
     const s = rvSong(t);
     if (s && hasMusic(s)) { if (viewing !== s) openViewer(s); }
@@ -7331,7 +7332,18 @@ $('#rvRate').value = String(rvRate);
 $('#rvInst').innerHTML = instOpts();
 $('#rvInst').onchange = e => { setMidiInstrument(e.target.value); e.target.blur(); };
 $('#rvRate').onchange = e => { rvRate = +e.target.value || 1; store.set('rvRate', rvRate); rvApplyRate(); e.target.blur(); };
-rvAudio.addEventListener('loadedmetadata', rvApplyRate); rvAudio.addEventListener('play', rvApplyRate);
+rvAudio.addEventListener('loadedmetadata', rvApplyRate);
+// MIDI Review: bring one voice forward (soprano, alto, tenor, bass…), like the player's "Bring Forward"; kept for the next songs
+let rvFocus = store.get('rvFocus', '');
+function rvVoices() {
+  const sel = $('#rvVoice'), v = rvAudio.isMidi ? rvAudio.midi.voices || [] : [];
+  sel.style.display = v.length > 1 ? '' : 'none';
+  rvAudio.midi.focus = v.some(x => x.name === rvFocus) ? rvFocus : '';
+  sel.innerHTML = '<option value="">All voices</option>' + v.map(x => `<option value="${esc(x.name)}">${esc(x.name)} louder</option>`).join('');
+  sel.value = rvAudio.midi.focus;
+}
+rvAudio.midi.addEventListener('loadedmetadata', rvVoices);
+$('#rvVoice').onchange = e => { rvFocus = e.target.value; store.set('rvFocus', rvFocus); rvAudio.midi.focus = rvFocus; e.target.blur(); }; rvAudio.addEventListener('play', rvApplyRate);
 $('#rvSheet').onclick = () => { const s = rvSong(rvCur); if (!rvCur) return toast('Pick one first'); if (!s || !hasMusic(s)) return toast('No sheet music for this song yet'); openViewer(s); rvSheetMode(true); };
 function rvSheetMode(on) {
   document.body.classList.toggle('rvsheet', !!on);
