@@ -551,6 +551,7 @@
   /* full-screen panels (notes, note editor, usage) */
   .panel { position: fixed; inset: 0; z-index: 75; background: var(--bg); display: none; flex-direction: column; }
   .panel.show { display: flex; }
+  html:has(.panel.show), html:has(.panel.show) body { overflow: hidden; }   /* the song list behind a full-screen panel doesn't scroll (or show its own scroll bar) */
   .panel .phead { display: flex; align-items: center; gap: 8px; padding: calc(8px + env(safe-area-inset-top)) 10px 8px; border-bottom: 1px solid var(--line); background: var(--panel); }
   .panel .phead h2 { flex: 1; margin: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .panel .pbody { flex: 1; overflow: auto; padding: 14px 14px calc(30px + env(safe-area-inset-bottom)); }
