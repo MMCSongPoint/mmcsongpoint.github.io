@@ -71,7 +71,7 @@ var GUEST_BLOCKED = ['changePassword', 'buildSlides', 'slidesExists', 'replaceSl
 // A visitor (joined by QR code, no account) can only follow the performance they joined.
 var VISITOR_OK = ['me', 'perfJoin', 'perfSend', 'perfPoll', 'perfState', 'file', 'slideDeck', 'deckFile', 'slideLive', 'getArrangements', 'slideSections',
   'slidesApproved', 'mp3Approved', 'getKnown', 'getTuneMains', 'getKeyChecks', 'getTextDocs', 'slideImagesIndex', 'slideChordsIndex', 'slideChordsGet'];
-var SUPER_ONLY = ['activityStats', 'logRecords', 'deleteLog', 'mp3Issues', 'mp3Review', 'mp3IssueDelete', 'getIgnored', 'setIgnored', 'setTextDoc'];
+var SUPER_ONLY = ['scoresIndex', 'activityStats', 'logRecords', 'deleteLog', 'mp3Issues', 'mp3Review', 'mp3IssueDelete', 'getIgnored', 'setIgnored', 'setTextDoc'];
 var LIBRARY_ADMIN = ['setIgnored', 'setTextDoc', 'setSlidesApproved', 'setSlideSections', 'slideImagesRun', 'slideChordsSave', 'chordSave', 'slideImagesIndexBuild',
   'slideImagesShare', 'slideImagesStatus', 'verseCountsBuild', 'slideImagesDedupe', 'mp3Review', 'mp3IssueDelete', 'setTuneMain'];
 var CHORDS_FOLDER = '1ep5r5BFyVg9Wu9tZvkEKQwcZc4Lm2tGQ';   // Chord Pro (one subfolder per book): uploaded chord sheets go here
@@ -259,7 +259,7 @@ function activityStats_() {
 }
 
 // ------------------------------------------------------------------ request handling
-function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 68 }); }
+function doGet() { return json_({ ok: true, app: 'MMC SongPoint server', version: 69 }); }
 
 function doPost(e) {
   var d;
@@ -377,6 +377,7 @@ function handle_(d) {
   if (a === 'mp3IssueDelete') return mp3IssueDelete_(me, d);
   if (a === 'logRecords') return logRecords_(me);
   if (a === 'activityStats') return activityStats_();
+  if (a === 'scoresIndex') return scoresIndex_(d);
   if (a === 'deleteLog') return deleteLog_(me, d);
   return { ok: false, error: 'Unknown action' };
 }
@@ -1496,6 +1497,27 @@ function slideImagesStatus_() {
 }
 // ---- which song has pictures where: Slide Images/_index.json, PowerPoint file id -> { f: song folder, n: pictures, t: newest picture, u: PowerPoint's date }
 // (the pictures are made by "Save slides as pictures" on a Windows computer, or by slideImagesRun_ above)
+// Library check: which hymns have a score (SongPoint › Hymnal Scores › <book> › "NNN Title.mxl"), and the copyright list
+// (Hymnal Scores › _tools › copyright.csv: Book, No., Status, Note) of hymns whose score wasn't made, or was made with a
+// part left out, because of copyright. Kept for 15 minutes.
+function scoresIndex_(d) {
+  var c = CacheService.getScriptCache(), hit = !d.fresh && c.get('scoresIndex'); if (hit) return JSON.parse(hit);
+  var it = home_().getFoldersByName('Hymnal Scores'); if (!it.hasNext()) return { ok: false, error: 'There\'s no Hymnal Scores folder in SongPoint.' };
+  var root = it.next(), FOLDER = "mimeType = 'application/vnd.google-apps.folder' and trashed = false", books = {}, copyright = [];
+  driveAll_("'" + root.getId() + "' in parents and " + FOLDER, 'id,name').forEach(function (b) {
+    if (/^_/.test(b.name)) return;
+    var nums = {};
+    driveAll_("'" + b.id + "' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'", 'name').forEach(function (f) { var m = f.name.match(/^0*(\d+)\b/); if (m) nums[m[1]] = 1; });
+    books[b.name] = Object.keys(nums);
+  });
+  var ti = root.getFoldersByName('_tools');
+  if (ti.hasNext()) { var cf = ti.next().getFilesByName('copyright.csv'); if (cf.hasNext()) try {
+    Utilities.parseCsv(cf.next().getBlob().getDataAsString('UTF-8').replace(/^\uFEFF/, '')).slice(1).forEach(function (r) { if (r[0] && r[1]) copyright.push({ book: String(r[0]).trim(), no: String(r[1]).replace(/^0+/, '').trim(), status: String(r[2] || '').trim(), note: String(r[3] || '').trim() }); });
+  } catch (e) {} }
+  var out = { ok: true, books: books, copyright: copyright };
+  try { c.put('scoresIndex', JSON.stringify(out), 900); } catch (e) {}
+  return out;
+}
 function driveAll_(q, fields) {
   var out = [], tok = null;
   do {

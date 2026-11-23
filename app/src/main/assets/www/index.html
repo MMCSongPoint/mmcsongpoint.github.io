@@ -8562,11 +8562,29 @@ $('#recList').addEventListener('click', e => {
 // Songs missing an MP3, sheet music, a key or a PowerPoint. Admins can mark songs "ignore";
 // that list is kept on the server so every admin sees the same thing.
 // Text docs (readings etc.) never have an MP3, a key or a PowerPoint, so those aren't counted as missing.
+// Hymnal scores (SongPoint › Hymnal Scores › <book>, "NNN Title.mxl") and the copyright list (Hymnal Scores › _tools ›
+// copyright.csv): hymns whose score wasn't made because of copyright, so they won't get AI chord sheets either.
+// From the server (Super Admin); kept on the device between visits.
+const SCORE_BOOKS = { sfp: 'sfp', songsoffaithandpraise: 'sfp', zp: 'zp', zionspraises: 'zp', zionpraises: 'zp', ch: 'ch', christianhymnal: 'ch' };
+const scoreBook = col => SCORE_BOOKS[bookKey(col)] || '';
+const scoreKey = s => scoreBook(s.collection) && s.number ? scoreBook(s.collection) + '|' + String(s.number).replace(/^0+/, '') : '';
+let scoreSet = null, copyMap = new Map();
+function applyScores(r) {
+  if (!r || !r.books) return;
+  store.set('scoresIdx', { books: r.books, copyright: r.copyright || [] });
+  scoreSet = new Set(); for (const [b, nums] of Object.entries(r.books)) { const k = scoreBook(b); if (k) for (const n of nums) scoreSet.add(k + '|' + n); }
+  copyMap = new Map((r.copyright || []).map(x => [scoreBook(x.book) + '|' + x.no, x]));
+}
+applyScores(store.get('scoresIdx', null));
+const copyrightOf = s => copyMap.get(scoreKey(s));
+async function loadScores() { try { const r = await api('scoresIndex'); if (r.ok) { applyScores(r); if ($('#checkPanel').classList.contains('show')) renderCheck(); } } catch {} }
 const CHECKS = [
   { id: 'midi', label: 'MIDI', test: s => !s.parts.some(p => p.midi) && !isTextDoc(s) },   // a MIDI for every song, SFP too
   { id: 'sheet', label: 'Sheet Music', test: s => !s.sheets.length },
   { id: 'key', label: 'Key', test: s => !s.musicKey && !isTextDoc(s) },
   { id: 'ppt', label: 'Slides', test: s => !s.slides.length && !isTextDoc(s) },
+  // the three hymnals only (SFP, Zion's Praises, Christian Hymnal)
+  { id: 'score', label: 'Score', test: s => !!scoreSet && !!scoreKey(s) && !scoreSet.has(scoreKey(s)) && !isTextDoc(s) },
 ];
 // not missing, but not checked yet: AI MP3s not reviewed (MP3 Review), slides not approved
 const UNCONF = [
@@ -8586,12 +8604,13 @@ function renderCheck() {
   const tile = (id, n, label, cls = '') => n || checkFilter === id ? `<button data-c="${id}" class="${cls}${checkFilter === id ? ' on' : ''}"><b>${n}</b><small>${label}</small></button>` : '';
   $('#checkTiles').innerHTML = CHECKS.map(c => tile(c.id, inBook.filter(x => x.miss.includes(c)).length, 'No ' + c.label)).join('')
     + UNCONF.map(c => tile(c.id, inBook.filter(x => x.unc.includes(c)).length, c.label, 'unc ')).join('')
+    + tile('copy', inBook.filter(x => x.miss.some(c => c.id === 'score') && copyrightOf(x.s)).length, 'No Score: ©', 'unc ')
     + tile('tdoc', inBook.filter(x => isTextDoc(x.s)).length, 'Text Docs', 'tdtile ');
   $('#checkBooks').innerHTML = ['', ...books].map(b => `<button class="chip${checkBook === b ? ' on' : ''}" data-b="${esc(b)}">${b ? esc(b) : 'All books'}</button>`).join('');
   const q = normalize($('#checkQ').value || '');
   let rows = all.filter(x => (!checkBook || x.s.collection === checkBook)
     && (showIgn || !checkIgnored.has(x.s.key))
-    && (checkFilter === 'tdoc' ? isTextDoc(x.s) : !checkFilter || x.miss.some(c => c.id === checkFilter) || x.unc.some(c => c.id === checkFilter))
+    && (checkFilter === 'tdoc' ? isTextDoc(x.s) : checkFilter === 'copy' ? x.miss.some(c => c.id === 'score') && !!copyrightOf(x.s) : !checkFilter || x.miss.some(c => c.id === checkFilter) || x.unc.some(c => c.id === checkFilter))
     && (!q || x.s.nTitle.includes(q) || x.s.number === q.replace(/^#/, '')));
   rows.sort((a, b) => (CFG.collectionOrder.indexOf(a.s.collection) - CFG.collectionOrder.indexOf(b.s.collection))
     || ((+a.s.number || 1e9) - (+b.s.number || 1e9)) || a.s.title.localeCompare(b.s.title));
@@ -8600,7 +8619,7 @@ function renderCheck() {
     + (rows.length ? rows.slice(0, checkLimit).map(x => { const ig = checkIgnored.has(x.s.key); return `<div class="crow${ig ? ' ign' : ''}">
       ${x.s.sheets.length ? `<button class="dl sm" data-view="${esc(x.s.key)}" aria-label="Preview sheet music" title="Preview sheet music">${ICON_MUSIC}</button>` : '<span class="cnoview"></span>'}
       <div class="ci"><div class="ct">${x.s.number ? `<span class="num">${esc(x.s.number)}</span>` : ''}${esc(x.s.title)}</div>
-      <div class="cb">${esc(x.s.collection)}${isTextDoc(x.s) ? ' · <b class="tdoc">Text doc</b>' : ''}</div><div>${x.miss.map(c => `<span class="miss">No ${c.label}</span>`).join('')}${x.unc.map(c => `<span class="miss unc">${c.chip}</span>`).join('')}</div></div>
+      <div class="cb">${esc(x.s.collection)}${isTextDoc(x.s) ? ' · <b class="tdoc">Text doc</b>' : ''}</div><div>${x.miss.map(c => { const cp = c.id === 'score' && copyrightOf(x.s); return cp ? `<span class="miss" title="${esc(cp.note || '')}">No Score · © ${esc(cp.status)}</span>` : `<span class="miss">No ${c.label}</span>`; }).join('')}${x.unc.map(c => `<span class="miss unc">${c.chip}</span>`).join('')}</div></div>
       <div class="cbtns"><button class="pbtn ghost" data-ign="${esc(x.s.key)}">${ig ? 'Un-ignore' : 'Ignore'}</button>
       ${autoTextDoc(x.s) ? '<span class="m">Text doc (SFP, no music)</span>' : `<button class="pbtn ghost" data-tdoc="${esc(x.s.key)}">${isTextDoc(x.s) ? 'Not text doc' : 'Text doc'}</button>`}</div></div>`; }).join('')
       + (rows.length > checkLimit ? `<button class="act" id="checkMore">Show more (${rows.length - checkLimit} left)</button>` : '')
@@ -8611,7 +8630,7 @@ async function loadIgnored() {
   catch {}
   loadTextDocs();
 }
-$('#checkBtn').onclick = () => { closeSheet(); checkLimit = 150; renderCheck(); openPanel('checkPanel'); loadIgnored(); };
+$('#checkBtn').onclick = () => { closeSheet(); checkLimit = 150; renderCheck(); openPanel('checkPanel'); loadIgnored(); loadScores(); };
 $('#checkRefresh').onclick = () => { loadIgnored(); sync(true); };
 $('#checkShowIgn').onchange = renderCheck;
 $('#checkQ').oninput = () => { checkLimit = 150; renderCheck(); };
